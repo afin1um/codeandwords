@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+
+    <color name="duo_dark_bg">#131F24</color>
+    <color name="duo_card_bg">#1F2E35</color>
+    <color name="duo_card_stroke">#37464F</color>
+    <color name="duo_blue">#1CB0F6</color>
+    <color name="duo_green">#58CC02</color>
+    <color name="duo_red">#EA2B2B</color>
+    <color name="duo_text_white">#FFFFFF</color>
+    <color name="duo_text_gray">#4B595F</color>
+
+    <color name="duo_progress_bg">#37464F</color>
+</resources>

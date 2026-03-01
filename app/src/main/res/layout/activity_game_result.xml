@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF">
+
+    <com.airbnb.lottie.LottieAnimationView
+        android:id="@+id/lottieResultConfetti"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:lottie_rawRes="@raw/confetti"
+        app:lottie_autoPlay="true"
+        app:lottie_loop="false" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="24dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Урок завершён!"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:textColor="#58CC02" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="32dp"
+            android:weightSum="2">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_stat_card"
+                android:padding="16dp"
+                android:layout_marginEnd="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ТОЧНОСТЬ"
+                    android:textSize="12sp"
+                    android:textColor="#AFB1B3"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/tvAccuracy"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="100%"
+                    android:textSize="24sp"
+                    android:textColor="#FF9800"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_stat_card"
+                android:padding="16dp"
+                android:layout_marginStart="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="СЛОВ"
+                    android:textSize="12sp"
+                    android:textColor="#AFB1B3"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/tvWordsCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="10"
+                    android:textSize="24sp"
+                    android:textColor="#2196F3"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvResultScore"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+ 100 XP"
+            android:textSize="22sp"
+            android:layout_marginTop="24dp"
+            android:textColor="#FF9800"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFinish"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="ПРОДОЛЖИТЬ"
+            android:textSize="18sp"
+            android:layout_marginTop="48dp"
+            app:cornerRadius="16dp"
+            android:backgroundTint="#58CC02"/>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

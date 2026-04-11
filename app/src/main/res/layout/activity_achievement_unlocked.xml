@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#99000000">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="24dp">
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardPopup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:cardCornerRadius="32dp"
+            app:cardElevation="10dp">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_achievement_popup_card"
+                android:paddingStart="24dp"
+                android:paddingTop="28dp"
+                android:paddingEnd="24dp"
+                android:paddingBottom="24dp">
+
+                <ImageView
+                    android:id="@+id/ivGlow"
+                    android:layout_width="220dp"
+                    android:layout_height="220dp"
+                    android:layout_centerHorizontal="true"
+                    android:alpha="0.95"
+                    android:src="@drawable/bg_achievement_glow" />
+
+                <ImageView
+                    android:id="@+id/ivStarLeft"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="26dp"
+                    android:layout_marginTop="86dp"
+                    android:src="@drawable/ic_achievement_star" />
+
+                <ImageView
+                    android:id="@+id/ivStarRight"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_marginTop="102dp"
+                    android:layout_marginEnd="34dp"
+                    android:src="@drawable/ic_achievement_star_small" />
+
+                <TextView
+                    android:id="@+id/tvUnlockedLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerHorizontal="true"
+                    android:background="@drawable/bg_achievement_unlocked_chip"
+                    android:paddingStart="14dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="6dp"
+                    android:text="ДОСТИЖЕНИЕ ПОЛУЧЕНО"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/ivAchievement"
+                    android:layout_width="124dp"
+                    android:layout_height="124dp"
+                    android:layout_below="@id/tvUnlockedLabel"
+                    android:layout_centerHorizontal="true"
+                    android:layout_marginTop="26dp"
+                    android:src="@drawable/ic_launcher_foreground" />
+
+                <TextView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/ivAchievement"
+                    android:layout_marginTop="22dp"
+                    android:gravity="center"
+                    android:text="Название достижения"
+                    android:textColor="#13232F"
+                    android:textSize="28sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/tvTitle"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"
+                    android:text="Описание достижения"
+                    android:textColor="#587080"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/tvXpReward"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/tvDescription"
+                    android:layout_centerHorizontal="true"
+                    android:layout_marginTop="18dp"
+                    android:background="@drawable/bg_achievement_reward_chip"
+                    android:paddingStart="16dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="8dp"
+                    android:text="+50 XP"
+                    android:textColor="#0B1E29"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnDetails"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_below="@id/tvXpReward"
+                    android:layout_marginTop="28dp"
+                    android:backgroundTint="#2BB6F6"
+                    android:text="Подробнее"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp"
+                    app:cornerRadius="18dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnContinue"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_below="@id/btnDetails"
+                    android:layout_marginTop="12dp"
+                    android:text="Продолжить"
+                    android:textAllCaps="false"
+                    android:textColor="#30424F"
+                    app:cornerRadius="18dp"
+                    app:strokeColor="#D6E0E8"
+                    app:strokeWidth="1dp" />
+
+            </RelativeLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </FrameLayout>
+
+</FrameLayout>

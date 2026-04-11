@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#081A24">
+
+    <ScrollView
+        android:id="@+id/scrollContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:clipToPadding="false">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="360dp"
+                android:background="#081A24"
+                android:paddingStart="20dp"
+                android:paddingTop="20dp"
+                android:paddingEnd="20dp"
+                android:paddingBottom="20dp">
+
+                <ImageButton
+                    android:id="@+id/btnBack"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_marginTop="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Назад"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_back_arrow_custom"
+                    android:tint="#6E7F8B" />
+
+                <ImageView
+                    android:id="@+id/ivWordsHeader"
+                    android:layout_width="88dp"
+                    android:layout_height="88dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_marginTop="68dp"
+                    android:contentDescription="Слова"
+                    android:src="@drawable/ic_skill_words" />
+
+                <TextView
+                    android:id="@+id/tvHeaderTitle"
+                    android:layout_width="260dp"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/btnBack"
+                    android:layout_marginTop="48dp"
+                    android:text="Закрепим слова\nв личном словаре"
+                    android:textColor="#F1F7FB"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnStartWordsTraining"
+                    android:layout_width="match_parent"
+                    android:layout_height="60dp"
+                    android:layout_alignParentBottom="true"
+                    android:backgroundTint="#53B8E8"
+                    android:text="НАЧАТЬ: +10 ОЧКОВ"
+                    android:textAllCaps="false"
+                    android:textColor="#0B1E28"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="18dp" />
+            </RelativeLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#081A24"
+                android:orientation="vertical"
+                android:paddingBottom="96dp">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="2dp"
+                    android:background="#1A2B36" />
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="20dp"
+                    android:paddingTop="18dp"
+                    android:paddingEnd="20dp"
+                    android:paddingBottom="12dp">
+
+                    <TextView
+                        android:id="@+id/tvWordsCount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0 слов"
+                        android:textColor="#F1F7FB"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSort"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:text="СОРТИРОВКА: А-Я"
+                        android:textColor="#35B5FF"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </RelativeLayout>
+
+                <TextView
+                    android:id="@+id/tvEmpty"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="32dp"
+                    android:text="Словарь пока пуст"
+                    android:textColor="#8EA0AB"
+                    android:textSize="16sp"
+                    android:visibility="gone" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvUserWords"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clipToPadding="false"
+                    android:nestedScrollingEnabled="false"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp" />
+
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabAddWord"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="24dp"
+        android:contentDescription="Добавить слово"
+        android:src="@drawable/ic_add_custom"
+        android:tint="@android:color/white"
+        app:backgroundTint="#35B44A"
+        app:fabSize="normal" />
+
+</RelativeLayout>

@@ -2,6 +2,8 @@ package com.example.codeandwords.ui.profile;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -20,26 +22,35 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
-import com.example.codeandwords.databinding.FragmentProfileBinding; // Убедитесь, что ViewBinding включен в build.gradle
+import com.example.codeandwords.databinding.FragmentProfileBinding;
 import com.example.codeandwords.model.AchievementWithProgress;
 import com.example.codeandwords.model.User;
+import com.example.codeandwords.ui.PersonalDictionaryActivity;
 import com.example.codeandwords.ui.auth.LoginActivity;
+import com.google.android.material.card.MaterialCardView;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ProfileFragment extends Fragment {
 
-    private FragmentProfileBinding binding; // Основной способ работы с View
+    private static final String ACHIEVEMENT_PREFS = "achievement_popup_prefs";
+    private static final String KEY_SHOWN_IDS = "shown_ids";
+
+    private FragmentProfileBinding binding;
     private Repository repository;
     private AchievementsAdapter adapter;
 
-    public ProfileFragment() {}
+    public ProfileFragment() {
+    }
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        // Инициализируем binding правильно
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
         binding = FragmentProfileBinding.inflate(inflater, container, false);
         return binding.getRoot();
     }
@@ -49,13 +60,16 @@ public class ProfileFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         repository = new Repository(requireContext());
 
-        // Настройка RecyclerView
         binding.rvAchievements.setLayoutManager(new GridLayoutManager(getContext(), 3));
         adapter = new AchievementsAdapter(requireContext());
         binding.rvAchievements.setAdapter(adapter);
 
-        // Кнопка выхода
         binding.btnLogout.setOnClickListener(v -> performLogout());
+
+        binding.btnOpenPersonalDictionary.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), PersonalDictionaryActivity.class);
+            startActivity(intent);
+        });
 
         loadUserData();
     }
@@ -66,11 +80,10 @@ public class ProfileFragment extends Fragment {
             public void onSuccess(User user) {
                 if (binding == null) return;
 
-                // Используем binding вместо findViewById
                 binding.tvUsername.setText(user.getUsername());
                 binding.tvEmail.setText(user.getEmail());
 
-                int totalXp = user.getTotalXp();
+                int totalXp = user.getTotalXp() != null ? user.getTotalXp() : 0;
                 int currentLevel = (totalXp / 100) + 1;
                 int xpInCurrentLevel = totalXp % 100;
 
@@ -81,7 +94,6 @@ public class ProfileFragment extends Fragment {
                 binding.progressBarXP.setProgress(xpInCurrentLevel);
                 binding.tvXpCount.setText(xpInCurrentLevel + " / 100 XP");
 
-                // Загружаем статистику слов по Integer ID
                 loadLearnedWordsCount(user.getId());
                 loadAchievements();
             }
@@ -99,7 +111,6 @@ public class ProfileFragment extends Fragment {
         repository.getLearnedWordsCount(userId, new Repository.DataCallback<Integer>() {
             @Override
             public void onSuccess(Integer count) {
-                // ПРОВЕРКА: Используем binding напрямую через внешний класс
                 if (isAdded() && binding != null) {
                     binding.tvWordsLearnedCount.setText(String.valueOf(count));
                 }
@@ -119,10 +130,70 @@ public class ProfileFragment extends Fragment {
                 if (adapter != null) {
                     adapter.setAchievements(data);
                 }
+                showUnlockedAchievementPopupIfNeeded(data);
             }
+
             @Override
-            public void onError(String error) {}
+            public void onError(String error) {
+                Log.e("ProfileFragment", "Ошибка загрузки достижений: " + error);
+            }
         });
+    }
+
+    private void showUnlockedAchievementPopupIfNeeded(List<AchievementWithProgress> achievements) {
+        if (!isAdded() || achievements == null || achievements.isEmpty()) return;
+
+        SharedPreferences prefs = requireContext().getSharedPreferences(ACHIEVEMENT_PREFS, Context.MODE_PRIVATE);
+        Set<String> shownIds = new HashSet<>(prefs.getStringSet(KEY_SHOWN_IDS, new HashSet<>()));
+
+        AchievementWithProgress newest = null;
+
+        for (AchievementWithProgress item : achievements) {
+            if (item == null || item.id == null) continue;
+
+            String key = String.valueOf(item.id);
+
+            if (item.isUnlocked && item.isNew && !shownIds.contains(key)) {
+                if (newest == null || item.dateReceived > newest.dateReceived) {
+                    newest = item;
+                }
+            }
+        }
+
+        if (newest != null) {
+            String key = String.valueOf(newest.id);
+            shownIds.add(key);
+            prefs.edit().putStringSet(KEY_SHOWN_IDS, shownIds).apply();
+
+            Intent intent = new Intent(requireContext(), AchievementUnlockedActivity.class);
+            intent.putExtra("achievement_id", newest.id);
+            intent.putExtra("title", newest.title);
+            intent.putExtra("description", newest.description);
+            intent.putExtra("xp_reward", newest.xpReward != null ? newest.xpReward : 0);
+            intent.putExtra("icon_res_name", newest.iconResName);
+            intent.putExtra("current_progress", newest.currentProgress);
+            intent.putExtra("max_progress", newest.maxProgress != null ? newest.maxProgress : 0);
+            startActivity(intent);
+        }
+    }
+
+    private void openAchievementDetails(AchievementWithProgress item) {
+        if (item == null || !isAdded()) return;
+
+        Intent intent = new Intent(requireContext(), AchievementDetailActivity.class);
+        intent.putExtra("achievement_id", item.id != null ? item.id : -1L);
+        intent.putExtra("title", item.title);
+        intent.putExtra("description", item.description);
+        intent.putExtra("xp_reward", item.xpReward != null ? item.xpReward : 0);
+        intent.putExtra("condition_type", item.conditionType);
+        intent.putExtra("condition_value", item.conditionValue != null ? item.conditionValue : 0);
+        intent.putExtra("max_progress", item.maxProgress != null ? item.maxProgress : 0);
+        intent.putExtra("current_progress", item.currentProgress);
+        intent.putExtra("icon_res_name", item.iconResName);
+        intent.putExtra("is_unlocked", item.isUnlocked);
+        intent.putExtra("is_new", item.isNew);
+        intent.putExtra("date_received", item.dateReceived);
+        startActivity(intent);
     }
 
     private void performLogout() {
@@ -144,63 +215,88 @@ public class ProfileFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        binding = null; // Обязательно для фрагментов, чтобы избежать утечек памяти
+        binding = null;
     }
 
-    // --- Адаптер достижений ---
     private class AchievementsAdapter extends RecyclerView.Adapter<AchievementsAdapter.ViewHolder> {
+
         private List<AchievementWithProgress> achievements = new ArrayList<>();
         private final Context context;
 
-        public AchievementsAdapter(Context context) { this.context = context; }
+        public AchievementsAdapter(Context context) {
+            this.context = context;
+        }
 
         void setAchievements(List<AchievementWithProgress> achievements) {
-            this.achievements = achievements;
+            this.achievements = achievements != null ? achievements : new ArrayList<>();
             notifyDataSetChanged();
         }
 
         @NonNull
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_achievement, parent, false);
+            View view = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_achievement, parent, false);
             return new ViewHolder(view);
         }
 
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             AchievementWithProgress item = achievements.get(position);
-            holder.tvTitle.setText(item.achievement.getTitle());
 
-            int iconId = context.getResources().getIdentifier(item.achievement.getIconResName(), "drawable", context.getPackageName());
+            String title = item.title != null ? item.title : "";
+            holder.tvTitle.setText(title);
+
+            String iconName = item.iconResName != null ? item.iconResName : "";
+            int iconId = context.getResources().getIdentifier(
+                    iconName,
+                    "drawable",
+                    context.getPackageName()
+            );
             holder.ivIcon.setImageResource(iconId != 0 ? iconId : R.drawable.ic_launcher_foreground);
 
-            int currentProgress = (item.currentProgress == null) ? 0 : item.currentProgress;
-            int maxProgress = item.achievement.getMaxProgress();
+            int currentProgress = item.currentProgress;
+            int maxProgress = item.maxProgress != null ? item.maxProgress : 0;
+            if (maxProgress <= 0) {
+                maxProgress = 1;
+            }
+
             holder.progressBar.setMax(maxProgress);
-            holder.progressBar.setProgress(currentProgress);
+            holder.progressBar.setProgress(Math.min(currentProgress, maxProgress));
             holder.tvProgress.setText(currentProgress + " / " + maxProgress);
 
-            if (currentProgress >= maxProgress) {
-                holder.cardRoot.setStrokeColor(android.graphics.Color.parseColor("#FFD700"));
-                holder.cardRoot.setStrokeWidth(6);
-                holder.cardRoot.setCardBackgroundColor(android.graphics.Color.parseColor("#FFFDE7"));
-                holder.progressBar.setProgressTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#4CAF50")));
+            boolean isCompleted = item.isUnlocked || currentProgress >= maxProgress;
+
+            if (isCompleted) {
+                holder.cardRoot.setStrokeColor(android.graphics.Color.parseColor("#FFD54F"));
+                holder.cardRoot.setStrokeWidth(5);
+                holder.cardRoot.setCardBackgroundColor(android.graphics.Color.parseColor("#FFF8E1"));
+                holder.progressBar.setProgressTintList(
+                        ColorStateList.valueOf(android.graphics.Color.parseColor("#43A047"))
+                );
             } else {
-                holder.cardRoot.setStrokeColor(android.graphics.Color.TRANSPARENT);
-                holder.cardRoot.setStrokeWidth(0);
+                holder.cardRoot.setStrokeColor(android.graphics.Color.parseColor("#E3E7EA"));
+                holder.cardRoot.setStrokeWidth(2);
                 holder.cardRoot.setCardBackgroundColor(android.graphics.Color.WHITE);
-                holder.progressBar.setProgressTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFC107")));
+                holder.progressBar.setProgressTintList(
+                        ColorStateList.valueOf(android.graphics.Color.parseColor("#29B6F6"))
+                );
             }
+
+            holder.cardRoot.setOnClickListener(v -> openAchievementDetails(item));
         }
 
         @Override
-        public int getItemCount() { return achievements.size(); }
+        public int getItemCount() {
+            return achievements.size();
+        }
 
         class ViewHolder extends RecyclerView.ViewHolder {
             ImageView ivIcon;
-            TextView tvTitle, tvProgress;
+            TextView tvTitle;
+            TextView tvProgress;
             ProgressBar progressBar;
-            com.google.android.material.card.MaterialCardView cardRoot;
+            MaterialCardView cardRoot;
 
             ViewHolder(View itemView) {
                 super(itemView);

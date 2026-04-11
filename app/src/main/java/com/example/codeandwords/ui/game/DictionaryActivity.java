@@ -59,17 +59,34 @@ public class DictionaryActivity extends AppCompatActivity implements TextToSpeec
         progressBar = findViewById(R.id.pbDictionary);
         tvTitle = findViewById(R.id.tvDictTitle);
         btnBack = findViewById(R.id.btnBackDict);
-        btnBack.setOnClickListener(v -> {
-            // Эта команда закрывает текущий экран и возвращает на предыдущий
-            finish();
-        });
+
+        btnBack.setOnClickListener(v -> finish());
     }
 
     private void setupRecyclerView() {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // ОБНОВЛЕНО: Принимаем параметр isSlow
-        adapter = new WordListAdapter((term, isSlow) -> speakWord(term, isSlow));
+        adapter = new WordListAdapter(new WordListAdapter.OnWordClickListener() {
+            @Override
+            public void onSpeakClick(String term, boolean isSlow) {
+                speakWord(term, isSlow);
+            }
+
+            @Override
+            public void onAddToDictionaryClick(Word word) {
+                repository.addWordToPersonalDictionary(word, new Repository.DataCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void data) {
+                        Toast.makeText(DictionaryActivity.this, "Слово добавлено в личный словарь", Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        Toast.makeText(DictionaryActivity.this, error, Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        });
 
         recyclerView.setAdapter(adapter);
     }
@@ -105,17 +122,9 @@ public class DictionaryActivity extends AppCompatActivity implements TextToSpeec
         }
     }
 
-    // ОБНОВЛЕННЫЙ МЕТОД: Управление скоростью
     private void speakWord(String text, boolean isSlow) {
-        if (isTtsReady && text != null) {
-
-            // Настройка скорости
-            if (isSlow) {
-                tts.setSpeechRate(0.4f); // Очень медленно (40% скорости)
-            } else {
-                tts.setSpeechRate(1.0f); // Нормальная скорость
-            }
-
+        if (isTtsReady && text != null && !text.trim().isEmpty()) {
+            tts.setSpeechRate(isSlow ? 0.4f : 1.0f);
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
         } else {
             Toast.makeText(this, "Голосовой движок еще не готов", Toast.LENGTH_SHORT).show();

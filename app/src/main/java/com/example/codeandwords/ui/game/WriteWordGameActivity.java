@@ -19,6 +19,7 @@ import com.airbnb.lottie.LottieAnimationView;
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
 import com.example.codeandwords.model.Word;
+import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -28,10 +29,16 @@ import java.util.List;
 
 public class WriteWordGameActivity extends AppCompatActivity {
 
-    private TextView tvScore, tvMistakes, tvTranslation, tvCorrectionHeader;
+    private TextView tvScore;
+    private TextView tvMistakes;
+    private TextView tvTranslation;
+    private TextView tvCorrectionHeader;
+    private TextView tvMistakesLeft;
+    private MaterialCardView correctionBannerCard;
     private TextInputLayout tilInput;
     private TextInputEditText etInput;
     private Button btnCheck;
+    private Button btnAddToDictionary;
     private ProgressBar progressBar;
     private LottieAnimationView lottieConfetti;
 
@@ -45,10 +52,11 @@ public class WriteWordGameActivity extends AppCompatActivity {
     private boolean isCorrectionMode = false;
     private int totalInitialWords = 0;
     private int totalMistakesMade = 0;
+    private int fixedErrorsCount = 0;
 
-    // Звуковой движок SoundPool
     private SoundPool soundPool;
-    private int soundSuccess, soundError;
+    private int soundSuccess;
+    private int soundError;
     private boolean soundsLoaded = false;
 
     @Override
@@ -80,7 +88,6 @@ public class WriteWordGameActivity extends AppCompatActivity {
                 .setAudioAttributes(audioAttributes)
                 .build();
 
-        // Предварительная загрузка звуков
         soundSuccess = soundPool.load(this, R.raw.success, 1);
         soundError = soundPool.load(this, R.raw.error, 1);
 
@@ -92,13 +99,46 @@ public class WriteWordGameActivity extends AppCompatActivity {
         tvMistakes = findViewById(R.id.tvMistakes);
         tvTranslation = findViewById(R.id.tvTranslation);
         tvCorrectionHeader = findViewById(R.id.tvCorrectionHeader);
+        tvMistakesLeft = findViewById(R.id.tvMistakesLeft);
+        correctionBannerCard = findViewById(R.id.correctionBannerCard);
         tilInput = findViewById(R.id.tilInput);
         etInput = findViewById(R.id.etInput);
         btnCheck = findViewById(R.id.btnCheck);
+        btnAddToDictionary = findViewById(R.id.btnAddToDictionary);
         progressBar = findViewById(R.id.progressBar);
         lottieConfetti = findViewById(R.id.lottieConfetti);
 
         btnCheck.setOnClickListener(v -> checkAnswer());
+
+        btnAddToDictionary.setOnClickListener(v -> {
+            if (currentWord == null) {
+                Toast.makeText(this, "Слово ещё не загружено", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            repository.addWordToPersonalDictionary(currentWord, new Repository.DataCallback<Void>() {
+                @Override
+                public void onSuccess(Void data) {
+                    Toast.makeText(WriteWordGameActivity.this, "Слово добавлено в личный словарь", Toast.LENGTH_SHORT).show();
+                }
+
+                @Override
+                public void onError(String error) {
+                    Toast.makeText(WriteWordGameActivity.this, error, Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
+
+        updateCorrectionUi();
+    }
+
+    private void updateCorrectionUi() {
+        if (isCorrectionMode) {
+            correctionBannerCard.setVisibility(View.VISIBLE);
+            tvMistakesLeft.setText("Осталось исправить: " + mistakenWords.size());
+        } else {
+            correctionBannerCard.setVisibility(View.GONE);
+        }
     }
 
     private void loadWords() {
@@ -113,6 +153,7 @@ public class WriteWordGameActivity extends AppCompatActivity {
                 } else {
                     allWords = new ArrayList<>(words);
                     totalInitialWords = allWords.size();
+                    fixedErrorsCount = 0;
                     Collections.shuffle(allWords);
                     showNextQuestion();
                 }
@@ -137,8 +178,7 @@ public class WriteWordGameActivity extends AppCompatActivity {
         } else {
             if (!isCorrectionMode) {
                 isCorrectionMode = true;
-                tvCorrectionHeader.setVisibility(View.VISIBLE);
-                tvCorrectionHeader.setText("ИСПРАВЛЯЕМ ОШИБКИ");
+                updateCorrectionUi();
             }
             currentWord = mistakenWords.get(0);
         }
@@ -147,8 +187,9 @@ public class WriteWordGameActivity extends AppCompatActivity {
         etInput.setText("");
         tilInput.setError(null);
         btnCheck.setEnabled(true);
+        btnAddToDictionary.setEnabled(true);
 
-        // Фокус на поле ввода и открытие клавиатуры
+        updateCorrectionUi();
         etInput.requestFocus();
     }
 
@@ -161,37 +202,34 @@ public class WriteWordGameActivity extends AppCompatActivity {
             return;
         }
 
-        btnCheck.setEnabled(false); // Защита от двойного клика
+        btnCheck.setEnabled(false);
 
         if (userAnswer.equalsIgnoreCase(correctAnswer)) {
-            // ПРАВИЛЬНО
             playGameSound(soundSuccess);
 
             if (isCorrectionMode) {
                 mistakenWords.remove(0);
+                fixedErrorsCount++;
             } else {
                 score += 20;
                 tvScore.setText("Очки: " + score);
             }
 
-            // Быстрый переход к следующему вопросу
             new Handler().postDelayed(this::showNextQuestion, 600);
 
         } else {
-            // ОШИБКА
             playGameSound(soundError);
 
             if (!isCorrectionMode) {
                 mistakenWords.add(currentWord);
                 totalMistakesMade++;
-                tvMistakes.setText("Ошибок: " + mistakenWords.size());
+                tvMistakes.setText("Ошибок: " + totalMistakesMade);
             } else {
                 Collections.shuffle(mistakenWords);
             }
 
+            updateCorrectionUi();
             tilInput.setError("Правильно: " + correctAnswer);
-
-            // Пауза подольше, чтобы игрок увидел правильный ответ
             new Handler().postDelayed(this::showNextQuestion, 1500);
         }
     }
@@ -203,13 +241,20 @@ public class WriteWordGameActivity extends AppCompatActivity {
     }
 
     private void finishGame() {
-        repository.addXp(score);
-
-        // Скрываем клавиатуру перед выходом
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         if (getCurrentFocus() != null) {
             imm.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
         }
+
+        repository.recordLessonCompletion(
+                "WRITE_WORD",
+                themeId,
+                score,
+                totalInitialWords,
+                totalMistakesMade,
+                fixedErrorsCount,
+                false
+        );
 
         Intent intent = new Intent(this, GameResultActivity.class);
         intent.putExtra("SCORE", score);

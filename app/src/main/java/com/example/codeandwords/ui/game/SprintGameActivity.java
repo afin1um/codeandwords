@@ -2,6 +2,7 @@ package com.example.codeandwords.ui.game;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.view.View;
@@ -10,13 +11,13 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
 import com.example.codeandwords.model.Word;
+import com.google.android.material.card.MaterialCardView;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,10 +31,20 @@ public class SprintGameActivity extends AppCompatActivity {
     private static final double XP_PER_WORD = 2.5;
     private static final int WIN_BONUS = 10;
 
-    private TextView tvTimer, tvScore, tvWord, tvTranslation;
-    private Button btnWrong, btnCorrect;
-    private ProgressBar progressBarLoading, progressBarTimer;
+    private TextView tvTimer;
+    private TextView tvScore;
+    private TextView tvWord;
+    private TextView tvTranslation;
+    private TextView tvCorrectionHeader;
+    private TextView tvMistakesLeft;
+    private TextView tvWordLabel;
+    private TextView tvQuestionHint;
+    private Button btnWrong;
+    private Button btnCorrect;
+    private ProgressBar progressBarLoading;
+    private ProgressBar progressBarTimer;
     private LottieAnimationView confettiAnimation;
+    private MaterialCardView correctionBannerCard;
 
     private Repository repository;
     private CountDownTimer timer;
@@ -44,11 +55,18 @@ public class SprintGameActivity extends AppCompatActivity {
     private int correctAnswers = 0;
     private boolean isGameActive = false;
     private boolean isAnimationLoaded = false;
+    private boolean isCorrectionMode = false;
 
-    private Random random = new Random();
+    private final Random random = new Random();
     private Word currentWord;
     private String displayedTranslation;
     private boolean isCorrectPair;
+
+    private final List<SprintQuestion> mistakeQuestions = new ArrayList<>();
+    private final List<SprintQuestion> correctionQuestions = new ArrayList<>();
+    private int correctionIndex = 0;
+    private int initialTotalWords = 0;
+    private int fixedErrorsCount = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,11 +89,16 @@ public class SprintGameActivity extends AppCompatActivity {
         tvScore = findViewById(R.id.tvScore);
         tvWord = findViewById(R.id.tvWord);
         tvTranslation = findViewById(R.id.tvTranslation);
+        tvCorrectionHeader = findViewById(R.id.tvCorrectionHeader);
+        tvMistakesLeft = findViewById(R.id.tvMistakesLeft);
+        tvWordLabel = findViewById(R.id.tvWordLabel);
+        tvQuestionHint = findViewById(R.id.tvQuestionHint);
         btnWrong = findViewById(R.id.btnWrong);
         btnCorrect = findViewById(R.id.btnCorrect);
         progressBarLoading = findViewById(R.id.progressBarLoading);
         progressBarTimer = findViewById(R.id.progressBarTimer);
         confettiAnimation = findViewById(R.id.confettiAnimation);
+        correctionBannerCard = findViewById(R.id.correctionBannerCard);
 
         if (confettiAnimation != null) {
             confettiAnimation.setFailureListener(throwable -> isAnimationLoaded = false);
@@ -89,10 +112,29 @@ public class SprintGameActivity extends AppCompatActivity {
 
         btnCorrect.setOnClickListener(v -> checkAnswer(true));
         btnWrong.setOnClickListener(v -> checkAnswer(false));
+
+        updateCorrectionUi();
+    }
+
+    private void updateCorrectionUi() {
+        if (isCorrectionMode) {
+            correctionBannerCard.setVisibility(View.VISIBLE);
+            tvMistakesLeft.setText("Осталось исправить: " + (correctionQuestions.size() - correctionIndex));
+            progressBarTimer.setVisibility(View.GONE);
+            tvTimer.setText("Без времени");
+            tvWordLabel.setText("ПРОВЕРЬ СЕБЯ");
+            tvQuestionHint.setText("Исправьте ошибку");
+        } else {
+            correctionBannerCard.setVisibility(View.GONE);
+            progressBarTimer.setVisibility(View.VISIBLE);
+            tvWordLabel.setText("EN WORD");
+            tvQuestionHint.setText("Это верно?");
+        }
     }
 
     private void loadWords(long themeId) {
         progressBarLoading.setVisibility(View.VISIBLE);
+
         repository.getWordsByTheme(themeId, new Repository.DataCallback<List<Word>>() {
             @Override
             public void onSuccess(List<Word> data) {
@@ -119,35 +161,49 @@ public class SprintGameActivity extends AppCompatActivity {
         int limit = Math.min(allWords.size(), WORDS_LIMIT);
         gameWords = new ArrayList<>(allWords.subList(0, limit));
 
+        initialTotalWords = gameWords.size();
         currentWordIndex = 0;
         correctAnswers = 0;
         score = 0;
         isGameActive = true;
-        tvScore.setText("Счет: 0");
+        isCorrectionMode = false;
+        correctionIndex = 0;
+        fixedErrorsCount = 0;
 
+        mistakeQuestions.clear();
+        correctionQuestions.clear();
+
+        tvScore.setText("Счет: 0");
+        tvTimer.setText("15 сек");
+        progressBarTimer.setVisibility(View.VISIBLE);
+
+        updateCorrectionUi();
         startTimer();
         showNextWord();
     }
 
     private void startTimer() {
         progressBarTimer.setMax((int) GAME_DURATION / 1000);
+        progressBarTimer.setProgress((int) GAME_DURATION / 1000);
+
         timer = new CountDownTimer(GAME_DURATION, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
                 tvTimer.setText(millisUntilFinished / 1000 + " сек");
                 progressBarTimer.setProgress((int) (millisUntilFinished / 1000));
             }
+
             @Override
             public void onFinish() {
                 tvTimer.setText("0 сек");
-                finishGame(false);
+                finishMainPhase();
             }
         }.start();
     }
 
     private void showNextWord() {
         if (currentWordIndex >= gameWords.size()) {
-            finishGame(true);
+            finishMainPhase();
             return;
         }
 
@@ -165,22 +221,49 @@ public class SprintGameActivity extends AppCompatActivity {
             displayedTranslation = randomWord.getTranslation();
             isCorrectPair = false;
         }
+
         tvTranslation.setText(displayedTranslation);
+    }
+
+    private void showCorrectionQuestion() {
+        if (correctionIndex >= correctionQuestions.size()) {
+            finishGame();
+            return;
+        }
+
+        SprintQuestion question = correctionQuestions.get(correctionIndex);
+        currentWord = question.word;
+        displayedTranslation = question.displayedTranslation;
+        isCorrectPair = question.isCorrectPair;
+
+        tvWord.setText(currentWord.getTerm());
+        tvTranslation.setText(displayedTranslation);
+
+        updateCorrectionUi();
     }
 
     private void checkAnswer(boolean userSaidCorrect) {
         if (!isGameActive) return;
 
+        if (!isCorrectionMode) {
+            handleMainGameAnswer(userSaidCorrect);
+        } else {
+            handleCorrectionAnswer(userSaidCorrect);
+        }
+    }
+
+    private void handleMainGameAnswer(boolean userSaidCorrect) {
         if (userSaidCorrect == isCorrectPair) {
             correctAnswers++;
             score += 10;
 
-            // --- НОВОЕ: Прокачиваем слово в базе данных (Пункт 1.2.з) ---
             repository.getCurrentUserId(userId -> {
                 if (userId != -1) {
                     repository.incrementWordProgress(userId, currentWord.getId());
                 }
             });
+        } else {
+            mistakeQuestions.add(new SprintQuestion(currentWord, displayedTranslation, isCorrectPair));
         }
 
         tvScore.setText("Счет: " + score);
@@ -188,33 +271,72 @@ public class SprintGameActivity extends AppCompatActivity {
         showNextWord();
     }
 
-    private void finishGame(boolean isFinishedList) {
+    private void handleCorrectionAnswer(boolean userSaidCorrect) {
+        if (userSaidCorrect == isCorrectPair) {
+            fixedErrorsCount++;
+            correctionIndex++;
+            showCorrectionQuestion();
+        } else {
+            Toast.makeText(this, "Попробуйте ещё раз", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void finishMainPhase() {
+        if (!isGameActive) return;
+
         isGameActive = false;
-        if (timer != null) timer.cancel();
+        if (timer != null) {
+            timer.cancel();
+        }
+
+        if (!mistakeQuestions.isEmpty()) {
+            startCorrectionMode();
+        } else {
+            finishGame();
+        }
+    }
+
+    private void startCorrectionMode() {
+        isCorrectionMode = true;
+        isGameActive = true;
+
+        correctionQuestions.clear();
+        correctionQuestions.addAll(mistakeQuestions);
+        correctionIndex = 0;
+
+        Toast.makeText(this, "Переходим к работе над ошибками", Toast.LENGTH_LONG).show();
+        showCorrectionQuestion();
+    }
+
+    private void finishGame() {
+        isGameActive = false;
+        if (timer != null) {
+            timer.cancel();
+        }
 
         playLottieWinAnimation();
 
         int xpForWords = (int) (correctAnswers * XP_PER_WORD);
-        boolean isPerfectGame = isFinishedList && (correctAnswers == gameWords.size());
+        boolean isPerfectGame = mistakeQuestions.isEmpty() && initialTotalWords > 0;
         int bonus = isPerfectGame ? WIN_BONUS : 0;
         int totalXp = xpForWords + bonus;
 
-        if (totalXp > 0) {
-            repository.addXp(totalXp);
-        }
+        repository.recordLessonCompletion(
+                "SPRINT",
+                getIntent().getLongExtra("THEME_ID", -1),
+                totalXp,
+                initialTotalWords,
+                mistakeQuestions.size(),
+                fixedErrorsCount,
+                true
+        );
 
-        String title = isPerfectGame ? "Идеально!" : (isFinishedList ? "Завершено" : "Время вышло");
-        StringBuilder message = new StringBuilder();
-        message.append("Правильно: ").append(correctAnswers).append(" из ").append(gameWords.size());
-        message.append("\n\nНаграда: +").append(totalXp).append(" XP");
-
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setMessage(message.toString())
-                .setCancelable(false)
-                .setPositiveButton("В меню", (dialog, which) -> finish())
-                .setNegativeButton("Еще раз", (dialog, which) -> recreate())
-                .show();
+        Intent intent = new Intent(this, GameResultActivity.class);
+        intent.putExtra("SCORE", totalXp);
+        intent.putExtra("TOTAL_WORDS", initialTotalWords);
+        intent.putExtra("MISTAKES_COUNT", mistakeQuestions.size());
+        startActivity(intent);
+        finish();
     }
 
     private void playLottieWinAnimation() {
@@ -233,6 +355,20 @@ public class SprintGameActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (timer != null) timer.cancel();
+        if (timer != null) {
+            timer.cancel();
+        }
+    }
+
+    private static class SprintQuestion {
+        private final Word word;
+        private final String displayedTranslation;
+        private final boolean isCorrectPair;
+
+        private SprintQuestion(Word word, String displayedTranslation, boolean isCorrectPair) {
+            this.word = word;
+            this.displayedTranslation = displayedTranslation;
+            this.isCorrectPair = isCorrectPair;
+        }
     }
 }

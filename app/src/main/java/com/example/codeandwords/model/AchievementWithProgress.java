@@ -1,13 +1,17 @@
 package com.example.codeandwords.model;
 
-import androidx.room.Embedded;
-
 public class AchievementWithProgress {
-    @Embedded
-    public Achievement achievement;
+    public Long id;
+    public String title;
+    public String description;
+    public Integer xpReward;
+    public String conditionType;
+    public Integer conditionValue;
+    public Integer maxProgress;
+    public String iconResName;
 
-    public Long userAchievementId;
-    public Integer currentProgress;
-    public Boolean isNew;
-    public Long dateReceived;
+    public int currentProgress;
+    public long dateReceived;
+    public boolean isUnlocked;
+    public boolean isNew;
 }

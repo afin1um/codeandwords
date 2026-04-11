@@ -5,10 +5,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.example.codeandwords.R;
 import com.example.codeandwords.model.Word;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,8 +21,8 @@ public class WordListAdapter extends RecyclerView.Adapter<WordListAdapter.WordVi
     private final OnWordClickListener listener;
 
     public interface OnWordClickListener {
-        // Добавили boolean isSlow
         void onSpeakClick(String term, boolean isSlow);
+        void onAddToDictionaryClick(Word word);
     }
 
     public WordListAdapter(OnWordClickListener listener) {
@@ -52,23 +55,19 @@ public class WordListAdapter extends RecyclerView.Adapter<WordListAdapter.WordVi
             holder.tvTranscription.setVisibility(View.GONE);
         }
 
-        // Обычная скорость (Динамик)
-        holder.btnSpeak.setOnClickListener(v -> {
-            listener.onSpeakClick(word.getTerm(), false); // false = не медленно
-        });
-
-        // Медленная скорость (Черепашка)
-        holder.btnSlow.setOnClickListener(v -> {
-            listener.onSpeakClick(word.getTerm(), true); // true = медленно
-        });
+        holder.btnSpeak.setOnClickListener(v -> listener.onSpeakClick(word.getTerm(), false));
+        holder.btnSlow.setOnClickListener(v -> listener.onSpeakClick(word.getTerm(), true));
+        holder.btnAddToDictionary.setOnClickListener(v -> listener.onAddToDictionaryClick(word));
     }
 
     @Override
-    public int getItemCount() { return words.size(); }
+    public int getItemCount() {
+        return words.size();
+    }
 
     static class WordViewHolder extends RecyclerView.ViewHolder {
         TextView tvTerm, tvTranslation, tvTranscription;
-        ImageButton btnSpeak, btnSlow; // Добавили btnSlow
+        ImageButton btnSpeak, btnSlow, btnAddToDictionary;
 
         public WordViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -76,7 +75,8 @@ public class WordListAdapter extends RecyclerView.Adapter<WordListAdapter.WordVi
             tvTranslation = itemView.findViewById(R.id.tvTranslation);
             tvTranscription = itemView.findViewById(R.id.tvTranscription);
             btnSpeak = itemView.findViewById(R.id.btnSpeak);
-            btnSlow = itemView.findViewById(R.id.btnSlow); // Находим кнопку
+            btnSlow = itemView.findViewById(R.id.btnSlow);
+            btnAddToDictionary = itemView.findViewById(R.id.btnAddToDictionary);
         }
     }
 }

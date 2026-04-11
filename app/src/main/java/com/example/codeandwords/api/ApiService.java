@@ -5,6 +5,7 @@ import com.example.codeandwords.model.Theme;
 import com.example.codeandwords.model.User;
 import com.example.codeandwords.model.UserWordProgress;
 import com.example.codeandwords.model.Word;
+import com.google.gson.JsonObject;
 
 import java.util.List;
 
@@ -15,12 +16,9 @@ import retrofit2.http.Headers;
 import retrofit2.http.PATCH;
 import retrofit2.http.POST;
 import retrofit2.http.Query;
-import retrofit2.http.QueryMap;
 
 public interface ApiService {
 
-    // 1. ДОБАВЛЕН ЗАГОЛОВОК Prefer: return=representation
-    // Это заставит Supabase вернуть созданного пользователя в теле ответа
     @Headers({
             "Prefer: return=representation",
             "Content-Type: application/json"
@@ -31,8 +29,18 @@ public interface ApiService {
             @Query("password_hash") String passwordHash
     );
 
+    @Headers({
+            "Prefer: return=representation",
+            "Content-Type: application/json"
+    })
     @POST("users")
     Call<List<User>> register(@Body User user);
+
+    @PATCH("users")
+    Call<Void> updateUserProgress(
+            @Query("id") String idFilter,
+            @Body User user
+    );
 
     @GET("themes?select=*")
     Call<List<Theme>> getThemes();
@@ -52,12 +60,47 @@ public interface ApiService {
     @PATCH("user_word_progress")
     Call<Void> updateWordProgress(@Query("id") String idFilter, @Body UserWordProgress progress);
 
-    // 2. ТАКЖЕ ДОБАВЛЕН ЗАГОЛОВОК для создания прогресса слов
-    // И изменен тип возвращаемого значения на List<UserWordProgress> для стабильности
     @Headers("Prefer: return=representation")
     @POST("user_word_progress")
     Call<List<UserWordProgress>> createWordProgress(@Body UserWordProgress progress);
 
     @GET("user_word_progress?select=word_id&is_learned=eq.true")
     Call<List<UserWordProgress>> getLearnedWordsIds(@Query("user_id") String userIdFilter);
+
+    @Headers({
+            "Prefer: resolution=merge-duplicates,return=representation",
+            "Content-Type: application/json"
+    })
+    @POST("user_stats")
+    Call<List<JsonObject>> upsertUserStatsRaw(
+            @Query("on_conflict") String onConflict,
+            @Body JsonObject payload
+    );
+
+    @Headers({
+            "Prefer: return=representation",
+            "Content-Type: application/json"
+    })
+    @POST("lesson_history")
+    Call<List<JsonObject>> insertLessonRaw(@Body JsonObject payload);
+
+    @GET("user_achievements")
+    Call<List<JsonObject>> getUserAchievementRecordRaw(
+            @Query("user_id") String userFilter,
+            @Query("achievement_id") String achievementFilter
+    );
+
+    @Headers({
+            "Prefer: return=representation",
+            "Content-Type: application/json"
+    })
+    @POST("user_achievements")
+    Call<List<JsonObject>> insertUserAchievementRaw(@Body JsonObject payload);
+
+    @PATCH("user_achievements")
+    Call<Void> updateUserAchievementRaw(
+            @Query("user_id") String userFilter,
+            @Query("achievement_id") String achievementFilter,
+            @Body JsonObject payload
+    );
 }

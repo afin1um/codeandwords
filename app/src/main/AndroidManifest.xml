@@ -65,6 +65,17 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
+        <activity
+            android:name=".ui.PersonalDictionaryActivity"
+            android:exported="false" />
+
+        <activity
+        android:name=".ui.profile.AchievementUnlockedActivity"
+        android:theme="@style/Theme.CodeAndWords.AchievementPopup" />
+
+        <activity
+            android:name=".ui.profile.AchievementDetailActivity" />
+
     </application>
 
 </manifest>

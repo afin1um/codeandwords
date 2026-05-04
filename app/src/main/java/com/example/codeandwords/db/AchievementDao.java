@@ -38,18 +38,22 @@ public interface AchievementDao {
                     "a.id AS id, " +
                     "a.title AS title, " +
                     "a.description AS description, " +
-                    "a.xp_reward AS xpReward, " +
-                    "a.condition_type AS conditionType, " +
-                    "a.condition_value AS conditionValue, " +
-                    "a.max_progress AS maxProgress, " +
-                    "a.icon_res_id AS iconResName, " +
-                    "COALESCE(ua.current_progress, 0) AS currentProgress, " +
-                    "COALESCE(ua.received_at, 0) AS dateReceived, " +
-                    "COALESCE(ua.is_unlocked, 0) AS isUnlocked, " +
-                    "COALESCE(ua.is_new, 0) AS isNew " +
+                    "a.xp_reward AS xp_reward, " +
+                    "a.condition_type AS condition_type, " +
+                    "a.condition_value AS condition_value, " +
+                    "a.max_progress AS max_progress, " +
+                    "a.icon_res_id AS icon_res_id, " +
+                    "COALESCE(ua.current_progress, 0) AS current_progress, " +
+                    "COALESCE(strftime('%s', ua.received_at), 0) * 1000 AS date_received, " +
+                    "COALESCE(ua.is_unlocked, 0) AS is_unlocked, " +
+                    "COALESCE(ua.is_new, 0) AS is_new " +
                     "FROM achievements a " +
-                    "LEFT JOIN user_achievements ua ON ua.achievement_id = a.id AND ua.user_id = :userId " +
+                    "LEFT JOIN user_achievements ua " +
+                    "ON ua.achievement_id = a.id AND ua.user_id = :userId " +
                     "ORDER BY a.id ASC"
     )
     List<AchievementWithProgress> getAchievementsWithProgress(int userId);
+
+    @Query("DELETE FROM achievements")
+    void deleteAll();
 }

@@ -12,5 +12,23 @@
     <color name="duo_text_white">#FFFFFF</color>
     <color name="duo_text_gray">#4B595F</color>
 
+    <color name="avatar_tab_bg">#08171F</color>
+    <color name="avatar_tab_text">#6E8190</color>
+    <color name="avatar_tab_stroke">#2C434F</color>
+    <color name="avatar_tab_selected_bg">#2BB6F6</color>
+
     <color name="duo_progress_bg">#37464F</color>
+    <color name="profile_gold">#FFD54F</color>
+
+    <color name="avatar_editor_screen_bg">#071A22</color>
+    <color name="avatar_editor_header_bg">#08171F</color>
+    <color name="avatar_editor_section_divider">#17313B</color>
+
+    <color name="avatar_editor_option_bg">#0D202A</color>
+    <color name="avatar_editor_option_stroke">#314957</color>
+    <color name="avatar_editor_option_inner">#87CEFA</color>
+    <color name="avatar_editor_option_stroke_selected">#2BB6F6</color>
+
+    <color name="avatar_editor_title">#627684</color>
+    <color name="avatar_editor_done">#1CB0F6</color>
 </resources>

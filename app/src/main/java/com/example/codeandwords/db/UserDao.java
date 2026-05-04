@@ -29,4 +29,7 @@ public interface UserDao {
 
     @Query("DELETE FROM users")
     void deleteAllUsers();
+
+    @Query("SELECT * FROM users WHERE LOWER(username) = LOWER(:username) LIMIT 1")
+    User getByUsername(String username);
 }

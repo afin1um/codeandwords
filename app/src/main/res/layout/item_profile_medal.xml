@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/cardMedal"
+    android:layout_width="92dp"
+    android:layout_height="92dp"
+    android:layout_marginEnd="12dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackgroundBorderless"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:backgroundTint="#0D2029"
+    app:cardCornerRadius="46dp"
+    app:cardElevation="0dp"
+    app:strokeColor="#314853"
+    app:strokeWidth="2dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/ivMedal"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_gravity="center"
+            android:contentDescription="achievement_icon"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_achievement_default" />
+
+        <ImageView
+            android:id="@+id/ivLockOverlay"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="12dp"
+            android:src="@android:drawable/ic_lock_lock"
+            android:tint="#9AA7AF"
+            android:visibility="gone" />
+    </FrameLayout>
+
+</com.google.android.material.card.MaterialCardView>

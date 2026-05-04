@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp"
+    android:background="@drawable/bg_avatar_option"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="14dp">
+
+    <TextView
+        android:id="@+id/tvScheduleShortTitle"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="#A8A8A8"
+        android:gravity="center"
+        android:text="JS"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvScheduleTheme"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Java Core"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvScheduleTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="18:00 — 19:00"
+            android:textColor="#89A0AE"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvScheduleNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Повторить слова"
+            android:textColor="#6E7F8A"
+            android:textSize="13sp" />
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp"
+    android:background="@drawable/bg_avatar_option"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tvParticipantName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Участник"
+        android:textColor="@android:color/white"
+        android:textSize="17sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvParticipantProgress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:text="0 / 100"
+        android:textColor="#89A0AE"
+        android:textSize="14sp" />
+
+    <ProgressBar
+        android:id="@+id/progressParticipant"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="10dp"
+        android:layout_marginTop="10dp"
+        android:max="100"
+        android:progress="0"
+        android:progressTint="#58CC02"
+        android:progressBackgroundTint="#17313D" />
+
+    <TextView
+        android:id="@+id/tvParticipantStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="7dp"
+        android:text="В процессе"
+        android:textColor="#6E7F8A"
+        android:textSize="13sp" />
+
+</LinearLayout>

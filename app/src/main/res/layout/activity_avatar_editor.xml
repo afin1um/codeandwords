@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#071A22"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:id="@+id/headerContainerAvatarEditor"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:background="#08171F"
+        android:clipToPadding="false"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageButton
+            android:id="@+id/btnCloseAvatarEditor"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="10dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:tint="#6E7F8A" />
+
+        <TextView
+            android:id="@+id/tvAvatarEditorTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="Изменить аватар"
+            android:textColor="#6E7F8A"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btnDoneAvatarEditor"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:gravity="center"
+            android:minWidth="80dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="ГОТОВО"
+            android:textColor="#1CB0F6"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <FrameLayout
+        android:id="@+id/previewContainerAvatarEditor"
+        android:layout_width="match_parent"
+        android:layout_height="310dp"
+        android:background="#87CEFA">
+
+        <com.example.codeandwords.ui.profile.AvatarPreviewView
+            android:id="@+id/avatarEditorPreview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:background="#08171F"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
+
+            <LinearLayout
+                android:id="@+id/tabSkin"
+                style="@style/AvatarIconTab">
+
+                <ImageView
+                    android:id="@+id/ivCategorySkin"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@drawable/ic_avatar_tab_skin" />
+
+                <View
+                    android:id="@+id/indicatorSkin"
+                    android:layout_width="48dp"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#1CB0F6" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/tabFace"
+                style="@style/AvatarIconTab">
+
+                <ImageView
+                    android:id="@+id/ivCategoryFace"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@drawable/ic_avatar_tab_face" />
+
+                <View
+                    android:id="@+id/indicatorFace"
+                    android:layout_width="48dp"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#1CB0F6"
+                    android:visibility="invisible" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/tabHair"
+                style="@style/AvatarIconTab">
+
+                <ImageView
+                    android:id="@+id/ivCategoryHair"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@drawable/ic_avatar_tab_hair" />
+
+                <View
+                    android:id="@+id/indicatorHair"
+                    android:layout_width="48dp"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#1CB0F6"
+                    android:visibility="invisible" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/tabGlasses"
+                style="@style/AvatarIconTab">
+
+                <ImageView
+                    android:id="@+id/ivCategoryGlasses"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@drawable/ic_avatar_tab_glasses" />
+
+                <View
+                    android:id="@+id/indicatorGlasses"
+                    android:layout_width="48dp"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#1CB0F6"
+                    android:visibility="invisible" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/tabAccessories"
+                style="@style/AvatarIconTab">
+
+                <ImageView
+                    android:id="@+id/ivCategoryAccessories"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@drawable/ic_avatar_tab_accessories" />
+
+                <View
+                    android:id="@+id/indicatorAccessories"
+                    android:layout_width="48dp"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#1CB0F6"
+                    android:visibility="invisible" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/tabHat"
+                style="@style/AvatarIconTab">
+
+                <ImageView
+                    android:id="@+id/ivCategoryHat"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@drawable/ic_avatar_tab_hat" />
+
+                <View
+                    android:id="@+id/indicatorHat"
+                    android:layout_width="48dp"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#1CB0F6"
+                    android:visibility="invisible" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/tabClothes"
+                style="@style/AvatarIconTab">
+
+                <ImageView
+                    android:id="@+id/ivCategoryClothes"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@drawable/ic_avatar_tab_clothes" />
+
+                <View
+                    android:id="@+id/indicatorClothes"
+                    android:layout_width="48dp"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#1CB0F6"
+                    android:visibility="invisible" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/tabBg"
+                style="@style/AvatarIconTab">
+
+                <ImageView
+                    android:id="@+id/ivCategoryBg"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@drawable/ic_avatar_tab_bg" />
+
+                <View
+                    android:id="@+id/indicatorBg"
+                    android:layout_width="48dp"
+                    android:layout_height="4dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#1CB0F6"
+                    android:visibility="invisible" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#17313B" />
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="24dp">
+
+            <TextView
+                android:id="@+id/tvPrimaryTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Цвет кожи"
+                android:textColor="@android:color/white"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerPrimaryOptions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:clipToPadding="false"
+                android:nestedScrollingEnabled="false"
+                android:overScrollMode="never"
+                android:paddingBottom="6dp" />
+
+            <TextView
+                android:id="@+id/tvSecondaryTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="Причёска"
+                android:textColor="@android:color/white"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerSecondaryOptions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:clipToPadding="false"
+                android:nestedScrollingEnabled="false"
+                android:overScrollMode="never"
+                android:paddingBottom="6dp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>

@@ -3,8 +3,10 @@ package com.example.codeandwords.model;
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
+
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
+
 import java.io.Serializable;
 
 @Entity(tableName = "users")
@@ -12,7 +14,7 @@ public class User implements Serializable {
 
     @PrimaryKey(autoGenerate = true)
     @SerializedName("id")
-    @Expose(serialize = false) // Сервер сам генерирует ID, не отправляем его при регистрации
+    @Expose(serialize = false)
     private Integer id;
 
     @ColumnInfo(name = "username")
@@ -26,7 +28,7 @@ public class User implements Serializable {
     private String email;
 
     @ColumnInfo(name = "password_hash")
-    @SerializedName("password_hash") // Проверь, чтобы было именно так!
+    @SerializedName("password_hash")
     @Expose
     private String passwordHash;
 
@@ -47,13 +49,22 @@ public class User implements Serializable {
 
     @ColumnInfo(name = "created_at")
     @SerializedName("created_at")
-    @Expose(serialize = false) // ВАЖНО: не отправляем, база сама поставит timestamp
+    @Expose(serialize = false)
     private String createdAt;
 
-    // Пустой конструктор для Room и Retrofit
-    public User() {}
+    @ColumnInfo(name = "avatar_config")
+    @SerializedName("avatar_config")
+    @Expose
+    private String avatarConfig;
 
-    // Конструктор для регистрации
+    @ColumnInfo(name = "gender")
+    @SerializedName("gender")
+    @Expose
+    private String gender = "female";
+
+    public User() {
+    }
+
     public User(String username, String email, String passwordHash) {
         this.username = username;
         this.email = email;
@@ -61,33 +72,86 @@ public class User implements Serializable {
         this.currentLevel = 1;
         this.totalXp = 0;
         this.role = "user";
+        this.gender = "female";
     }
 
-    // Геттеры и сеттеры
-    public Integer getId() { return id; }
-    public void setId(Integer id) { this.id = id; }
+    public Integer getId() {
+        return id;
+    }
 
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+    public void setId(Integer id) {
+        this.id = id;
+    }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public String getUsername() {
+        return username;
+    }
 
-    public String getPasswordHash() { return passwordHash; }
-    // В файле User.java должно быть ТОЛЬКО так:
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
     }
 
-    public Integer getCurrentLevel() { return currentLevel; }
-    public void setCurrentLevel(Integer currentLevel) { this.currentLevel = currentLevel; }
+    public Integer getCurrentLevel() {
+        return currentLevel;
+    }
 
-    public Integer getTotalXp() { return totalXp; }
-    public void setTotalXp(Integer totalXp) { this.totalXp = totalXp; }
+    public void setCurrentLevel(Integer currentLevel) {
+        this.currentLevel = currentLevel;
+    }
 
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
+    public Integer getTotalXp() {
+        return totalXp;
+    }
 
-    public String getCreatedAt() { return createdAt; }
-    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
+    public void setTotalXp(Integer totalXp) {
+        this.totalXp = totalXp;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public String getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getAvatarConfig() {
+        return avatarConfig;
+    }
+
+    public void setAvatarConfig(String avatarConfig) {
+        this.avatarConfig = avatarConfig;
+    }
+
+    public String getGender() {
+        return gender == null ? "female" : gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
 }

@@ -1,0 +1,32 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+
+    <!-- Фон круга -->
+    <path
+        android:fillColor="#2A2A2A"
+        android:pathData="M32,2
+                          A30,30 0 1,1 31.9,2Z"/>
+
+    <!-- Внутренний круг -->
+    <path
+        android:fillColor="#3EC6FF"
+        android:pathData="M32,10
+                          A22,22 0 1,1 31.9,10Z"/>
+
+    <!-- Звезда -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,18
+                          L35,26
+                          L44,26
+                          L37,31
+                          L40,40
+                          L32,35
+                          L24,40
+                          L27,31
+                          L20,26
+                          L29,26Z"/>
+</vector>

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+
     <style name="Theme.CodeAndWords" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="colorPrimary">#2196F3</item>
         <item name="colorPrimaryVariant">#1976D2</item>
@@ -9,10 +10,10 @@
         <item name="colorSecondaryVariant">#F57C00</item>
         <item name="colorOnSecondary">#000000</item>
 
-        <item name="android:windowBackground">#FFFFFF</item>
+        <item name="android:windowBackground">@color/avatar_editor_screen_bg</item>
         <item name="android:textColorPrimary">#000000</item>
-
-        <item name="android:statusBarColor">#1976D2</item>
+        <item name="android:statusBarColor">@color/avatar_editor_header_bg</item>
+        <item name="android:navigationBarColor">@color/avatar_editor_screen_bg</item>
     </style>
 
     <style name="Theme.CodeAndWords.AchievementPopup" parent="Theme.MaterialComponents.DayNight.NoActionBar">
@@ -22,4 +23,18 @@
         <item name="android:windowIsFloating">false</item>
         <item name="android:backgroundDimEnabled">true</item>
     </style>
+
+    <style name="AvatarIconTab">
+        <item name="android:layout_width">64dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_marginEnd">6dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:paddingEnd">4dp</item>
+    </style>
+
 </resources>

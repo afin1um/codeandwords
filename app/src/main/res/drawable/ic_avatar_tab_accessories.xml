@@ -1,0 +1,25 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Кольцо (серьга) -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M12,4
+                          a6,6 0 1,0 0,12
+                          a6,6 0 1,0 0,-12
+                          M12,6
+                          a4,4 0 1,1 0,8
+                          a4,4 0 1,1 0,-8" />
+
+    <!-- Подвеска -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M12,16
+                          L10.5,20
+                          L13.5,20
+                          Z" />
+
+</vector>

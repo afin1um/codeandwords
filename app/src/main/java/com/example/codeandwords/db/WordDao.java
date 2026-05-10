@@ -1,30 +1,44 @@
-    package com.example.codeandwords.db;
+package com.example.codeandwords.db;
 
-    import androidx.room.Dao;
-    import androidx.room.Insert;
-    import androidx.room.OnConflictStrategy;
-    import androidx.room.Query;
+import androidx.room.Dao;
+import androidx.room.Insert;
+import androidx.room.OnConflictStrategy;
+import androidx.room.Query;
 
-    import com.example.codeandwords.model.Word;
+import com.example.codeandwords.model.Word;
 
-    import java.util.List;
+import java.util.List;
 
-    @Dao
-    public interface WordDao {
+@Dao
+public interface WordDao {
 
-        // Сохранить список слов
-        @Insert(onConflict = OnConflictStrategy.REPLACE)
-        void insertAll(List<Word> words);
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insert(Word word);
 
-        // Получить все слова для конкретной темы
-        @Query("SELECT * FROM words WHERE theme_id = :themeId")
-        List<Word> getWordsByTheme(Long themeId);
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insertAll(List<Word> words);
 
-        // Получить одно слово по ID
-        @Query("SELECT * FROM words WHERE id = :wordId")
-        Word getWordById(Long wordId);
+    @Query("SELECT * FROM words WHERE theme_id = :themeId ORDER BY id ASC")
+    List<Word> getWordsByTheme(Long themeId);
 
-        // Удалить все слова (для очистки кеша)
-        @Query("DELETE FROM words")
-        void deleteAll();
-    }
+    @Query("SELECT * FROM words WHERE id = :wordId LIMIT 1")
+    Word getWordById(Long wordId);
+
+    @Query("SELECT * FROM words WHERE LOWER(term) = LOWER(:term) LIMIT 1")
+    Word getWordByTerm(String term);
+
+    @Query("SELECT * FROM words WHERE LOWER(term) = LOWER(:term) AND LOWER(translation) = LOWER(:translation) LIMIT 1")
+    Word getWordByTermAndTranslation(String term, String translation);
+
+    @Query("SELECT MAX(id) FROM words")
+    Long getMaxWordId();
+
+    @Query("DELETE FROM words WHERE theme_id = :themeId")
+    void deleteWordsByThemeId(Long themeId);
+
+    @Query("DELETE FROM words WHERE id = :wordId")
+    void deleteWordById(Long wordId);
+
+    @Query("DELETE FROM words")
+    void deleteAll();
+}

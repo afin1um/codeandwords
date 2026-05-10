@@ -31,26 +31,6 @@
             z" />
 
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M40,48
-            l5,-6
-            l5,6
-            l-2,0
-            l-3,-3.5
-            l-3,3.5
-            z" />
-
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M50,52
-            l4,-5
-            l4,5
-            l-1.7,0
-            l-2.3,-2.7
-            l-2.3,2.7
-            z" />
-
-    <path
         android:fillColor="#FFD54F"
         android:pathData="M54,18
             l2.4,5

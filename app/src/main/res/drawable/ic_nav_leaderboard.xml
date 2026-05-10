@@ -1,9 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+
+    <!-- Левый столбик (короткий) -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M4,20h3V10H4zM10.5,20h3V4h-3zM17,20h3v-7h-3z" />
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M4,21 L4,10 L7,10 L7,21 Z" />
+
+    <!-- Центральный столбик (высокий) -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M10.5,21 L10.5,4 L13.5,4 L13.5,21 Z" />
+
+    <!-- Правый столбик (средний) -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M17,21 L17,13 L20,13 L20,21 Z" />
+
 </vector>

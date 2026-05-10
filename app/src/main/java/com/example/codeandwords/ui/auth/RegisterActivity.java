@@ -1,12 +1,14 @@
 package com.example.codeandwords.ui.auth;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
@@ -67,14 +69,29 @@ public class RegisterActivity extends AppCompatActivity {
         btnBackToLogin.setOnClickListener(v -> finish());
     }
 
+    /**
+     * ✅ Обновляет визуальное состояние кнопок выбора пола.
+     * Активная — толстая голубая обводка, неактивная — тонкая серая.
+     */
     private void updateGenderButtons() {
         boolean isFemale = "female".equals(selectedGender);
 
-        btnGenderFemale.setStrokeWidth(isFemale ? 4 : 1);
-        btnGenderMale.setStrokeWidth(!isFemale ? 4 : 1);
+        int activeStroke = ContextCompat.getColor(this, R.color.app_blue);
+        int inactiveStroke = ContextCompat.getColor(this, R.color.app_card_stroke);
 
+        // Женская кнопка
+        btnGenderFemale.setStrokeWidth(isFemale ? dp(4) : dp(1));
+        btnGenderFemale.setStrokeColor(ColorStateList.valueOf(isFemale ? activeStroke : inactiveStroke));
         btnGenderFemale.setAlpha(isFemale ? 1f : 0.65f);
+
+        // Мужская кнопка
+        btnGenderMale.setStrokeWidth(!isFemale ? dp(4) : dp(1));
+        btnGenderMale.setStrokeColor(ColorStateList.valueOf(!isFemale ? activeStroke : inactiveStroke));
         btnGenderMale.setAlpha(!isFemale ? 1f : 0.65f);
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private void performRegistration() {

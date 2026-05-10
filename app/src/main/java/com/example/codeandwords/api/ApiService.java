@@ -3,6 +3,7 @@ package com.example.codeandwords.api;
 import com.example.codeandwords.model.LeaderboardEntry;
 import com.example.codeandwords.model.Theme;
 import com.example.codeandwords.model.User;
+import com.example.codeandwords.model.UserWord; // Import UserWord
 import com.example.codeandwords.model.UserWordProgress;
 import com.example.codeandwords.model.Word;
 import com.google.gson.JsonObject;
@@ -17,8 +18,11 @@ import retrofit2.http.Headers;
 import retrofit2.http.PATCH;
 import retrofit2.http.POST;
 import retrofit2.http.Query;
+// No need to import JsonObject twice
 
 public interface ApiService {
+
+    // --- EXISTING API METHODS ---
 
     @Headers({
             "Prefer: return=representation",
@@ -39,7 +43,7 @@ public interface ApiService {
     @PATCH("users")
     Call<Void> updateUserProgress(
             @Query("id") String idFilter,
-            @Body User user
+            @Body JsonObject payload
     );
 
     @PATCH("users")
@@ -70,21 +74,6 @@ public interface ApiService {
     @GET("user_word_progress")
     Call<List<UserWordProgress>> getUserProgress(
             @Query("user_id") String userFilter
-    );
-
-    @PATCH("user_word_progress")
-    Call<Void> updateWordProgress(
-            @Query("id") String idFilter,
-            @Body UserWordProgress progress
-    );
-
-    @Headers({
-            "Prefer: return=representation",
-            "Content-Type: application/json"
-    })
-    @POST("user_word_progress")
-    Call<List<UserWordProgress>> createWordProgress(
-            @Body UserWordProgress progress
     );
 
     @GET("user_word_progress?select=word_id&is_learned=eq.true")
@@ -317,5 +306,150 @@ public interface ApiService {
             @Query("id") String idFilter,
             @Query("select") String select,
             @Query("limit") int limit
+    );
+
+    @Headers({
+            "Prefer: return=representation",
+            "Content-Type: application/json"
+    })
+    @POST("themes")
+    Call<List<Theme>> adminCreateTheme(
+            @Body Theme theme
+    );
+
+    @Headers({
+            "Prefer: return=representation",
+            "Content-Type: application/json"
+    })
+    @POST("words")
+    Call<List<Word>> adminCreateWord(
+            @Body Word word
+    );
+
+    @Headers({
+            "Prefer: return=representation",
+            "Content-Type: application/json"
+    })
+    @PATCH("themes")
+    Call<List<Theme>> adminUpdateTheme(
+            @Query("id") String idFilter,
+            @Body Theme theme
+    );
+
+    @Headers({
+            "Prefer: return=representation",
+            "Content-Type: application/json"
+    })
+    @PATCH("words")
+    Call<List<Word>> adminUpdateWord(
+            @Query("id") String idFilter,
+            @Body Word word
+    );
+
+    @DELETE("themes")
+    Call<Void> adminDeleteTheme(
+            @Query("id") String idFilter
+    );
+
+    @DELETE("words")
+    Call<Void> adminDeleteWord(
+            @Query("id") String idFilter
+    );
+
+    @GET("user_word_progress")
+    Call<List<UserWordProgress>> getUserProgressByUser(
+            @Query("user_id") String userFilter,
+            @Query("select") String select
+    );
+
+    @GET("user_word_progress")
+    Call<List<UserWordProgress>> getUserWordProgress(
+            @Query("user_id") String userFilter,
+            @Query("word_id") String wordFilter,
+            @Query("select") String select
+    );
+
+    @Headers({
+            "Prefer: return=representation",
+            "Content-Type: application/json"
+    })
+    @POST("user_word_progress")
+    Call<List<UserWordProgress>> createWordProgress(
+            @Body UserWordProgress progress
+    );
+
+    @PATCH("user_word_progress")
+    Call<Void> updateWordProgress(
+            @Query("id") String idFilter,
+            @Body UserWordProgress progress
+    );
+
+    @GET("words")
+    Call<List<Word>> getWordsByIds(
+            @Query("id") String idsFilter,
+            @Query("select") String select,
+            @Query("order") String order
+    );
+
+    @POST("words")
+    Call<List<Word>> adminCreateWords(
+            @Body List<Word> words
+    );
+
+    @DELETE("user_word_progress")
+    Call<Void> adminDeleteProgressByWordIds(
+            @Query("word_id") String wordIdsFilter
+    );
+
+    @DELETE("user_word_progress")
+    Call<Void> adminDeleteProgressByWordId(
+            @Query("word_id") String wordIdFilter
+    );
+
+    @DELETE("words")
+    Call<Void> adminDeleteWordsByThemeId(
+            @Query("theme_id") String themeIdFilter
+    );
+
+    @PATCH("users")
+    Call<Void> updateUserProfileRaw(
+            @Query("id") String userIdFilter,
+            @Body JsonObject payload
+    );
+
+    // --- NEW API METHODS FOR USER_PERSONAL_WORDS ---
+
+    // Получить все личные слова пользователя с сервера
+    @Headers({
+            "Prefer: return=representation",
+            "Content-Type: application/json"
+    })
+    @GET("user_personal_words")
+    Call<List<UserWord>> getUserPersonalWordsFromServer(
+            @Query("user_id") String userId,
+            @Query("order") String order // Например, "date_added.desc"
+    );
+
+    // Добавить или обновить личное слово на сервере (upsert)
+    // Supabase PostgREST поддерживает upsert через POST с on_conflict
+    @Headers({
+            "Prefer: resolution=merge-duplicates,return=representation", // merge-duplicates для upsert
+            "Content-Type: application/json"
+    })
+    @POST("user_personal_words")
+    Call<List<UserWord>> upsertUserPersonalWord(
+            @Query("on_conflict") String onConflictColumns, // Например, "user_id,word,translation"
+            @Body UserWord userWord // Отправляем UserWord объект
+    );
+
+    // Удалить личное слово с сервера по serverId
+    @Headers({
+            "Prefer: return=minimal",
+            "Content-Type: application/json"
+    })
+    @DELETE("user_personal_words")
+    Call<Void> deleteUserPersonalWordFromServer(
+            @Query("user_id") String userId, // Добавляем user_id для безопасности
+            @Query("id") String serverId // Идентификатор слова на сервере
     );
 }

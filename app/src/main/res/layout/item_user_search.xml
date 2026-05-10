@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="10dp"
-    android:background="@drawable/bg_avatar_option"
+    android:background="@drawable/bg_team_card"
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:padding="14dp">
@@ -12,10 +12,10 @@
         android:id="@+id/tvSearchAvatarLetter"
         android:layout_width="54dp"
         android:layout_height="54dp"
-        android:background="#1CB0F6"
+        android:background="@color/app_blue"
         android:gravity="center"
         android:text="A"
-        android:textColor="@android:color/white"
+        android:textColor="@color/app_text_on_accent"
         android:textSize="22sp"
         android:textStyle="bold" />
 
@@ -31,7 +31,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="username"
-            android:textColor="@android:color/white"
+            android:textColor="@color/team_text_primary"
             android:textSize="17sp"
             android:textStyle="bold" />
 
@@ -41,7 +41,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
             android:text="mail@example.com"
-            android:textColor="#89A0AE"
+            android:textColor="@color/team_text_secondary"
             android:textSize="13sp" />
 
         <TextView
@@ -50,7 +50,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
             android:text="Уровень 1 • 0 XP"
-            android:textColor="#6E7F8A"
+            android:textColor="@color/team_text_muted"
             android:textSize="13sp" />
 
     </LinearLayout>
@@ -59,7 +59,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="›"
-        android:textColor="#1CB0F6"
+        android:textColor="@color/app_blue"
         android:textSize="30sp"
         android:textStyle="bold" />
 

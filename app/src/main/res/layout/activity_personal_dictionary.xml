@@ -3,14 +3,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#081A24">
+    android:background="@color/app_bg">
 
     <ScrollView
         android:id="@+id/scrollContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        android:clipToPadding="false">
+        android:clipToPadding="false"
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -20,7 +20,7 @@
             <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="360dp"
-                android:background="#081A24"
+                android:background="@color/app_bg"
                 android:paddingStart="20dp"
                 android:paddingTop="20dp"
                 android:paddingEnd="20dp"
@@ -36,7 +36,7 @@
                     android:contentDescription="Назад"
                     android:padding="8dp"
                     android:src="@drawable/ic_back_arrow_custom"
-                    android:tint="#6E7F8B" />
+                    app:tint="@color/app_text_secondary" />
 
                 <ImageView
                     android:id="@+id/ivWordsHeader"
@@ -53,8 +53,8 @@
                     android:layout_height="wrap_content"
                     android:layout_below="@id/btnBack"
                     android:layout_marginTop="48dp"
-                    android:text="Закрепим слова\nв личном словаре"
-                    android:textColor="#F1F7FB"
+                    android:text="Закрепим слова&#10;в личном словаре"
+                    android:textColor="@color/app_text_primary"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -63,26 +63,27 @@
                     android:layout_width="match_parent"
                     android:layout_height="60dp"
                     android:layout_alignParentBottom="true"
-                    android:backgroundTint="#53B8E8"
-                    android:text="НАЧАТЬ: +10 ОЧКОВ"
+                    android:backgroundTint="@color/app_blue"
+                    android:text="НАЧАТЬ ТРЕНИРОВКУ"
                     android:textAllCaps="false"
-                    android:textColor="#0B1E28"
+                    android:textColor="@android:color/white"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     app:cornerRadius="18dp" />
+
             </RelativeLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="#081A24"
+                android:background="@color/app_bg"
                 android:orientation="vertical"
                 android:paddingBottom="96dp">
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="2dp"
-                    android:background="#1A2B36" />
+                    android:background="@color/app_divider" />
 
                 <RelativeLayout
                     android:layout_width="match_parent"
@@ -97,7 +98,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0 слов"
-                        android:textColor="#F1F7FB"
+                        android:textColor="@color/app_text_primary"
                         android:textSize="18sp"
                         android:textStyle="bold" />
 
@@ -107,10 +108,28 @@
                         android:layout_height="wrap_content"
                         android:layout_alignParentEnd="true"
                         android:text="СОРТИРОВКА: А-Я"
-                        android:textColor="#35B5FF"
+                        android:textColor="@color/app_blue"
                         android:textSize="14sp"
                         android:textStyle="bold" />
+
                 </RelativeLayout>
+
+                <HorizontalScrollView
+                    android:id="@+id/themeFilterScroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:scrollbars="none">
+
+                    <LinearLayout
+                        android:id="@+id/themeFilterContainer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:paddingBottom="12dp" />
+
+                </HorizontalScrollView>
 
                 <TextView
                     android:id="@+id/tvEmpty"
@@ -119,7 +138,7 @@
                     android:layout_gravity="center_horizontal"
                     android:layout_marginTop="32dp"
                     android:text="Словарь пока пуст"
-                    android:textColor="#8EA0AB"
+                    android:textColor="@color/app_text_secondary"
                     android:textSize="16sp"
                     android:visibility="gone" />
 
@@ -133,7 +152,9 @@
                     android:paddingEnd="12dp" />
 
             </LinearLayout>
+
         </LinearLayout>
+
     </ScrollView>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -146,7 +167,7 @@
         android:contentDescription="Добавить слово"
         android:src="@drawable/ic_add_custom"
         android:tint="@android:color/white"
-        app:backgroundTint="#35B44A"
+        app:backgroundTint="@color/app_green"
         app:fabSize="normal" />
 
 </RelativeLayout>

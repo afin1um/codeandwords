@@ -13,6 +13,8 @@ import androidx.annotation.Nullable;
 
 public class AvatarPreviewView extends View {
 
+    private boolean showBackground = true;
+
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private AvatarConfig config;
 
@@ -38,7 +40,7 @@ public class AvatarPreviewView extends View {
     }
 
     public void setAvatarConfig(AvatarConfig config) {
-        this.config = config != null ? config : AvatarPrefs.load(getContext());
+        this.config = config;
         invalidate();
     }
 
@@ -50,19 +52,30 @@ public class AvatarPreviewView extends View {
             config = AvatarPrefs.load(getContext());
         }
 
+        if (config == null) {
+            return;
+        }
+
         float viewW = getWidth();
         float viewH = getHeight();
 
-        canvas.drawColor(config.backgroundColor);
+        if (viewW <= 0 || viewH <= 0) {
+            return;
+        }
+
+        if (showBackground) {
+            canvas.drawColor(config.backgroundColor);
+        }
 
         float size = Math.min(viewW, viewH) * 0.88f;
         float left = (viewW - size) / 2f;
-        float top = Math.max(0f, (viewH - size) / 2f - size * 0.02f);
+        float top = (viewH - size) / 2f - size * 0.02f;
+        if (top < 0f) top = 0f;
 
-        canvas.save();
+        int saveCount = canvas.save();
         canvas.translate(left, top);
         drawAvatar(canvas, size, size);
-        canvas.restore();
+        canvas.restoreToCount(saveCount);
     }
 
     private void drawAvatar(Canvas canvas, float w, float h) {
@@ -102,6 +115,7 @@ public class AvatarPreviewView extends View {
 
         canvas.drawRoundRect(neck, w * 0.025f, w * 0.025f, paint);
     }
+
     private void drawBody(Canvas canvas, float cx, float h, float w) {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.clothesColor);
@@ -240,42 +254,34 @@ public class AvatarPreviewView extends View {
                 drawPupil(canvas, cx - w * 0.046f, h * 0.350f, w * 0.018f);
                 drawPupil(canvas, cx + w * 0.046f, h * 0.350f, w * 0.018f);
                 break;
-
             case 1:
                 drawPupil(canvas, cx - w * 0.040f, h * 0.348f, w * 0.018f);
                 drawPupil(canvas, cx + w * 0.052f, h * 0.348f, w * 0.018f);
                 break;
-
             case 2:
                 drawPupil(canvas, cx - w * 0.035f, h * 0.347f, w * 0.018f);
                 drawPupil(canvas, cx + w * 0.055f, h * 0.347f, w * 0.018f);
                 break;
-
             case 3:
                 drawPupil(canvas, cx - w * 0.030f, h * 0.352f, w * 0.018f);
                 drawPupil(canvas, cx + w * 0.060f, h * 0.346f, w * 0.018f);
                 break;
-
             case 4:
                 drawPupil(canvas, cx - w * 0.046f, h * 0.350f, w * 0.020f);
                 drawPupil(canvas, cx + w * 0.046f, h * 0.350f, w * 0.020f);
                 break;
-
             case 5:
                 drawPupil(canvas, cx - w * 0.050f, h * 0.356f, w * 0.017f);
                 drawPupil(canvas, cx + w * 0.050f, h * 0.356f, w * 0.017f);
                 break;
-
             case 6:
                 drawPupil(canvas, cx - w * 0.038f, h * 0.346f, w * 0.018f);
                 drawPupil(canvas, cx + w * 0.054f, h * 0.350f, w * 0.018f);
                 break;
-
             case 7:
                 drawPupil(canvas, cx - w * 0.053f, h * 0.356f, w * 0.017f);
                 drawPupil(canvas, cx + w * 0.040f, h * 0.356f, w * 0.017f);
                 break;
-
             case 8:
                 drawPupil(canvas, cx - w * 0.046f, h * 0.360f, w * 0.015f);
                 drawPupil(canvas, cx + w * 0.046f, h * 0.360f, w * 0.015f);
@@ -294,10 +300,7 @@ public class AvatarPreviewView extends View {
 
     private void drawBrows(Canvas canvas, float cx, float h, float w) {
         paint.setStyle(Paint.Style.STROKE);
-
-        // Брови строго равны цвету волос
         paint.setColor(config.hairColor);
-
         paint.setStrokeWidth(w * 0.0105f);
 
         switch (config.faceShape) {
@@ -306,47 +309,38 @@ public class AvatarPreviewView extends View {
                 canvas.drawLine(cx - w * 0.080f, h * 0.302f, cx - w * 0.032f, h * 0.294f, paint);
                 canvas.drawLine(cx + w * 0.032f, h * 0.294f, cx + w * 0.080f, h * 0.302f, paint);
                 break;
-
             case 1:
                 canvas.drawLine(cx - w * 0.082f, h * 0.300f, cx - w * 0.035f, h * 0.292f, paint);
                 canvas.drawLine(cx + w * 0.034f, h * 0.292f, cx + w * 0.078f, h * 0.300f, paint);
                 break;
-
             case 2:
                 canvas.drawLine(cx - w * 0.082f, h * 0.298f, cx - w * 0.037f, h * 0.289f, paint);
                 canvas.drawLine(cx + w * 0.037f, h * 0.289f, cx + w * 0.082f, h * 0.298f, paint);
                 break;
-
             case 3:
                 canvas.drawLine(cx - w * 0.085f, h * 0.306f, cx - w * 0.034f, h * 0.292f, paint);
                 canvas.drawLine(cx + w * 0.032f, h * 0.292f, cx + w * 0.072f, h * 0.305f, paint);
                 break;
-
             case 4:
                 canvas.drawLine(cx - w * 0.082f, h * 0.292f, cx - w * 0.032f, h * 0.284f, paint);
                 canvas.drawLine(cx + w * 0.032f, h * 0.284f, cx + w * 0.082f, h * 0.292f, paint);
                 break;
-
             case 5:
                 canvas.drawLine(cx - w * 0.082f, h * 0.292f, cx - w * 0.032f, h * 0.304f, paint);
                 canvas.drawLine(cx + w * 0.032f, h * 0.304f, cx + w * 0.082f, h * 0.292f, paint);
                 break;
-
             case 6:
                 canvas.drawLine(cx - w * 0.078f, h * 0.301f, cx - w * 0.034f, h * 0.292f, paint);
                 canvas.drawLine(cx + w * 0.034f, h * 0.292f, cx + w * 0.078f, h * 0.301f, paint);
                 break;
-
             case 7:
                 canvas.drawLine(cx - w * 0.085f, h * 0.290f, cx - w * 0.032f, h * 0.304f, paint);
                 canvas.drawLine(cx + w * 0.032f, h * 0.304f, cx + w * 0.085f, h * 0.290f, paint);
                 break;
-
             case 8:
                 canvas.drawLine(cx - w * 0.082f, h * 0.304f, cx - w * 0.032f, h * 0.304f, paint);
                 canvas.drawLine(cx + w * 0.032f, h * 0.304f, cx + w * 0.082f, h * 0.304f, paint);
                 break;
-
             case 9:
                 canvas.drawArc(
                         new RectF(cx - w * 0.085f, h * 0.282f, cx - w * 0.030f, h * 0.310f),
@@ -357,12 +351,10 @@ public class AvatarPreviewView extends View {
                         230f, 110f, false, paint
                 );
                 break;
-
             case 10:
                 canvas.drawLine(cx - w * 0.086f, h * 0.292f, cx - w * 0.030f, h * 0.282f, paint);
                 canvas.drawLine(cx + w * 0.030f, h * 0.282f, cx + w * 0.086f, h * 0.292f, paint);
                 break;
-
             case 11:
                 canvas.drawLine(cx - w * 0.082f, h * 0.305f, cx - w * 0.032f, h * 0.292f, paint);
                 canvas.drawLine(cx + w * 0.032f, h * 0.292f, cx + w * 0.082f, h * 0.300f, paint);
@@ -371,6 +363,7 @@ public class AvatarPreviewView extends View {
 
         paint.setStyle(Paint.Style.FILL);
     }
+
     private void drawNose(Canvas canvas, float cx, float h, float w) {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(adjustBrightness(config.skinColor, 0.90f));
@@ -401,7 +394,6 @@ public class AvatarPreviewView extends View {
                 canvas.drawArc(mouth, 18f, 145f, false, paint);
                 break;
             }
-
             case 1: {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setColor(mouthColor);
@@ -409,7 +401,6 @@ public class AvatarPreviewView extends View {
                 canvas.drawArc(mouth, 12f, 150f, false, paint);
                 break;
             }
-
             case 2: {
                 paint.setStyle(Paint.Style.FILL);
                 paint.setColor(lipColor);
@@ -425,7 +416,6 @@ public class AvatarPreviewView extends View {
                 canvas.drawOval(new RectF(cx + w * 0.002f, h * 0.458f, cx + w * 0.030f, h * 0.484f), paint);
                 break;
             }
-
             case 3: {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setColor(mouthColor);
@@ -433,14 +423,12 @@ public class AvatarPreviewView extends View {
                 canvas.drawArc(mouth, 18f, 120f, false, paint);
                 break;
             }
-
             case 4: {
                 paint.setStyle(Paint.Style.FILL);
                 paint.setColor(mouthColor);
                 canvas.drawCircle(cx + w * 0.010f, h * 0.458f, w * 0.018f, paint);
                 break;
             }
-
             case 5: {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setColor(mouthColor);
@@ -448,7 +436,6 @@ public class AvatarPreviewView extends View {
                 canvas.drawArc(mouth, 190f, 115f, false, paint);
                 break;
             }
-
             case 6: {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setColor(mouthColor);
@@ -460,7 +447,6 @@ public class AvatarPreviewView extends View {
                 canvas.drawPath(pout, paint);
                 break;
             }
-
             case 7: {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setColor(mouthColor);
@@ -468,14 +454,12 @@ public class AvatarPreviewView extends View {
                 canvas.drawArc(mouth, 195f, 95f, false, paint);
                 break;
             }
-
             case 8: {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setColor(mouthColor);
                 canvas.drawLine(cx - w * 0.020f, h * 0.462f, cx + w * 0.030f, h * 0.462f, paint);
                 break;
             }
-
             case 9: {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(w * 0.014f);
@@ -485,7 +469,6 @@ public class AvatarPreviewView extends View {
                 canvas.drawArc(bigSmile, 25f, 130f, false, paint);
                 break;
             }
-
             case 10: {
                 paint.setStyle(Paint.Style.FILL);
                 paint.setColor(darkMouth);
@@ -504,7 +487,6 @@ public class AvatarPreviewView extends View {
                 canvas.drawOval(new RectF(cx - w * 0.010f, h * 0.472f, cx + w * 0.035f, h * 0.498f), paint);
                 break;
             }
-
             case 11: {
                 paint.setStyle(Paint.Style.FILL);
                 paint.setColor(lipColor);
@@ -559,6 +541,7 @@ public class AvatarPreviewView extends View {
 
         paint.setStyle(Paint.Style.FILL);
     }
+
     private void drawHat(Canvas canvas, float cx, float h, float w) {
         if (config.hatStyle == 0) return;
 
@@ -571,30 +554,15 @@ public class AvatarPreviewView extends View {
 
         switch (config.hatStyle) {
             case 1: {
-                RectF crown = new RectF(
-                        cx - w * 0.145f,
-                        h * 0.125f,
-                        cx + w * 0.145f,
-                        h * 0.240f
-                );
+                RectF crown = new RectF(cx - w * 0.145f, h * 0.125f, cx + w * 0.145f, h * 0.240f);
                 canvas.drawRoundRect(crown, w * 0.070f, w * 0.070f, paint);
 
                 paint.setColor(lightHatColor);
-                RectF leftPanel = new RectF(
-                        cx - w * 0.120f,
-                        h * 0.128f,
-                        cx - w * 0.015f,
-                        h * 0.235f
-                );
+                RectF leftPanel = new RectF(cx - w * 0.120f, h * 0.128f, cx - w * 0.015f, h * 0.235f);
                 canvas.drawRoundRect(leftPanel, w * 0.055f, w * 0.055f, paint);
 
                 paint.setColor(darkHatColor);
-                RectF band = new RectF(
-                        cx - w * 0.150f,
-                        h * 0.215f,
-                        cx + w * 0.150f,
-                        h * 0.252f
-                );
+                RectF band = new RectF(cx - w * 0.150f, h * 0.215f, cx + w * 0.150f, h * 0.252f);
                 canvas.drawRoundRect(band, w * 0.018f, w * 0.018f, paint);
 
                 Path visor = new Path();
@@ -605,14 +573,8 @@ public class AvatarPreviewView extends View {
                 canvas.drawPath(visor, paint);
                 break;
             }
-
             case 2: {
-                RectF crown = new RectF(
-                        cx - w * 0.150f,
-                        h * 0.115f,
-                        cx + w * 0.150f,
-                        h * 0.245f
-                );
+                RectF crown = new RectF(cx - w * 0.150f, h * 0.115f, cx + w * 0.150f, h * 0.245f);
                 canvas.drawRoundRect(crown, w * 0.080f, w * 0.080f, paint);
 
                 paint.setColor(lightHatColor);
@@ -624,32 +586,16 @@ public class AvatarPreviewView extends View {
                 canvas.drawLine(cx + w * 0.070f, h * 0.125f, cx + w * 0.070f, h * 0.220f, paint);
 
                 paint.setColor(darkHatColor);
-                RectF visor = new RectF(
-                        cx - w * 0.165f,
-                        h * 0.220f,
-                        cx + w * 0.165f,
-                        h * 0.275f
-                );
+                RectF visor = new RectF(cx - w * 0.165f, h * 0.220f, cx + w * 0.165f, h * 0.275f);
                 canvas.drawRoundRect(visor, w * 0.030f, w * 0.030f, paint);
                 break;
             }
-
             case 3: {
-                RectF band = new RectF(
-                        cx - w * 0.155f,
-                        h * 0.175f,
-                        cx + w * 0.155f,
-                        h * 0.255f
-                );
+                RectF band = new RectF(cx - w * 0.155f, h * 0.175f, cx + w * 0.155f, h * 0.255f);
                 canvas.drawRoundRect(band, w * 0.020f, w * 0.020f, paint);
 
                 paint.setColor(lightHatColor);
-                RectF top = new RectF(
-                        cx - w * 0.150f,
-                        h * 0.120f,
-                        cx + w * 0.150f,
-                        h * 0.205f
-                );
+                RectF top = new RectF(cx - w * 0.150f, h * 0.120f, cx + w * 0.150f, h * 0.205f);
                 canvas.drawRoundRect(top, w * 0.060f, w * 0.060f, paint);
 
                 paint.setColor(darkHatColor);
@@ -663,23 +609,12 @@ public class AvatarPreviewView extends View {
                 canvas.drawPath(tail, paint);
                 break;
             }
-
             case 4: {
-                RectF beanie = new RectF(
-                        cx - w * 0.150f,
-                        h * 0.105f,
-                        cx + w * 0.150f,
-                        h * 0.245f
-                );
+                RectF beanie = new RectF(cx - w * 0.150f, h * 0.105f, cx + w * 0.150f, h * 0.245f);
                 canvas.drawRoundRect(beanie, w * 0.070f, w * 0.070f, paint);
 
                 paint.setColor(darkHatColor);
-                RectF rim = new RectF(
-                        cx - w * 0.165f,
-                        h * 0.220f,
-                        cx + w * 0.165f,
-                        h * 0.270f
-                );
+                RectF rim = new RectF(cx - w * 0.165f, h * 0.220f, cx + w * 0.165f, h * 0.270f);
                 canvas.drawRoundRect(rim, w * 0.022f, w * 0.022f, paint);
 
                 paint.setColor(adjustBrightness(hatColor, 0.90f));
@@ -687,7 +622,6 @@ public class AvatarPreviewView extends View {
                 canvas.drawLine(cx + w * 0.115f, h * 0.170f, cx + w * 0.115f, h * 0.220f, paint);
                 break;
             }
-
             case 5: {
                 Path cap = new Path();
                 cap.moveTo(cx - w * 0.145f, h * 0.235f);
@@ -698,21 +632,11 @@ public class AvatarPreviewView extends View {
                 canvas.drawPath(cap, paint);
 
                 paint.setColor(darkHatColor);
-                RectF rim = new RectF(
-                        cx - w * 0.165f,
-                        h * 0.220f,
-                        cx + w * 0.165f,
-                        h * 0.275f
-                );
+                RectF rim = new RectF(cx - w * 0.165f, h * 0.220f, cx + w * 0.165f, h * 0.275f);
                 canvas.drawRoundRect(rim, w * 0.022f, w * 0.022f, paint);
 
                 paint.setColor(lightHatColor);
-                RectF fold = new RectF(
-                        cx - w * 0.130f,
-                        h * 0.095f,
-                        cx - w * 0.020f,
-                        h * 0.150f
-                );
+                RectF fold = new RectF(cx - w * 0.130f, h * 0.095f, cx - w * 0.020f, h * 0.150f);
                 canvas.drawRoundRect(fold, w * 0.030f, w * 0.030f, paint);
                 break;
             }
@@ -739,7 +663,16 @@ public class AvatarPreviewView extends View {
         paint.setStyle(Paint.Style.FILL);
     }
 
+    /**
+     * База-"шапка" на лбу — только для длинных женских стилей (10-34).
+     * Для мужских (1, 3, 4, 5) и каре (2) — собственный силуэт.
+     */
     private void drawHairForeheadBase(Canvas canvas, float cx, float h, float w) {
+        // Стили с собственным силуэтом — база НЕ нужна
+        if (config.hairStyle >= 1 && config.hairStyle <= 5) {
+            return;
+        }
+
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.hairColor);
 
@@ -806,14 +739,10 @@ public class AvatarPreviewView extends View {
             case 0: drawLongStraightHair(canvas, cx, h, w); break;
 
             case 1: drawShortRoundedBack(canvas, cx, h, w); break;
-            case 2: drawShortSidePartBack(canvas, cx, h, w); break;
-            case 3: drawShortSoftPartBack(canvas, cx, h, w); break;
-            case 4: drawShortFlatBack(canvas, cx, h, w); break;
-            case 5: drawShortCurlyBack(canvas, cx, h, w); break;
-            case 6: drawShortBuzzBack(canvas, cx, h, w); break;
-            case 7: drawShortWavyBack(canvas, cx, h, w); break;
-            case 8: drawShortCapBack(canvas, cx, h, w); break;
-            case 9: drawShortNeatBack(canvas, cx, h, w); break;
+            case 2: drawCareHairBack(canvas, cx, h, w); break;
+            case 3: drawCrewCutBack(canvas, cx, h, w); break;
+            case 4: drawSidePartManBack(canvas, cx, h, w); break;
+            case 5: drawCurlyShortManBack(canvas, cx, h, w); break;
 
             case 10: drawBobHair(canvas, cx, h, w); break;
             case 11: drawMediumWavesHair(canvas, cx, h, w); break;
@@ -857,14 +786,10 @@ public class AvatarPreviewView extends View {
             case 0: drawLongStraightFront(canvas, cx, h, w); break;
 
             case 1: drawShortRoundedFront(canvas, cx, h, w); break;
-            case 2: drawShortSidePartFront(canvas, cx, h, w); break;
-            case 3: drawShortSoftPartFront(canvas, cx, h, w); break;
-            case 4: drawShortFlatFront(canvas, cx, h, w); break;
-            case 5: drawShortCurlyFront(canvas, cx, h, w); break;
-            case 6: drawShortBuzzFront(canvas, cx, h, w); break;
-            case 7: drawShortWavyFront(canvas, cx, h, w); break;
-            case 8: drawShortCapFront(canvas, cx, h, w); break;
-            case 9: drawShortNeatFront(canvas, cx, h, w); break;
+            case 2: drawCareHairFront(canvas, cx, h, w); break;
+            case 3: drawCrewCutFront(canvas, cx, h, w); break;
+            case 4: drawSidePartManFront(canvas, cx, h, w); break;
+            case 5: drawCurlyShortManFront(canvas, cx, h, w); break;
 
             case 10: drawBobFront(canvas, cx, h, w); break;
             case 11: drawMediumWavesFront(canvas, cx, h, w); break;
@@ -900,6 +825,7 @@ public class AvatarPreviewView extends View {
         }
     }
 
+    // === ДЛИННЫЕ ВОЛОСЫ (женские базовые) ===
     private void drawLongStraightHair(Canvas c, float cx, float h, float w) {
         RectF hair = new RectF(cx - w * 0.19f, h * 0.16f, cx + w * 0.19f, h * 0.88f);
         c.drawRoundRect(hair, w * 0.10f, w * 0.10f, paint);
@@ -916,141 +842,242 @@ public class AvatarPreviewView extends View {
         c.drawPath(bangs, paint);
     }
 
-    private void drawShortRoundedBack(Canvas c, float cx, float h, float w) {
-        RectF hair = new RectF(cx - w * 0.145f, h * 0.16f, cx + w * 0.145f, h * 0.37f);
-        c.drawRoundRect(hair, w * 0.08f, w * 0.08f, paint);
-    }
-
-    private void drawShortRoundedFront(Canvas c, float cx, float h, float w) {
-        Path p = new Path();
-        p.moveTo(cx - w * 0.13f, h * 0.235f);
-        p.quadTo(cx - w * 0.08f, h * 0.17f, cx, h * 0.20f);
-        p.quadTo(cx + w * 0.08f, h * 0.17f, cx + w * 0.13f, h * 0.235f);
-        p.lineTo(cx + w * 0.13f, h * 0.275f);
-        p.lineTo(cx - w * 0.13f, h * 0.275f);
-        p.close();
-        c.drawPath(p, paint);
-    }
-
-    private void drawShortSidePartBack(Canvas c, float cx, float h, float w) {
-        RectF hair = new RectF(cx - w * 0.145f, h * 0.16f, cx + w * 0.145f, h * 0.37f);
-        c.drawRoundRect(hair, w * 0.07f, w * 0.07f, paint);
-    }
-
-    private void drawShortSidePartFront(Canvas c, float cx, float h, float w) {
-        Path p = new Path();
-        p.moveTo(cx - w * 0.13f, h * 0.24f);
-        p.quadTo(cx - w * 0.03f, h * 0.16f, cx + w * 0.05f, h * 0.20f);
-        p.quadTo(cx + w * 0.10f, h * 0.19f, cx + w * 0.13f, h * 0.24f);
-        p.lineTo(cx + w * 0.13f, h * 0.29f);
-        p.lineTo(cx - w * 0.13f, h * 0.29f);
-        p.close();
-        c.drawPath(p, paint);
-
-        paint.setColor(config.skinColor);
-        Path part = new Path();
-        part.moveTo(cx + w * 0.01f, h * 0.17f);
-        part.lineTo(cx + w * 0.03f, h * 0.17f);
-        part.lineTo(cx + w * 0.02f, h * 0.25f);
-        part.close();
-        c.drawPath(part, paint);
+    // ========================================
+    // 1 — Короткая мужская стрижка (округлая)
+    // ========================================
+    private void drawShortRoundedBack(Canvas canvas, float cx, float h, float w) {
+        paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.hairColor);
+
+        // Рисуем основной объем сзади, чуть шире лица
+        RectF backHair = new RectF(
+                cx - w * 0.155f,
+                h * 0.150f,
+                cx + w * 0.155f,
+                h * 0.420f
+        );
+        canvas.drawRoundRect(backHair, w * 0.10f, w * 0.10f, paint);
     }
 
-    private void drawShortSoftPartBack(Canvas c, float cx, float h, float w) {
-        RectF hair = new RectF(cx - w * 0.145f, h * 0.16f, cx + w * 0.145f, h * 0.375f);
-        c.drawRoundRect(hair, w * 0.075f, w * 0.075f, paint);
-    }
-
-    private void drawShortSoftPartFront(Canvas c, float cx, float h, float w) {
-        Path full = new Path();
-        full.moveTo(cx - w * 0.13f, h * 0.235f);
-        full.quadTo(cx - w * 0.08f, h * 0.17f, cx, h * 0.20f);
-        full.quadTo(cx + w * 0.08f, h * 0.17f, cx + w * 0.13f, h * 0.235f);
-        full.lineTo(cx + w * 0.13f, h * 0.285f);
-        full.lineTo(cx - w * 0.13f, h * 0.285f);
-        full.close();
-        c.drawPath(full, paint);
-
-        paint.setColor(config.skinColor);
-        RectF part = new RectF(cx - w * 0.01f, h * 0.17f, cx + w * 0.01f, h * 0.255f);
-        c.drawRoundRect(part, w * 0.01f, w * 0.01f, paint);
+    private void drawShortRoundedFront(Canvas canvas, float cx, float h, float w) {
+        paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.hairColor);
+
+        // Основная "шапка" волос
+        RectF hairTop = new RectF(
+                cx - w * 0.150f,
+                h * 0.140f,
+                cx + w * 0.150f,
+                h * 0.320f
+        );
+        canvas.drawRoundRect(hairTop, w * 0.08f, w * 0.08f, paint);
+
+        // Виски (заканчиваются ДО начала ушей)
+        Path temples = new Path();
+        // Левый висок
+        temples.moveTo(cx - w * 0.150f, h * 0.280f);
+        temples.lineTo(cx - w * 0.135f, h * 0.340f);
+        temples.lineTo(cx - w * 0.100f, h * 0.280f);
+        // Правый висок
+        temples.moveTo(cx + w * 0.150f, h * 0.280f);
+        temples.lineTo(cx + w * 0.135f, h * 0.340f);
+        temples.lineTo(cx + w * 0.100f, h * 0.280f);
+
+        canvas.drawPath(temples, paint);
+
+        // Челка (небольшой изгиб для естественности)
+        Path bangs = new Path();
+        bangs.moveTo(cx - w * 0.150f, h * 0.250f);
+        bangs.quadTo(cx, h * 0.220f, cx + w * 0.150f, h * 0.250f);
+        bangs.lineTo(cx + w * 0.150f, h * 0.200f);
+        bangs.lineTo(cx - w * 0.150f, h * 0.200f);
+        bangs.close();
+
+        canvas.drawPath(bangs, paint);
     }
 
-    private void drawShortFlatBack(Canvas c, float cx, float h, float w) {
-        RectF hair = new RectF(cx - w * 0.14f, h * 0.16f, cx + w * 0.14f, h * 0.35f);
-        c.drawRoundRect(hair, w * 0.02f, w * 0.02f, paint);
-    }
+    // ========================================
+    // 2 — Каре (исправлено: чёлка короче)
+    // ========================================
 
-    private void drawShortFlatFront(Canvas c, float cx, float h, float w) {
-        RectF top = new RectF(cx - w * 0.15f, h * 0.18f, cx + w * 0.15f, h * 0.25f);
-        c.drawRect(top, paint);
-    }
-
-    private void drawShortCurlyBack(Canvas c, float cx, float h, float w) {
-        RectF back = new RectF(cx - w * 0.15f, h * 0.17f, cx + w * 0.15f, h * 0.37f);
-        c.drawRoundRect(back, w * 0.08f, w * 0.08f, paint);
-    }
-
-    private void drawShortCurlyFront(Canvas c, float cx, float h, float w) {
-        c.drawCircle(cx - w * 0.07f, h * 0.215f, w * 0.026f, paint);
-        c.drawCircle(cx - w * 0.025f, h * 0.205f, w * 0.026f, paint);
-        c.drawCircle(cx + w * 0.025f, h * 0.205f, w * 0.026f, paint);
-        c.drawCircle(cx + w * 0.07f, h * 0.215f, w * 0.026f, paint);
-    }
-
-    private void drawShortBuzzBack(Canvas c, float cx, float h, float w) {
-        RectF hair = new RectF(cx - w * 0.13f, h * 0.17f, cx + w * 0.13f, h * 0.33f);
-        c.drawRoundRect(hair, w * 0.05f, w * 0.05f, paint);
-    }
-
-    private void drawShortBuzzFront(Canvas c, float cx, float h, float w) {
-        RectF top = new RectF(cx - w * 0.13f, h * 0.19f, cx + w * 0.13f, h * 0.245f);
-        c.drawRoundRect(top, w * 0.03f, w * 0.03f, paint);
-    }
-
-    private void drawShortWavyBack(Canvas c, float cx, float h, float w) {
-        RectF hair = new RectF(cx - w * 0.145f, h * 0.16f, cx + w * 0.145f, h * 0.37f);
-        c.drawRoundRect(hair, w * 0.08f, w * 0.08f, paint);
-    }
-
-    private void drawShortWavyFront(Canvas c, float cx, float h, float w) {
+    /**
+     * Каре — короткая женская стрижка длиной до подбородка.
+     * Прямые волосы, ровный срез чуть ниже подбородка.
+     */
+    private void drawCareHairBack(Canvas c, float cx, float h, float w) {
+        // Объёмная "шапка" вокруг головы с ровным срезом по бокам шеи
         Path p = new Path();
-        p.moveTo(cx - w * 0.13f, h * 0.235f);
-        p.quadTo(cx - w * 0.09f, h * 0.18f, cx - w * 0.04f, h * 0.21f);
-        p.quadTo(cx, h * 0.17f, cx + w * 0.04f, h * 0.21f);
-        p.quadTo(cx + w * 0.09f, h * 0.18f, cx + w * 0.13f, h * 0.235f);
-        p.lineTo(cx + w * 0.13f, h * 0.275f);
-        p.lineTo(cx - w * 0.13f, h * 0.275f);
+
+        // Верхняя округлая часть (макушка)
+        p.moveTo(cx - w * 0.195f, h * 0.50f);
+        p.quadTo(cx - w * 0.215f, h * 0.16f, cx, h * 0.150f);
+        p.quadTo(cx + w * 0.215f, h * 0.16f, cx + w * 0.195f, h * 0.50f);
+
+        // Ровный срез внизу (характерная черта каре)
+        p.lineTo(cx + w * 0.195f, h * 0.555f);
+        p.lineTo(cx - w * 0.195f, h * 0.555f);
         p.close();
+
         c.drawPath(p, paint);
     }
 
-    private void drawShortCapBack(Canvas c, float cx, float h, float w) {
-        RectF back = new RectF(cx - w * 0.15f, h * 0.16f, cx + w * 0.15f, h * 0.355f);
-        c.drawRoundRect(back, w * 0.10f, w * 0.10f, paint);
+    private void drawCareHairFront(Canvas c, float cx, float h, float w) {
+
+        // ЧЁЛКА — теперь выше и короче
+        Path bangs = new Path();
+
+        bangs.moveTo(cx - w * 0.155f, h * 0.165f);
+
+        // верхняя линия
+        bangs.quadTo(
+                cx,
+                h * 0.135f,
+                cx + w * 0.155f,
+                h * 0.165f
+        );
+
+        // правая сторона
+        bangs.lineTo(cx + w * 0.155f, h * 0.238f);
+
+        // нижний край — мягкий изгиб,
+        // заканчивается ВЫШЕ бровей
+        bangs.quadTo(
+                cx,
+                h * 0.250f,
+                cx - w * 0.155f,
+                h * 0.238f
+        );
+
+        bangs.close();
+
+        c.drawPath(bangs, paint);
+
+        // Боковые части каре
+        Path leftSide = new Path();
+        leftSide.moveTo(cx - w * 0.195f, h * 0.255f);
+        leftSide.lineTo(cx - w * 0.150f, h * 0.255f);
+        leftSide.lineTo(cx - w * 0.150f, h * 0.555f);
+        leftSide.lineTo(cx - w * 0.195f, h * 0.555f);
+        leftSide.close();
+        c.drawPath(leftSide, paint);
+
+        Path rightSide = new Path();
+        rightSide.moveTo(cx + w * 0.195f, h * 0.255f);
+        rightSide.lineTo(cx + w * 0.150f, h * 0.255f);
+        rightSide.lineTo(cx + w * 0.150f, h * 0.555f);
+        rightSide.lineTo(cx + w * 0.195f, h * 0.555f);
+        rightSide.close();
+        c.drawPath(rightSide, paint);
     }
 
-    private void drawShortCapFront(Canvas c, float cx, float h, float w) {
-        RectF cap = new RectF(cx - w * 0.15f, h * 0.18f, cx + w * 0.15f, h * 0.255f);
-        c.drawRoundRect(cap, w * 0.035f, w * 0.035f, paint);
+    // ========================================
+    // 3 — Короткий ёжик / Crew Cut (мужская)
+    // ========================================
+    private void drawCrewCutBack(Canvas canvas, float cx, float h, float w) { // Индекс 3
+        // Очень короткая стрижка, сзади почти не видна масса, только легкий контур
+        paint.setColor(config.hairColor);
+        RectF back = new RectF(cx - w * 0.145f, h * 0.180f, cx + w * 0.145f, h * 0.350f);
+        canvas.drawRoundRect(back, w * 0.05f, w * 0.05f, paint);
     }
 
-    private void drawShortNeatBack(Canvas c, float cx, float h, float w) {
-        RectF back = new RectF(cx - w * 0.14f, h * 0.16f, cx + w * 0.14f, h * 0.36f);
-        c.drawRoundRect(back, w * 0.06f, w * 0.06f, paint);
+    // Индекс 3 - Спортивная (Crew Cut)
+    private void drawCrewCutFront(Canvas canvas, float cx, float h, float w) {
+        paint.setColor(config.hairColor);
+        // Основная площадка сверху
+        RectF top = new RectF(cx - w * 0.140f, h * 0.160f, cx + w * 0.140f, h * 0.260f);
+        canvas.drawRoundRect(top, w * 0.04f, w * 0.04f, paint);
+
+        // Короткие виски
+        canvas.drawRect(cx - w * 0.140f, h * 0.250f, cx - w * 0.110f, h * 0.320f, paint);
+        canvas.drawRect(cx + w * 0.110f, h * 0.250f, cx + w * 0.140f, h * 0.320f, paint);
     }
 
-    private void drawShortNeatFront(Canvas c, float cx, float h, float w) {
-        Path p = new Path();
-        p.moveTo(cx - w * 0.125f, h * 0.23f);
-        p.quadTo(cx - w * 0.03f, h * 0.16f, cx + w * 0.11f, h * 0.225f);
-        p.lineTo(cx + w * 0.125f, h * 0.275f);
-        p.lineTo(cx - w * 0.125f, h * 0.275f);
-        p.close();
-        c.drawPath(p, paint);
+    // ========================================
+    // 4 — Гладкая укладка с боковым пробором (мужская)
+    // ========================================
+    private void drawSidePartManBack(Canvas canvas, float cx, float h, float w) {
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(config.hairColor);
+        // Объем за головой
+        RectF back = new RectF(
+                cx - w * 0.160f,
+                h * 0.150f,
+                cx + w * 0.160f,
+                h * 0.400f
+        );
+        canvas.drawRoundRect(back, w * 0.09f, w * 0.09f, paint);
     }
+
+    // Индекс 4 - Классика с пробором (Side Part)
+    private void drawSidePartManFront(Canvas canvas, float cx, float h, float w) {
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(config.hairColor);
+
+        // 1. Основная масса волос (закрывает лоб без пропусков)
+        RectF hairBase = new RectF(
+                cx - w * 0.155f,
+                h * 0.145f,
+                cx + w * 0.155f,
+                h * 0.280f
+        );
+        canvas.drawRoundRect(hairBase, w * 0.06f, w * 0.06f, paint);
+
+        // 2. Отрисовка висков (уши остаются открытыми)
+        canvas.drawRect(cx - w * 0.155f, h * 0.250f, cx - w * 0.120f, h * 0.340f, paint);
+        canvas.drawRect(cx + w * 0.120f, h * 0.250f, cx + w * 0.155f, h * 0.340f, paint);
+
+        // 3. Стилизованная челка с пробором (рисуем поверх базы)
+        Path sidePart = new Path();
+        // Начинаем от левого края
+        sidePart.moveTo(cx - w * 0.155f, h * 0.260f);
+        // Поднимаемся к пробору (смещен влево)
+        sidePart.lineTo(cx - w * 0.040f, h * 0.190f);
+        // Идем к правому краю, создавая объемную волну
+        sidePart.quadTo(cx + w * 0.050f, h * 0.140f, cx + w * 0.155f, h * 0.200f);
+        sidePart.lineTo(cx + w * 0.155f, h * 0.280f);
+        // Линия над глазами
+        sidePart.quadTo(cx, h * 0.240f, cx - w * 0.155f, h * 0.280f);
+        sidePart.close();
+
+        canvas.drawPath(sidePart, paint);
+
+        // 4. Акцентная линия пробора (чуть темнее для глубины)
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setColor(adjustBrightness(config.hairColor, 0.85f));
+        paint.setStrokeWidth(w * 0.008f);
+
+        canvas.drawLine(cx - w * 0.040f, h * 0.160f, cx - w * 0.040f, h * 0.210f, paint);
+
+        paint.setStyle(Paint.Style.FILL); // Сбрасываем стиль
+    }
+
+    // ========================================
+    // 5 — Короткие кудряшки (мужская)
+    // ========================================
+    private void drawCurlyShortManBack(Canvas canvas, float cx, float h, float w) { // Индекс 5
+        paint.setColor(config.hairColor);
+        // Для кудрей делаем заднюю часть чуть шире и "пушистее"
+        RectF back = new RectF(cx - w * 0.165f, h * 0.140f, cx + w * 0.165f, h * 0.380f);
+        canvas.drawRoundRect(back, w * 0.12f, w * 0.12f, paint);
+    }
+
+    // Индекс 5 - Кудрявая (Curly Short)
+    private void drawCurlyShortManFront(Canvas canvas, float cx, float h, float w) {
+        paint.setColor(config.hairColor);
+        // Рисуем несколько кругов разного размера для эффекта кудряшек
+        float radius = w * 0.06f;
+        canvas.drawCircle(cx - w * 0.080f, h * 0.180f, radius, paint);
+        canvas.drawCircle(cx + w * 0.080f, h * 0.180f, radius, paint);
+        canvas.drawCircle(cx, h * 0.160f, radius * 1.1f, paint);
+        canvas.drawCircle(cx - w * 0.120f, h * 0.230f, radius * 0.9f, paint);
+        canvas.drawCircle(cx + w * 0.120f, h * 0.230f, radius * 0.9f, paint);
+
+        // Заполняем центр, чтобы не было дырок
+        RectF fill = new RectF(cx - w * 0.120f, h * 0.180f, cx + w * 0.120f, h * 0.280f);
+        canvas.drawRect(fill, paint);
+    }
+
+    // === ЖЕНСКИЕ ПРИЧЁСКИ (10-34) ===
 
     private void drawBobHair(Canvas c, float cx, float h, float w) {
         RectF hair = new RectF(cx - w * 0.18f, h * 0.16f, cx + w * 0.18f, h * 0.72f);
@@ -1084,10 +1111,51 @@ public class AvatarPreviewView extends View {
     }
 
     private void drawRoundedWavesFront(Canvas c, float cx, float h, float w) {
-        c.drawCircle(cx - w * 0.08f, h * 0.225f, w * 0.045f, paint);
-        c.drawCircle(cx + w * 0.08f, h * 0.225f, w * 0.045f, paint);
-        RectF top = new RectF(cx - w * 0.12f, h * 0.19f, cx + w * 0.12f, h * 0.265f);
-        c.drawRoundRect(top, w * 0.04f, w * 0.04f, paint);
+
+        // Боковые мягкие волны
+        c.drawCircle(cx - w * 0.085f, h * 0.225f, w * 0.043f, paint);
+        c.drawCircle(cx + w * 0.085f, h * 0.225f, w * 0.043f, paint);
+
+        // СГЛАЖЕННАЯ центральная чёлка
+        Path bangs = new Path();
+
+        bangs.moveTo(cx - w * 0.120f, h * 0.205f);
+
+        // верх
+        bangs.quadTo(
+                cx,
+                h * 0.160f,
+                cx + w * 0.120f,
+                h * 0.205f
+        );
+
+        // правая сторона
+        bangs.quadTo(
+                cx + w * 0.115f,
+                h * 0.255f,
+                cx + w * 0.090f,
+                h * 0.270f
+        );
+
+        // нижняя мягкая линия
+        bangs.quadTo(
+                cx,
+                h * 0.290f,
+                cx - w * 0.090f,
+                h * 0.270f
+        );
+
+        // левая сторона
+        bangs.quadTo(
+                cx - w * 0.115f,
+                h * 0.255f,
+                cx - w * 0.120f,
+                h * 0.205f
+        );
+
+        bangs.close();
+
+        c.drawPath(bangs, paint);
     }
 
     private void drawLongCurtainHair(Canvas c, float cx, float h, float w) {
@@ -1441,6 +1509,7 @@ public class AvatarPreviewView extends View {
         c.drawCircle(cx + w * 0.09f, h * 0.22f, w * 0.042f, paint);
     }
 
+    // === Утилиты ===
     private void drawBraid(Canvas c, float x, float startY, float endY, float r) {
         float y = startY;
         boolean shift = false;
@@ -1495,5 +1564,10 @@ public class AvatarPreviewView extends View {
         int g = Math.min(255, Math.max(0, (int) (Color.green(color) * factor)));
         int b = Math.min(255, Math.max(0, (int) (Color.blue(color) * factor)));
         return Color.rgb(r, g, b);
+    }
+
+    public void setShowBackground(boolean showBackground) {
+        this.showBackground = showBackground;
+        invalidate();
     }
 }

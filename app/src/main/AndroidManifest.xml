@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
+        android:name=".CodeAndWordsApp"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -102,6 +103,61 @@
         <activity
             android:name=".ui.profile.TeamDetailActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".ui.profile.AdminPanelActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.profile.AdminTheoryEditorActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.profile.AdminBulkWordsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.profile.AdminThemesActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.profile.AdminWordsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.profile.EditProfileActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.profile.AchievementsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.profile.UserStatisticsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.game.ListeningGameActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.game.MistakesTrainingActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.game.LearnedWordsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.profile.UserSearchActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>

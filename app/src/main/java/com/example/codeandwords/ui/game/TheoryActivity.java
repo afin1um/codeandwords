@@ -1,6 +1,5 @@
 package com.example.codeandwords.ui.game;
 
-import android.graphics.Color;
 import android.os.Bundle;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
@@ -17,6 +16,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
@@ -106,6 +106,9 @@ public class TheoryActivity extends AppCompatActivity {
         Pattern pattern = Pattern.compile("\\[\\[(.*?)\\|(.*?)\\]\\]");
         Matcher matcher = pattern.matcher(rawText);
 
+        // ✅ Цвет ссылки — из ресурсов (поддерживает обе темы)
+        final int linkColor = ContextCompat.getColor(this, R.color.app_blue);
+
         int lastEnd = 0;
         while (matcher.find()) {
             builder.append(rawText.substring(lastEnd, matcher.start()));
@@ -122,7 +125,6 @@ public class TheoryActivity extends AppCompatActivity {
                 public void onClick(@NonNull View widget) {
                     TextView tv = (TextView) widget;
 
-                    // Вычисляем, на какой строчке находится слово, чтобы показать попап прямо под ним
                     int line = tv.getLayout().getLineForOffset(startSpan);
                     int y = tv.getLayout().getLineBottom(line);
 
@@ -130,14 +132,13 @@ public class TheoryActivity extends AppCompatActivity {
                     tv.getLocationOnScreen(location);
                     int screenY = location[1] + y;
 
-                    // Вызываем наш красивый попап!
                     showDuoTooltip(tv, screenY, ruWord, enWord);
                 }
 
                 @Override
                 public void updateDrawState(@NonNull TextPaint ds) {
                     super.updateDrawState(ds);
-                    ds.setColor(Color.parseColor("#2196F3")); // Синий цвет ссылки
+                    ds.setColor(linkColor);   // ✅ Адаптивный цвет
                     ds.setUnderlineText(true);
                     ds.setFakeBoldText(true);
                 }
@@ -152,9 +153,7 @@ public class TheoryActivity extends AppCompatActivity {
         tvTheoryText.setMovementMethod(LinkMovementMethod.getInstance());
     }
 
-    // --- НОВЫЙ МЕТОД: Создание и показ красивой карточки ---
     private void showDuoTooltip(View anchor, int yCoordinate, String ruWord, String enWord) {
-        // Подгружаем наш красивый XML-макет
         View popupView = LayoutInflater.from(this).inflate(R.layout.layout_duo_tooltip, null);
 
         TextView tvRu = popupView.findViewById(R.id.tvDuoRu);
@@ -163,17 +162,14 @@ public class TheoryActivity extends AppCompatActivity {
         tvRu.setText(ruWord);
         tvEn.setText(enWord);
 
-        // Создаем всплывающее окно
         PopupWindow popupWindow = new PopupWindow(popupView,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                true); // true означает, что окно закроется, если кликнуть мимо него
+                true);
 
-        // Добавляем красивую стандартную анимацию появления
         popupWindow.setAnimationStyle(android.R.style.Animation_Dialog);
         popupWindow.setElevation(20f);
 
-        // Самая последняя строчка в TheoryActivity.java
         popupWindow.showAtLocation(anchor, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, yCoordinate + 60);
     }
 }

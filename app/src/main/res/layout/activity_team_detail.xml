@@ -2,13 +2,13 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#071A22"
+    android:background="@color/team_bg"
     android:orientation="vertical">
 
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="82dp"
-        android:background="#08171F"
+        android:background="@color/team_toolbar_bg"
         android:paddingStart="12dp"
         android:paddingTop="18dp"
         android:paddingEnd="12dp"
@@ -22,14 +22,14 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="10dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:tint="#6E7F8A" />
+            android:tint="@color/team_toolbar_icon" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
             android:text="Команда"
-            android:textColor="#6E7F8A"
+            android:textColor="@color/team_toolbar_title"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -46,7 +46,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Команда"
-            android:textColor="@android:color/white"
+            android:textColor="@color/team_text_primary"
             android:textSize="28sp"
             android:textStyle="bold" />
 
@@ -54,7 +54,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            android:background="@drawable/bg_avatar_option"
+            android:background="@drawable/bg_team_card"
             android:orientation="vertical"
             android:padding="16dp">
 
@@ -63,7 +63,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Задание команды"
-                android:textColor="@android:color/white"
+                android:textColor="@color/team_text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -73,7 +73,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
                 android:text="Цель: 100"
-                android:textColor="#89A0AE"
+                android:textColor="@color/team_text_secondary"
                 android:textSize="15sp" />
 
             <ProgressBar
@@ -84,8 +84,8 @@
                 android:layout_marginTop="14dp"
                 android:max="100"
                 android:progress="0"
-                android:progressTint="#58CC02"
-                android:progressBackgroundTint="#17313D" />
+                android:progressTint="@color/team_progress_fill"
+                android:progressBackgroundTint="@color/team_progress_bg" />
 
         </LinearLayout>
 
@@ -94,7 +94,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="22dp"
             android:text="Прогресс участников"
-            android:textColor="@android:color/white"
+            android:textColor="@color/team_text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
 

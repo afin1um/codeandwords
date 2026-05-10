@@ -64,12 +64,12 @@ public class AvatarEditorActivity extends AppCompatActivity {
     private String currentCategory = "skin";
 
     private static final List<Integer> MALE_HAIR_STYLE_INDEXES = Arrays.asList(
-            1, 2, 3, 4, 5, 6, 7, 8, 9
+            1, 3, 4, 5
     );
 
     private static final List<Integer> FEMALE_HAIR_STYLE_INDEXES = Arrays.asList(
             0,
-            1, 2, 3, 5, 7, 9,
+            1, 2, 3, 4, 5,
             10, 11, 12, 13, 14, 15,
             16, 17, 18, 19, 20, 21, 22,
             23, 24, 25,
@@ -79,7 +79,7 @@ public class AvatarEditorActivity extends AppCompatActivity {
 
     private static final List<Integer> ALL_HAIR_STYLE_INDEXES = Arrays.asList(
             0,
-            1, 2, 3, 4, 5, 6, 7, 8, 9,
+            1, 2, 3, 4, 5,
             10, 11, 12, 13, 14, 15,
             16, 17, 18, 19, 20, 21, 22,
             23, 24, 25,

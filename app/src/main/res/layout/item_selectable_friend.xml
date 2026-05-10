@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="10dp"
-    android:background="@drawable/bg_avatar_option"
+    android:background="@drawable/bg_team_card"
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:padding="14dp">
@@ -12,7 +12,7 @@
         android:id="@+id/cbSelectableFriend"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:buttonTint="#1CB0F6" />
+        android:buttonTint="@color/team_progress_fill" />
 
     <LinearLayout
         android:layout_width="0dp"
@@ -26,7 +26,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="username"
-            android:textColor="@android:color/white"
+            android:textColor="@color/team_text_primary"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -35,7 +35,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="0 XP"
-            android:textColor="#89A0AE"
+            android:textColor="@color/team_text_secondary"
             android:textSize="14sp" />
 
     </LinearLayout>

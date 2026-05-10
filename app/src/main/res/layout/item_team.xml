@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="10dp"
-    android:background="@drawable/bg_avatar_option"
+    android:background="@drawable/bg_team_card"
     android:orientation="vertical"
     android:padding="16dp">
 
@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Команда"
-        android:textColor="@android:color/white"
+        android:textColor="@color/team_text_primary"
         android:textSize="17sp"
         android:textStyle="bold" />
 
@@ -22,7 +22,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:text="Открыть задание команды"
-        android:textColor="#89A0AE"
+        android:textColor="@color/team_text_secondary"
         android:textSize="14sp" />
 
 </LinearLayout>

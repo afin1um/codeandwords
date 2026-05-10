@@ -9,27 +9,35 @@
         android:id="@+id/etNewWord"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Слово (напр. Git)" />
+        android:hint="Слово (напр. Git)"
+        android:textColor="@color/dict_dialog_text"
+        android:textColorHint="@color/dict_dialog_hint" />
 
     <EditText
         android:id="@+id/etNewTranslation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:hint="Перевод" />
+        android:hint="Перевод"
+        android:textColor="@color/dict_dialog_text"
+        android:textColorHint="@color/dict_dialog_hint" />
 
     <EditText
         android:id="@+id/etNewTranscription"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:hint="Транскрипция" />
+        android:hint="Транскрипция"
+        android:textColor="@color/dict_dialog_text"
+        android:textColorHint="@color/dict_dialog_hint" />
 
     <EditText
         android:id="@+id/etNewNotes"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:hint="Заметки (пример)" />
+        android:hint="Заметки (пример)"
+        android:textColor="@color/dict_dialog_text"
+        android:textColorHint="@color/dict_dialog_hint" />
 
 </LinearLayout>

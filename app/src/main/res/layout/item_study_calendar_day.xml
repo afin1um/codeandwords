@@ -17,7 +17,7 @@
         android:layout_weight="1"
         android:gravity="center"
         android:text="1"
-        android:textColor="@android:color/white"
+        android:textColor="@color/app_text_primary"
         android:textSize="15sp"
         android:textStyle="bold" />
 
@@ -25,10 +25,9 @@
         android:id="@+id/tvCalendarEventCount"
         android:layout_width="24dp"
         android:layout_height="16dp"
-        android:background="#58CC02"
         android:gravity="center"
         android:text="1"
-        android:textColor="@android:color/white"
+        android:textColor="@color/app_text_dark"
         android:textSize="10sp"
         android:textStyle="bold"
         android:visibility="invisible" />

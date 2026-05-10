@@ -2,14 +2,14 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#071A22"
+    android:background="@color/avatar_editor_bg"
     android:orientation="vertical">
 
     <RelativeLayout
         android:id="@+id/headerContainerAvatarEditor"
         android:layout_width="match_parent"
         android:layout_height="64dp"
-        android:background="#08171F"
+        android:background="@color/avatar_editor_toolbar_bg"
         android:clipToPadding="false"
         android:paddingStart="12dp"
         android:paddingEnd="12dp">
@@ -22,7 +22,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="10dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:tint="#6E7F8A" />
+            android:tint="@color/avatar_editor_toolbar_icon" />
 
         <TextView
             android:id="@+id/tvAvatarEditorTitle"
@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
             android:text="Изменить аватар"
-            android:textColor="#6E7F8A"
+            android:textColor="@color/avatar_editor_toolbar_text"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -45,7 +45,7 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
             android:text="ГОТОВО"
-            android:textColor="#1CB0F6"
+            android:textColor="@color/avatar_editor_done"
             android:textSize="17sp"
             android:textStyle="bold" />
     </RelativeLayout>
@@ -65,7 +65,7 @@
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="72dp"
-        android:background="#08171F"
+        android:background="@color/avatar_editor_tabs_bg"
         android:fillViewport="true"
         android:scrollbars="none">
 
@@ -92,7 +92,7 @@
                     android:layout_width="48dp"
                     android:layout_height="4dp"
                     android:layout_marginTop="8dp"
-                    android:background="#1CB0F6" />
+                    android:background="@color/avatar_editor_done" />
             </LinearLayout>
 
             <LinearLayout
@@ -110,7 +110,7 @@
                     android:layout_width="48dp"
                     android:layout_height="4dp"
                     android:layout_marginTop="8dp"
-                    android:background="#1CB0F6"
+                    android:background="@color/avatar_editor_done"
                     android:visibility="invisible" />
             </LinearLayout>
 
@@ -129,7 +129,7 @@
                     android:layout_width="48dp"
                     android:layout_height="4dp"
                     android:layout_marginTop="8dp"
-                    android:background="#1CB0F6"
+                    android:background="@color/avatar_editor_done"
                     android:visibility="invisible" />
             </LinearLayout>
 
@@ -148,7 +148,7 @@
                     android:layout_width="48dp"
                     android:layout_height="4dp"
                     android:layout_marginTop="8dp"
-                    android:background="#1CB0F6"
+                    android:background="@color/avatar_editor_done"
                     android:visibility="invisible" />
             </LinearLayout>
 
@@ -167,7 +167,7 @@
                     android:layout_width="48dp"
                     android:layout_height="4dp"
                     android:layout_marginTop="8dp"
-                    android:background="#1CB0F6"
+                    android:background="@color/avatar_editor_done"
                     android:visibility="invisible" />
             </LinearLayout>
 
@@ -186,7 +186,7 @@
                     android:layout_width="48dp"
                     android:layout_height="4dp"
                     android:layout_marginTop="8dp"
-                    android:background="#1CB0F6"
+                    android:background="@color/avatar_editor_done"
                     android:visibility="invisible" />
             </LinearLayout>
 
@@ -205,7 +205,7 @@
                     android:layout_width="48dp"
                     android:layout_height="4dp"
                     android:layout_marginTop="8dp"
-                    android:background="#1CB0F6"
+                    android:background="@color/avatar_editor_done"
                     android:visibility="invisible" />
             </LinearLayout>
 
@@ -224,7 +224,7 @@
                     android:layout_width="48dp"
                     android:layout_height="4dp"
                     android:layout_marginTop="8dp"
-                    android:background="#1CB0F6"
+                    android:background="@color/avatar_editor_done"
                     android:visibility="invisible" />
             </LinearLayout>
 
@@ -234,7 +234,7 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#17313B" />
+        android:background="@color/avatar_editor_divider" />
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -257,7 +257,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Цвет кожи"
-                android:textColor="@android:color/white"
+                android:textColor="@color/avatar_editor_section_title"
                 android:textSize="17sp"
                 android:textStyle="bold" />
 
@@ -277,7 +277,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
                 android:text="Причёска"
-                android:textColor="@android:color/white"
+                android:textColor="@color/avatar_editor_section_title"
                 android:textSize="17sp"
                 android:textStyle="bold"
                 android:visibility="gone" />

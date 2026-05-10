@@ -3,62 +3,68 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@color/fix_dialog_bg"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:background="@android:color/white">
+    android:padding="24dp">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Работа над ошибками"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="#F44336"
         android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="8dp"/>
+        android:layout_marginBottom="8dp"
+        android:text="Работа над ошибками"
+        android:textColor="@color/fix_dialog_title"
+        android:textSize="20sp"
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/tvMistakesLeft"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Осталось исправить: 0"
         android:layout_gravity="center_horizontal"
-        android:textColor="@android:color/darker_gray"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginBottom="16dp"
+        android:text="Осталось исправить: 0"
+        android:textColor="@color/fix_dialog_text_secondary" />
 
     <TextView
         android:id="@+id/tvWordToTranslate"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
         android:text="Слово"
-        android:textSize="24sp"
-        android:textStyle="bold"
         android:textAlignment="center"
-        android:textColor="#2196F3"
-        android:layout_marginBottom="24dp"/>
+        android:textColor="@color/fix_dialog_word"
+        android:textSize="24sp"
+        android:textStyle="bold" />
 
-    <com.google.android.material.textfield.TextInputLayout
+    <FrameLayout
         android:id="@+id/tilFixInput"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Введите правильный ответ">
+        android:background="@drawable/bg_auth_input">
 
-        <com.google.android.material.textfield.TextInputEditText
+        <EditText
             android:id="@+id/etFixInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
+            android:hint="Введите правильный ответ"
+            android:imeOptions="actionDone"
             android:inputType="textNoSuggestions|textVisiblePassword"
-            android:imeOptions="actionDone"/>
-    </com.google.android.material.textfield.TextInputLayout>
+            android:padding="16dp"
+            android:textColor="@color/app_text_primary"
+            android:textColorHint="@color/app_text_secondary" />
+    </FrameLayout>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnFixCheck"
         android:layout_width="match_parent"
         android:layout_height="60dp"
-        android:text="Исправить"
-        android:textSize="18sp"
         android:layout_marginTop="24dp"
+        android:backgroundTint="@color/app_green"
+        android:text="Исправить"
+        android:textColor="@color/app_text_on_accent"
+        android:textSize="18sp"
         app:cornerRadius="12dp" />
 
 </LinearLayout>

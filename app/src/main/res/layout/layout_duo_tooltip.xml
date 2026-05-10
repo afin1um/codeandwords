@@ -13,7 +13,7 @@
         android:id="@+id/tvDuoEn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="@color/duo_blue"
+        android:textColor="@color/app_blue"
         android:textSize="20sp"
         android:textStyle="bold" />
 
@@ -21,21 +21,21 @@
         android:id="@+id/tvDuoTranscription"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="#888888"
-        android:textSize="14sp"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginBottom="8dp"
+        android:textColor="@color/tooltip_transcription"
+        android:textSize="14sp" />
 
     <View
         android:layout_width="100dp"
         android:layout_height="1dp"
-        android:background="#E5E5E5"
-        android:layout_marginBottom="8dp"/>
+        android:layout_marginBottom="8dp"
+        android:background="@color/tooltip_divider" />
 
     <TextView
         android:id="@+id/tvDuoRu"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="@color/black"
+        android:textColor="@color/tooltip_translation"
         android:textSize="16sp" />
 
     <ImageButton
@@ -45,6 +45,6 @@
         android:layout_marginTop="8dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:src="@android:drawable/ic_lock_silent_mode_off"
-        app:tint="@color/duo_blue" />
+        app:tint="@color/app_blue" />
 
 </LinearLayout>

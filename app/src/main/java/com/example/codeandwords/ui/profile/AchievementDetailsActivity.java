@@ -6,7 +6,6 @@ import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -25,10 +24,13 @@ public class AchievementDetailsActivity extends AppCompatActivity {
 
     private ImageButton btnBack;
     private ImageView ivAchievement;
+    private ImageView ivLock;
     private TextView tvTitle;
     private TextView tvDescription;
     private TextView tvStatus;
     private TextView tvProgress;
+    private TextView tvXpReward;
+    private TextView tvCondition;
     private ProgressBar progressBar;
 
     @Override
@@ -43,10 +45,13 @@ public class AchievementDetailsActivity extends AppCompatActivity {
     private void initViews() {
         btnBack = findViewById(R.id.btnBackAchievement);
         ivAchievement = findViewById(R.id.ivAchievementLarge);
+        ivLock = findViewById(R.id.ivAchievementLock);
         tvTitle = findViewById(R.id.tvAchievementTitle);
         tvDescription = findViewById(R.id.tvAchievementDescription);
         tvStatus = findViewById(R.id.tvAchievementStatus);
         tvProgress = findViewById(R.id.tvAchievementProgress);
+        tvXpReward = findViewById(R.id.tvAchievementXpReward);
+        tvCondition = findViewById(R.id.tvAchievementCondition);
         progressBar = findViewById(R.id.progressAchievementDetails);
 
         btnBack.setOnClickListener(v -> finish());
@@ -57,29 +62,32 @@ public class AchievementDetailsActivity extends AppCompatActivity {
         String description = getIntent().getStringExtra("description");
         String iconResName = getIntent().getStringExtra("iconResName");
         String conditionType = getIntent().getStringExtra("conditionType");
+
         int progress = getIntent().getIntExtra("progress", 0);
         int maxProgress = getIntent().getIntExtra("maxProgress", 0);
-        boolean isUnlocked = getIntent().getBooleanExtra("isUnlocked", false);
+        int xpReward = getIntent().getIntExtra("xpReward", 0);
 
-        tvTitle.setText(title != null ? title : "Достижение");
-        tvDescription.setText(description != null ? description : "");
-        tvStatus.setText(isUnlocked ? "Получено" : "Не получено");
+        boolean isUnlocked = getIntent().getBooleanExtra("isUnlocked", false);
 
         if (maxProgress <= 0) {
             maxProgress = 1;
         }
 
+        int safeProgress = Math.max(0, Math.min(progress, maxProgress));
+
+        tvTitle.setText(title != null && !title.trim().isEmpty() ? title : "Достижение");
+        tvDescription.setText(description != null ? description : "");
+        tvStatus.setText(isUnlocked ? "Получено" : "В процессе");
+        tvProgress.setText(safeProgress + " / " + maxProgress);
+        tvXpReward.setText(xpReward > 0 ? "+" + xpReward + " XP" : "Без награды XP");
+        tvCondition.setText(makeConditionText(conditionType));
+
         progressBar.setMax(maxProgress);
-        progressBar.setProgress(Math.min(progress, maxProgress));
-        tvProgress.setText(progress + " / " + maxProgress);
+        progressBar.setProgress(safeProgress);
 
         @DrawableRes int iconRes = resolveIcon(iconResName, conditionType, title);
-        Log.d("AchievementDetails", "title=" + title
-                + ", iconResName=" + iconResName
-                + ", conditionType=" + conditionType
-                + ", resolvedRes=" + iconRes);
-
         Drawable drawable = AppCompatResources.getDrawable(this, iconRes);
+
         if (drawable != null) {
             ivAchievement.setImageDrawable(drawable.mutate());
         } else {
@@ -88,12 +96,47 @@ public class AchievementDetailsActivity extends AppCompatActivity {
 
         if (isUnlocked) {
             ivAchievement.clearColorFilter();
-            progressBar.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#FFD54F")));
-            tvStatus.setTextColor(Color.parseColor("#7ED957"));
+            ivAchievement.setAlpha(1f);
+            ivLock.setAlpha(0f);
+
+            tvStatus.setTextColor(Color.parseColor("#58CC02"));
+            progressBar.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#58CC02")));
         } else {
             applyGrayFilter(ivAchievement);
-            progressBar.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#4E6470")));
-            tvStatus.setTextColor(Color.parseColor("#9AA7AF"));
+            ivAchievement.setAlpha(0.78f);
+            ivLock.setAlpha(1f);
+
+            tvStatus.setTextColor(Color.parseColor("#8A9AA5"));
+            progressBar.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#1CB0F6")));
+        }
+    }
+
+    private String makeConditionText(String conditionType) {
+        String type = normalizeKey(conditionType);
+
+        switch (type) {
+            case "LOGIN_STREAK":
+                return "Заходите в приложение несколько дней подряд.";
+            case "MAX_XP_DAY":
+                return "Набирайте много опыта за один день.";
+            case "PERFECT_STREAK":
+                return "Проходите уроки без ошибок подряд.";
+            case "EARLY_BIRD":
+                return "Занимайтесь утром.";
+            case "ERROR_FIXER":
+                return "Исправляйте ошибки в тренировке.";
+            case "TASK_MASTER":
+                return "Выполняйте задания и тренировки.";
+            case "NIGHT_OWL":
+                return "Занимайтесь поздно вечером.";
+            case "TOTAL_XP":
+                return "Набирайте общий опыт.";
+            case "PERFECT_TOTAL":
+                return "Проходите уроки без ошибок.";
+            case "SPRINT_XP":
+                return "Зарабатывайте опыт в режиме спринта.";
+            default:
+                return "Продолжайте учиться, чтобы открыть это достижение.";
         }
     }
 
@@ -115,14 +158,21 @@ public class AchievementDetailsActivity extends AppCompatActivity {
     @DrawableRes
     private int resolveIcon(String iconName, String conditionType, String title) {
         String normalizedIconName = normalizeResourceName(iconName);
+
         if (!normalizedIconName.isEmpty()) {
-            int byName = getResources().getIdentifier(normalizedIconName, "drawable", getPackageName());
+            int byName = getResources().getIdentifier(
+                    normalizedIconName,
+                    "drawable",
+                    getPackageName()
+            );
+
             if (byName != 0) {
                 return byName;
             }
         }
 
         String normalizedConditionType = normalizeKey(conditionType);
+
         switch (normalizedConditionType) {
             case "LOGIN_STREAK":
                 return R.drawable.ic_ach_streak;
@@ -147,6 +197,7 @@ public class AchievementDetailsActivity extends AppCompatActivity {
         }
 
         String normalizedTitle = normalizeKey(title);
+
         switch (normalizedTitle) {
             case "УДАРНЫЙ_РЕКОРД":
                 return R.drawable.ic_ach_streak;
@@ -175,15 +226,19 @@ public class AchievementDetailsActivity extends AppCompatActivity {
 
     private String normalizeResourceName(String value) {
         if (value == null) return "";
+
         String result = value.trim().toLowerCase(Locale.ROOT);
+
         if (result.endsWith(".xml")) {
             result = result.substring(0, result.length() - 4);
         }
+
         return result;
     }
 
     private String normalizeKey(String value) {
         if (value == null) return "";
+
         return value.trim()
                 .toUpperCase(Locale.ROOT)
                 .replace("«", "")

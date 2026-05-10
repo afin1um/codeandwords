@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#071A22"
+    android:background="@color/app_bg"
     android:clipToPadding="false"
     android:fillViewport="true">
 
@@ -16,18 +17,17 @@
             android:id="@+id/profileHeaderContainer"
             android:layout_width="match_parent"
             android:layout_height="360dp"
-            android:background="#87CEFA">
+            android:background="@color/profile_header_bg">
 
             <LinearLayout
                 android:id="@+id/profileHeaderContent"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="#87CEFA"
+                android:background="@color/profile_header_bg"
                 android:orientation="vertical"
                 android:paddingStart="24dp"
                 android:paddingTop="44dp"
-                android:paddingEnd="24dp"
-                android:paddingBottom="0dp">
+                android:paddingEnd="24dp">
 
                 <RelativeLayout
                     android:layout_width="match_parent"
@@ -44,8 +44,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Sandra"
-                            android:textColor="#3E4452"
-                            android:textSize="24sp"
+                            android:textColor="@color/profile_header_text"
+                            android:textSize="28sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -54,7 +54,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
                             android:text="mail@example.com"
-                            android:textColor="#54606D"
+                            android:textColor="@color/profile_header_subtitle"
                             android:textSize="14sp" />
                     </LinearLayout>
 
@@ -69,7 +69,49 @@
                         <com.google.android.material.card.MaterialCardView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
-                            app:cardBackgroundColor="#66FFFFFF"
+                            app:cardBackgroundColor="@color/profile_action_bg"
+                            app:cardCornerRadius="24dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <ImageButton
+                                android:id="@+id/btnEditProfile"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="Редактировать профиль"
+                                android:padding="12dp"
+                                android:scaleType="centerInside"
+                                android:src="@android:drawable/ic_menu_manage"
+                                android:tint="@color/profile_header_text" />
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:layout_marginStart="10dp"
+                            app:cardBackgroundColor="@color/profile_action_bg"
+                            app:cardCornerRadius="24dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <ImageButton
+                                android:id="@+id/btnToggleTheme"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="Переключить тему"
+                                android:padding="12dp"
+                                android:scaleType="centerInside"
+                                android:src="@drawable/ic_theme_moon"
+                                android:tint="@color/profile_header_text" />
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:layout_marginStart="10dp"
+                            app:cardBackgroundColor="@color/profile_action_bg"
                             app:cardCornerRadius="24dp"
                             app:cardElevation="0dp"
                             app:strokeWidth="0dp">
@@ -79,17 +121,18 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
                                 android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="Изменить аватар"
                                 android:padding="12dp"
                                 android:scaleType="centerInside"
                                 android:src="@android:drawable/ic_menu_edit"
-                                android:tint="#3E4452" />
+                                android:tint="@color/profile_header_text" />
                         </com.google.android.material.card.MaterialCardView>
 
                         <com.google.android.material.card.MaterialCardView
                             android:layout_width="48dp"
                             android:layout_height="48dp"
                             android:layout_marginStart="10dp"
-                            app:cardBackgroundColor="#66FFFFFF"
+                            app:cardBackgroundColor="@color/profile_action_bg"
                             app:cardCornerRadius="24dp"
                             app:cardElevation="0dp"
                             app:strokeWidth="0dp">
@@ -99,10 +142,11 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="match_parent"
                                 android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="Выйти"
                                 android:padding="12dp"
                                 android:scaleType="centerInside"
                                 android:src="@android:drawable/ic_lock_power_off"
-                                android:tint="#3E4452" />
+                                android:tint="@color/profile_header_text" />
                         </com.google.android.material.card.MaterialCardView>
                     </LinearLayout>
                 </RelativeLayout>
@@ -113,7 +157,7 @@
                     android:layout_height="0dp"
                     android:layout_marginTop="12dp"
                     android:layout_weight="1"
-                    android:background="#87CEFA">
+                    android:background="@color/profile_header_bg">
 
                     <com.example.codeandwords.ui.profile.AvatarPreviewView
                         android:id="@+id/avatarPreview"
@@ -126,16 +170,19 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#071A22"
+            android:background="@color/app_bg"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:paddingStart="24dp"
+            android:paddingTop="24dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="28dp">
 
             <TextView
                 android:id="@+id/tvHandle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@username"
-                android:textColor="#6D7C87"
+                android:textColor="@color/app_text_muted"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -157,16 +204,16 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0"
-                        android:textColor="@android:color/white"
+                        android:textColor="@color/app_text_primary"
                         android:textSize="28sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Курсы"
-                        android:textColor="#8A9AA5"
-                        android:textSize="14sp" />
+                        android:text="Освоено тем"
+                        android:textColor="@color/app_text_secondary"
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -180,16 +227,16 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0"
-                        android:textColor="@android:color/white"
+                        android:textColor="@color/app_text_primary"
                         android:textSize="28sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Медали"
-                        android:textColor="#8A9AA5"
-                        android:textSize="14sp" />
+                        android:text="Достижения"
+                        android:textColor="@color/app_text_secondary"
+                        android:textSize="13sp" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -203,7 +250,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0"
-                        android:textColor="@android:color/white"
+                        android:textColor="@color/app_text_primary"
                         android:textSize="28sp"
                         android:textStyle="bold" />
 
@@ -211,8 +258,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Очки"
-                        android:textColor="#8A9AA5"
-                        android:textSize="14sp" />
+                        android:textColor="@color/app_text_secondary"
+                        android:textSize="13sp" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -220,15 +267,15 @@
                 android:id="@+id/btnOpenPersonalDictionary"
                 android:layout_width="match_parent"
                 android:layout_height="58dp"
-                android:layout_marginTop="20dp"
-                android:backgroundTint="#0D2029"
+                android:layout_marginTop="22dp"
+                android:backgroundTint="@color/app_card_bg"
                 android:text="ОТКРЫТЬ ЛИЧНЫЙ СЛОВАРЬ"
                 android:textAllCaps="false"
-                android:textColor="@android:color/white"
+                android:textColor="@color/app_text_primary"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 app:cornerRadius="18dp"
-                app:strokeColor="#314853"
+                app:strokeColor="@color/app_card_stroke"
                 app:strokeWidth="2dp" />
 
             <com.google.android.material.button.MaterialButton
@@ -236,14 +283,29 @@
                 android:layout_width="match_parent"
                 android:layout_height="58dp"
                 android:layout_marginTop="12dp"
-                android:backgroundTint="#0D2029"
+                android:backgroundTint="@color/app_card_bg"
                 android:text="ОТКРЫТЬ ГРАФИК ЗАНЯТИЙ"
                 android:textAllCaps="false"
-                android:textColor="@android:color/white"
+                android:textColor="@color/app_text_primary"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 app:cornerRadius="18dp"
-                app:strokeColor="#1CB0F6"
+                app:strokeColor="@color/app_blue"
+                app:strokeWidth="2dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnOpenStatistics"
+                android:layout_width="match_parent"
+                android:layout_height="58dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="@color/app_card_bg"
+                android:text="ОТКРЫТЬ СТАТИСТИКУ"
+                android:textAllCaps="false"
+                android:textColor="@color/app_text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:cornerRadius="18dp"
+                app:strokeColor="@color/app_green"
                 app:strokeWidth="2dp" />
 
             <com.google.android.material.button.MaterialButton
@@ -251,123 +313,245 @@
                 android:layout_width="match_parent"
                 android:layout_height="58dp"
                 android:layout_marginTop="12dp"
-                android:backgroundTint="#0D2029"
+                android:backgroundTint="@color/app_card_bg"
                 android:text="КОМАНДА И ДРУЗЬЯ"
                 android:textAllCaps="false"
-                android:textColor="@android:color/white"
+                android:textColor="@color/app_text_primary"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 app:cornerRadius="18dp"
-                app:strokeColor="#58CC02"
+                app:strokeColor="@color/app_green"
+                app:strokeWidth="2dp" />
+
+            <!-- ✅ НОВАЯ КНОПКА — НАЙТИ ДРУЗЕЙ -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFindFriends"
+                android:layout_width="match_parent"
+                android:layout_height="58dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="@color/app_blue"
+                android:text="🔍  НАЙТИ ДРУЗЕЙ"
+                android:textAllCaps="false"
+                android:textColor="@color/app_text_on_accent"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:cornerRadius="18dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnOpenAdminPanel"
+                android:layout_width="match_parent"
+                android:layout_height="58dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="@color/app_card_bg"
+                android:text="АДМИН-ПАНЕЛЬ"
+                android:textAllCaps="false"
+                android:textColor="@color/app_text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                app:cornerRadius="18dp"
+                app:strokeColor="@color/app_orange"
                 app:strokeWidth="2dp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="28dp"
+                android:layout_marginTop="30dp"
                 android:text="ОБЗОР"
-                android:textColor="#6D7C87"
+                android:textColor="@color/app_text_muted"
                 android:textSize="14sp"
                 android:textStyle="bold" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="@color/app_card_bg"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_card_stroke"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvLevelValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="1"
+                                android:textColor="@color/app_text_primary"
+                                android:textSize="28sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Уровень"
+                                android:textColor="@color/app_text_secondary"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvWordsLearnedCount"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0"
+                                android:textColor="@color/app_text_primary"
+                                android:textSize="28sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Слов изучено"
+                                android:textColor="@color/app_text_secondary"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvMasteredThemesValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0"
+                                android:textColor="@color/app_text_primary"
+                                android:textSize="28sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Тем освоено"
+                                android:textColor="@color/app_text_secondary"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="18dp"
+                        android:layout_marginBottom="16dp"
+                        android:background="@color/app_divider" />
+
+                    <TextView
+                        android:id="@+id/tvLeagueValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🥉 Бронзовая лига"
+                        android:textColor="@color/league_bronze"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvLeagueDescription"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Начало пути"
+                        android:textColor="@color/app_text_secondary"
+                        android:textSize="14sp" />
+
+                    <ProgressBar
+                        android:id="@+id/progressBarXP"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="8dp"
+                        android:layout_marginTop="18dp"
+                        android:max="100"
+                        android:progress="0"
+                        android:progressBackgroundTint="@color/app_divider"
+                        android:progressTint="@color/profile_gold" />
+
+                    <TextView
+                        android:id="@+id/tvXpCount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="0 / 100 XP"
+                        android:textColor="@color/app_text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <LinearLayout
+                android:id="@+id/layoutAchievementsHeader"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
+                android:layout_height="56dp"
+                android:layout_marginTop="30dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <LinearLayout
+                <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:text="ДОСТИЖЕНИЯ"
+                    android:textColor="@color/app_text_muted"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
 
-                    <TextView
-                        android:id="@+id/tvLevelValue"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="1"
-                        android:textColor="@android:color/white"
-                        android:textSize="28sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Уровень"
-                        android:textColor="#8A9AA5"
-                        android:textSize="14sp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="0dp"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tvWordsLearnedCount"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textColor="@android:color/white"
-                        android:textSize="28sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Слов изучено"
-                        android:textColor="#8A9AA5"
-                        android:textSize="14sp" />
-                </LinearLayout>
+                    android:text="›"
+                    android:textColor="@color/app_text_muted"
+                    android:textSize="34sp"
+                    android:textStyle="bold" />
             </LinearLayout>
-
-            <ProgressBar
-                android:id="@+id/progressBarXP"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="10dp"
-                android:layout_marginTop="16dp"
-                android:max="100"
-                android:progress="0"
-                android:progressBackgroundTint="#314853"
-                android:progressTint="@color/profile_gold" />
-
-            <TextView
-                android:id="@+id/tvXpCount"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="0 / 100 XP"
-                android:textColor="#8A9AA5"
-                android:textSize="13sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="30dp"
-                android:text="МЕДАЛИ"
-                android:textColor="#6D7C87"
-                android:textSize="14sp"
-                android:textStyle="bold" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvMedals"
                 android:layout_width="match_parent"
-                android:layout_height="120dp"
-                android:layout_marginTop="16dp"
+                android:layout_height="110dp"
+                android:layout_marginTop="4dp"
                 android:clipToPadding="false"
+                android:orientation="horizontal"
+                android:overScrollMode="never"
                 android:paddingEnd="8dp" />
 
             <TextView
                 android:id="@+id/tvMedalsEmpty"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Пока нет открытых медалей"
-                android:textColor="#8A9AA5"
-                android:textSize="14sp"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_app_empty_state"
+                android:gravity="center"
+                android:padding="18dp"
+                android:text="Пока нет достижений"
+                android:textColor="@color/app_text_secondary"
+                android:textSize="15sp"
                 android:visibility="gone" />
 
         </LinearLayout>

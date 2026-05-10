@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="#0D202A" />
-    <corners android:radius="22dp" />
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <solid android:color="@color/avatar_color_option_bg" />
+
+    <corners android:radius="16dp" />
+
     <stroke
         android:width="2dp"
-        android:color="#314957" />
+        android:color="@color/avatar_color_option_stroke" />
 </shape>

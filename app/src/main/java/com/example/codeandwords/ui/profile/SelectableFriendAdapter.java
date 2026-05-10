@@ -112,6 +112,11 @@ public class SelectableFriendAdapter extends RecyclerView.Adapter<SelectableFrie
         return items.size();
     }
 
+    public void clearSelection() {
+        selectedUserIds.clear();
+        notifyDataSetChanged();
+    }
+
     static class VH extends RecyclerView.ViewHolder {
 
         TextView tvUsername;
@@ -125,9 +130,5 @@ public class SelectableFriendAdapter extends RecyclerView.Adapter<SelectableFrie
             tvXp = itemView.findViewById(R.id.tvSelectableFriendXp);
             checkBox = itemView.findViewById(R.id.cbSelectableFriend);
         }
-    }
-    public void clearSelection() {
-        selectedUserIds.clear();
-        notifyDataSetChanged();
     }
 }

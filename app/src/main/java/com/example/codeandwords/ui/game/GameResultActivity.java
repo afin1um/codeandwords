@@ -19,23 +19,36 @@ public class GameResultActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game_result);
 
+        TextView tvResultTitle = findViewById(R.id.tvResultTitle);
         TextView tvScore = findViewById(R.id.tvResultScore);
         TextView tvAccuracy = findViewById(R.id.tvAccuracy);
         TextView tvWordsCount = findViewById(R.id.tvWordsCount);
+        TextView tvWordsLabel = findViewById(R.id.tvWordsLabel);
         Button btnFinish = findViewById(R.id.btnFinish);
 
         int score = getIntent().getIntExtra("SCORE", 0);
         int totalWords = getIntent().getIntExtra("TOTAL_WORDS", 0);
         int mistakes = getIntent().getIntExtra("MISTAKES_COUNT", 0);
+        boolean isTraining = getIntent().getBooleanExtra("IS_TRAINING", false);
 
         int correctWords = Math.max(0, totalWords - mistakes);
         int accuracy = (totalWords > 0)
                 ? Math.max(0, (correctWords * 100) / totalWords)
                 : 100;
 
-        tvScore.setText("+ " + score + " XP");
+        if (isTraining) {
+            tvResultTitle.setText("Тренировка завершена!");
+            tvScore.setText("XP не начисляется");
+            tvWordsLabel.setText("ПОВТОРЕНО");
+            tvWordsCount.setText(String.valueOf(totalWords));
+        } else {
+            tvResultTitle.setText("Урок завершён!");
+            tvScore.setText("+ " + score + " XP");
+            tvWordsLabel.setText("СЛОВ");
+            tvWordsCount.setText(String.valueOf(correctWords));
+        }
+
         tvAccuracy.setText(accuracy + "%");
-        tvWordsCount.setText(String.valueOf(correctWords));
 
         triggerSuccessVibration();
 

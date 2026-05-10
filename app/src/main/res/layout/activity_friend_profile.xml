@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#071A22"
+    android:background="@color/friend_bg"
     android:orientation="vertical">
 
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="82dp"
-        android:background="#08171F"
+        android:background="@color/friend_toolbar_bg"
         android:paddingStart="12dp"
         android:paddingTop="18dp"
         android:paddingEnd="12dp"
@@ -22,14 +23,14 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="10dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:tint="#6E7F8A" />
+            android:tint="@color/friend_toolbar_icon" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
             android:text="Профиль"
-            android:textColor="#6E7F8A"
+            android:textColor="@color/friend_toolbar_text"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -59,7 +60,7 @@
                 android:layout_marginTop="18dp"
                 android:gravity="center"
                 android:text="username"
-                android:textColor="@android:color/white"
+                android:textColor="@color/friend_text_primary"
                 android:textSize="26sp"
                 android:textStyle="bold" />
 
@@ -70,7 +71,7 @@
                 android:layout_marginTop="4dp"
                 android:gravity="center"
                 android:text="@username"
-                android:textColor="#89A0AE"
+                android:textColor="@color/friend_text_secondary"
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
@@ -81,96 +82,118 @@
                 android:layout_marginTop="8dp"
                 android:gravity="center"
                 android:text="mail@example.com"
-                android:textColor="#6E7F8A"
+                android:textColor="@color/friend_text_muted"
                 android:textSize="14sp" />
 
-            <LinearLayout
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAddFriend"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="20dp"
+                android:backgroundTint="@color/app_green"
+                android:text="ДОБАВИТЬ В ДРУЗЬЯ"
+                android:textColor="@color/app_text_dark"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                app:cornerRadius="18dp" />
+
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="28dp"
-                android:background="@drawable/bg_avatar_option"
-                android:orientation="vertical"
-                android:padding="18dp">
+                android:layout_marginTop="20dp"
+                app:cardBackgroundColor="@color/friend_card_bg"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/friend_card_stroke"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:orientation="vertical"
+                    android:padding="18dp">
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="center"
-                        android:orientation="vertical">
+                        android:orientation="horizontal">
 
-                        <TextView
-                            android:id="@+id/tvFriendProfileLevel"
-                            android:layout_width="wrap_content"
+                        <LinearLayout
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:text="1"
-                            android:textColor="@android:color/white"
-                            android:textSize="30sp"
-                            android:textStyle="bold" />
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:orientation="vertical">
 
-                        <TextView
-                            android:layout_width="wrap_content"
+                            <TextView
+                                android:id="@+id/tvFriendProfileLevel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="1"
+                                android:textColor="@color/friend_text_primary"
+                                android:textSize="30sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Уровень"
+                                android:textColor="@color/friend_text_secondary"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:text="Уровень"
-                            android:textColor="#89A0AE"
-                            android:textSize="14sp" />
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvFriendProfileXp"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0"
+                                android:textColor="@color/friend_text_primary"
+                                android:textSize="30sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="XP"
+                                android:textColor="@color/friend_text_secondary"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
 
                     </LinearLayout>
 
-                    <LinearLayout
-                        android:layout_width="0dp"
+                    <ProgressBar
+                        android:id="@+id/progressFriendXp"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="12dp"
+                        android:layout_marginTop="20dp"
+                        android:max="100"
+                        android:progress="0"
+                        android:progressBackgroundTint="@color/friend_progress_bg"
+                        android:progressTint="@color/friend_progress_fill" />
+
+                    <TextView
+                        android:id="@+id/tvFriendXpProgress"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
+                        android:layout_marginTop="8dp"
                         android:gravity="center"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/tvFriendProfileXp"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="0"
-                            android:textColor="@android:color/white"
-                            android:textSize="30sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="XP"
-                            android:textColor="#89A0AE"
-                            android:textSize="14sp" />
-
-                    </LinearLayout>
+                        android:text="0 / 100 XP"
+                        android:textColor="@color/friend_text_secondary"
+                        android:textSize="14sp" />
 
                 </LinearLayout>
-
-                <ProgressBar
-                    android:id="@+id/progressFriendXp"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="12dp"
-                    android:layout_marginTop="20dp"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressTint="#1CB0F6"
-                    android:progressBackgroundTint="#17313D" />
-
-                <TextView
-                    android:id="@+id/tvFriendXpProgress"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:gravity="center"
-                    android:text="0 / 100 XP"
-                    android:textColor="#89A0AE"
-                    android:textSize="14sp" />
-
-            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
 

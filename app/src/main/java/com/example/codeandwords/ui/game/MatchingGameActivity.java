@@ -1,6 +1,9 @@
 package com.example.codeandwords.ui.game;
 
+import android.animation.ObjectAnimator;
 import android.content.Intent;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
 import android.os.Bundle;
@@ -9,6 +12,7 @@ import android.speech.tts.TextToSpeech;
 import android.view.View;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -32,16 +36,28 @@ import java.util.Map;
 
 public class MatchingGameActivity extends AppCompatActivity {
 
+    private static final int REQUIRED_PAIRS_COUNT = 5;
+    private static final int POINTS_PER_FIRST_TRY_PAIR = 10;
+
+    private static final int COLOR_CARD_DEFAULT = Color.rgb(16, 39, 51);
+    private static final int COLOR_BLUE = Color.rgb(28, 176, 246);
+    private static final int COLOR_GREEN = Color.rgb(88, 204, 2);
+    private static final int COLOR_GRAY = Color.rgb(138, 154, 165);
+    private static final int COLOR_WHITE = Color.WHITE;
+
     private LinearLayout columnTerms;
     private LinearLayout columnTranslations;
     private ProgressBar progressBar;
     private ProgressBar loadingIndicator;
-    private Button btnCheck;
     private Button btnCantListen;
     private TextView tvTitle;
     private TextView tvCorrectionHeader;
     private TextView tvMistakesLeft;
     private MaterialCardView correctionBannerCard;
+
+    private MaterialCardView cardMatchingDictionaryState;
+    private TextView tvMatchingDictionaryIcon;
+    private TextView tvMatchingDictionaryText;
 
     private Repository repository;
     private Long themeId;
@@ -64,7 +80,13 @@ public class MatchingGameActivity extends AppCompatActivity {
     private boolean isAudioMode = true;
     private boolean isCorrectionMode = false;
 
+    private Word selectedDictionaryWord;
+    private boolean selectedWordAlreadyInDictionary = false;
+    private boolean dictionaryStateLoading = false;
+
     private List<Word> currentLevelWords = new ArrayList<>();
+    private List<Word> roundWords = new ArrayList<>();
+
     private final List<String> solvedMatchIds = new ArrayList<>();
     private final Map<String, Word> mistakenWordsMap = new LinkedHashMap<>();
 
@@ -83,6 +105,7 @@ public class MatchingGameActivity extends AppCompatActivity {
         if (themeId != -1) {
             loadGameData();
         } else {
+            Toast.makeText(this, "Тема не выбрана", Toast.LENGTH_SHORT).show();
             finish();
         }
     }
@@ -92,18 +115,36 @@ public class MatchingGameActivity extends AppCompatActivity {
         columnTranslations = findViewById(R.id.columnTranslations);
         progressBar = findViewById(R.id.gameProgressBar);
         loadingIndicator = findViewById(R.id.loadingIndicator);
-        btnCheck = findViewById(R.id.btnCheck);
         btnCantListen = findViewById(R.id.btnCantListen);
         tvTitle = findViewById(R.id.tvTitle);
         tvCorrectionHeader = findViewById(R.id.tvCorrectionHeader);
         tvMistakesLeft = findViewById(R.id.tvMistakesLeft);
         correctionBannerCard = findViewById(R.id.correctionBannerCard);
 
+        cardMatchingDictionaryState = findViewById(R.id.cardMatchingDictionaryState);
+        tvMatchingDictionaryIcon = findViewById(R.id.tvMatchingDictionaryIcon);
+        tvMatchingDictionaryText = findViewById(R.id.tvMatchingDictionaryText);
+
         findViewById(R.id.btnClose).setOnClickListener(v -> finish());
 
-        btnCheck.setEnabled(false);
-        btnCheck.setText("В СЛОВАРЬ");
-        btnCheck.setOnClickListener(v -> addSelectedWordToDictionary());
+        cardMatchingDictionaryState.setVisibility(View.GONE);
+        cardMatchingDictionaryState.setOnClickListener(v -> {
+            if (dictionaryStateLoading) {
+                return;
+            }
+
+            if (selectedDictionaryWord == null) {
+                Toast.makeText(this, "Сначала выберите слово", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (selectedWordAlreadyInDictionary) {
+                Toast.makeText(this, "Это слово уже есть в личном словаре", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            addSelectedWordToDictionary();
+        });
 
         btnCantListen.setOnClickListener(v -> {
             isAudioMode = false;
@@ -140,17 +181,41 @@ public class MatchingGameActivity extends AppCompatActivity {
     private void loadGameData() {
         loadingIndicator.setVisibility(View.VISIBLE);
 
-        repository.getWordsByTheme(themeId, new Repository.DataCallback<List<Word>>() {
+        repository.getUnlearnedWordsByTheme(themeId, new Repository.DataCallback<List<Word>>() {
             @Override
             public void onSuccess(List<Word> words) {
                 loadingIndicator.setVisibility(View.GONE);
 
-                if (words == null || words.size() < 2) {
+                List<Word> playableWords = preparePlayableWords(words);
+
+                if (playableWords.isEmpty()) {
+                    Toast.makeText(
+                            MatchingGameActivity.this,
+                            "Все доступные термины этой темы уже изучены. Перейдите в раздел «Тренировка», чтобы повторить их.",
+                            Toast.LENGTH_LONG
+                    ).show();
                     finish();
                     return;
                 }
 
-                currentLevelWords = new ArrayList<>(words.subList(0, Math.min(words.size(), 6)));
+                if (playableWords.size() < REQUIRED_PAIRS_COUNT) {
+                    Toast.makeText(
+                            MatchingGameActivity.this,
+                            "Для режима нужно минимум 5 неизученных терминов. Сейчас доступно: " + playableWords.size(),
+                            Toast.LENGTH_LONG
+                    ).show();
+                    finish();
+                    return;
+                }
+
+                Collections.shuffle(playableWords);
+
+                currentLevelWords = new ArrayList<>(
+                        playableWords.subList(0, REQUIRED_PAIRS_COUNT)
+                );
+
+                roundWords = new ArrayList<>(currentLevelWords);
+
                 totalPairs = currentLevelWords.size();
                 initialTotalPairs = totalPairs;
                 pairsFound = 0;
@@ -158,6 +223,10 @@ public class MatchingGameActivity extends AppCompatActivity {
                 mistakesCount = 0;
                 fixedErrorsCount = 0;
                 isCorrectionMode = false;
+
+                selectedDictionaryWord = null;
+                selectedWordAlreadyInDictionary = false;
+                dictionaryStateLoading = false;
 
                 solvedMatchIds.clear();
                 mistakenWordsMap.clear();
@@ -175,6 +244,27 @@ public class MatchingGameActivity extends AppCompatActivity {
         });
     }
 
+    private List<Word> preparePlayableWords(List<Word> words) {
+        List<Word> result = new ArrayList<>();
+
+        if (words == null) {
+            return result;
+        }
+
+        for (Word word : words) {
+            if (word == null) continue;
+
+            String term = word.getTerm() == null ? "" : word.getTerm().trim();
+            String translation = word.getTranslation() == null ? "" : word.getTranslation().trim();
+
+            if (!term.isEmpty() && !translation.isEmpty()) {
+                result.add(word);
+            }
+        }
+
+        return result;
+    }
+
     private void updateCorrectionUi() {
         if (isCorrectionMode) {
             tvTitle.setText("Исправьте пары");
@@ -184,6 +274,7 @@ public class MatchingGameActivity extends AppCompatActivity {
         } else {
             tvTitle.setText("Нажмите на пары слов");
             correctionBannerCard.setVisibility(View.GONE);
+
             if (isAudioMode) {
                 btnCantListen.setVisibility(View.VISIBLE);
             }
@@ -193,30 +284,55 @@ public class MatchingGameActivity extends AppCompatActivity {
     private void setupGame() {
         columnTerms.removeAllViews();
         columnTranslations.removeAllViews();
+
         selectedTermBtn = null;
         selectedTranslationBtn = null;
-        btnCheck.setEnabled(false);
+        selectedDictionaryWord = null;
+        cardMatchingDictionaryState.setVisibility(View.GONE);
 
         for (Word word : currentLevelWords) {
-            if (!solvedMatchIds.contains(word.getTranslation())) {
-                columnTerms.addView(createWordButton(word.getTerm(), word.getTranslation(), true));
+            if (!solvedMatchIds.contains(makeMatchId(word))) {
+                columnTerms.addView(createWordButton(
+                        word.getTerm(),
+                        makeMatchId(word),
+                        true
+                ));
             }
         }
 
         List<Word> shuffledTranslations = new ArrayList<>();
+
         for (Word word : currentLevelWords) {
-            if (!solvedMatchIds.contains(word.getTranslation())) {
+            if (!solvedMatchIds.contains(makeMatchId(word))) {
                 shuffledTranslations.add(word);
             }
         }
+
         Collections.shuffle(shuffledTranslations);
 
         for (Word word : shuffledTranslations) {
-            columnTranslations.addView(createWordButton(word.getTranslation(), word.getTranslation(), false));
+            columnTranslations.addView(createWordButton(
+                    word.getTranslation(),
+                    makeMatchId(word),
+                    false
+            ));
         }
 
         updateProgress();
         updateCorrectionUi();
+    }
+
+    private String makeMatchId(Word word) {
+        if (word == null) return "";
+
+        if (word.getId() != null) {
+            return String.valueOf(word.getId());
+        }
+
+        String term = word.getTerm() == null ? "" : word.getTerm().trim();
+        String translation = word.getTranslation() == null ? "" : word.getTranslation().trim();
+
+        return term + "_" + translation;
     }
 
     private void startFadeTransition() {
@@ -260,6 +376,7 @@ public class MatchingGameActivity extends AppCompatActivity {
             btn.setText(text);
             btn.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
             btn.setPadding(0, 0, 0, 0);
+
             if (isTerm) {
                 btn.setContentDescription(text);
             }
@@ -277,8 +394,13 @@ public class MatchingGameActivity extends AppCompatActivity {
         btn.setOnClickListener(v -> {
             if (isTerm) {
                 if (isAudioMode && !isCorrectionMode && tts != null) {
-                    tts.speak(btn.getContentDescription().toString(), TextToSpeech.QUEUE_FLUSH, null, null);
+                    CharSequence content = btn.getContentDescription();
+
+                    if (content != null) {
+                        tts.speak(content.toString(), TextToSpeech.QUEUE_FLUSH, null, null);
+                    }
                 }
+
                 handleSelection(btn, true);
             } else {
                 handleSelection(btn, false);
@@ -293,12 +415,15 @@ public class MatchingGameActivity extends AppCompatActivity {
             if (selectedTermBtn != null) {
                 resetButtonStyle(selectedTermBtn);
             }
+
             selectedTermBtn = btn;
-            btnCheck.setEnabled(true);
+            selectedDictionaryWord = findWordByMatchId(String.valueOf(btn.getTag()));
+            refreshDictionaryState();
         } else {
             if (selectedTranslationBtn != null) {
                 resetButtonStyle(selectedTranslationBtn);
             }
+
             selectedTranslationBtn = btn;
         }
 
@@ -306,51 +431,132 @@ public class MatchingGameActivity extends AppCompatActivity {
         checkMatch();
     }
 
-    private void addSelectedWordToDictionary() {
-        if (selectedTermBtn == null) {
-            Toast.makeText(this, "Сначала выберите слово", Toast.LENGTH_SHORT).show();
+    private void refreshDictionaryState() {
+        if (selectedDictionaryWord == null) {
+            cardMatchingDictionaryState.setVisibility(View.GONE);
             return;
         }
 
-        String term = selectedTermBtn.getContentDescription() != null
-                ? selectedTermBtn.getContentDescription().toString()
-                : selectedTermBtn.getText().toString();
+        dictionaryStateLoading = true;
+        selectedWordAlreadyInDictionary = false;
 
-        Word selectedWord = findWordByTerm(term);
+        cardMatchingDictionaryState.setVisibility(View.VISIBLE);
+        renderDictionaryLoadingState();
 
-        if (selectedWord == null) {
-            Toast.makeText(this, "Не удалось найти слово", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        repository.addWordToPersonalDictionary(selectedWord, new Repository.DataCallback<Void>() {
+        repository.isWordInPersonalDictionary(selectedDictionaryWord, new Repository.DataCallback<Boolean>() {
             @Override
-            public void onSuccess(Void data) {
-                Toast.makeText(MatchingGameActivity.this, "Слово добавлено в словарь", Toast.LENGTH_SHORT).show();
+            public void onSuccess(Boolean isAdded) {
+                dictionaryStateLoading = false;
+                selectedWordAlreadyInDictionary = isAdded != null && isAdded;
+
+                if (selectedWordAlreadyInDictionary) {
+                    renderDictionaryAddedState();
+                } else {
+                    renderDictionaryCanAddState();
+                }
             }
 
             @Override
             public void onError(String error) {
+                dictionaryStateLoading = false;
+                selectedWordAlreadyInDictionary = false;
+                renderDictionaryCanAddState();
+            }
+        });
+    }
+
+    private void renderDictionaryLoadingState() {
+        cardMatchingDictionaryState.setEnabled(false);
+        cardMatchingDictionaryState.setCardBackgroundColor(COLOR_CARD_DEFAULT);
+        cardMatchingDictionaryState.setStrokeColor(COLOR_GRAY);
+        cardMatchingDictionaryState.setStrokeWidth(dp(1));
+
+        tvMatchingDictionaryIcon.setText("…");
+        tvMatchingDictionaryIcon.setTextColor(COLOR_GRAY);
+
+        tvMatchingDictionaryText.setText("Проверяем");
+        tvMatchingDictionaryText.setTextColor(COLOR_WHITE);
+    }
+
+    private void renderDictionaryCanAddState() {
+        cardMatchingDictionaryState.setEnabled(true);
+        cardMatchingDictionaryState.setCardBackgroundColor(COLOR_CARD_DEFAULT);
+        cardMatchingDictionaryState.setStrokeColor(COLOR_BLUE);
+        cardMatchingDictionaryState.setStrokeWidth(dp(1));
+
+        tvMatchingDictionaryIcon.setText("☆");
+        tvMatchingDictionaryIcon.setTextColor(COLOR_BLUE);
+
+        tvMatchingDictionaryText.setText("Сохранить");
+        tvMatchingDictionaryText.setTextColor(COLOR_WHITE);
+    }
+
+    private void renderDictionaryAddedState() {
+        cardMatchingDictionaryState.setEnabled(true);
+        cardMatchingDictionaryState.setCardBackgroundColor(Color.rgb(9, 37, 26));
+        cardMatchingDictionaryState.setStrokeColor(COLOR_GREEN);
+        cardMatchingDictionaryState.setStrokeWidth(dp(1));
+
+        tvMatchingDictionaryIcon.setText("★");
+        tvMatchingDictionaryIcon.setTextColor(COLOR_GREEN);
+
+        tvMatchingDictionaryText.setText("В словаре");
+        tvMatchingDictionaryText.setTextColor(COLOR_GREEN);
+    }
+
+    private void addSelectedWordToDictionary() {
+        if (selectedDictionaryWord == null) {
+            Toast.makeText(this, "Сначала выберите слово", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        dictionaryStateLoading = true;
+        renderDictionaryLoadingState();
+
+        repository.addWordToPersonalDictionary(selectedDictionaryWord, new Repository.DataCallback<Void>() {
+            @Override
+            public void onSuccess(Void data) {
+                dictionaryStateLoading = false;
+                selectedWordAlreadyInDictionary = true;
+                renderDictionaryAddedState();
+
+                Toast.makeText(
+                        MatchingGameActivity.this,
+                        "Слово добавлено в личный словарь",
+                        Toast.LENGTH_SHORT
+                ).show();
+            }
+
+            @Override
+            public void onError(String error) {
+                dictionaryStateLoading = false;
+
+                if (error != null && error.toLowerCase().contains("уже есть")) {
+                    selectedWordAlreadyInDictionary = true;
+                    renderDictionaryAddedState();
+                } else {
+                    selectedWordAlreadyInDictionary = false;
+                    renderDictionaryCanAddState();
+                }
+
                 Toast.makeText(MatchingGameActivity.this, error, Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    private Word findWordByTerm(String term) {
+    private Word findWordByMatchId(String matchId) {
         for (Word word : currentLevelWords) {
-            if (word.getTerm() != null && word.getTerm().equalsIgnoreCase(term)) {
+            if (makeMatchId(word).equals(matchId)) {
                 return word;
             }
         }
-        return null;
-    }
 
-    private Word findWordByTranslationTag(String translationTag) {
-        for (Word word : currentLevelWords) {
-            if (word.getTranslation() != null && word.getTranslation().equals(translationTag)) {
+        for (Word word : roundWords) {
+            if (makeMatchId(word).equals(matchId)) {
                 return word;
             }
         }
+
         return null;
     }
 
@@ -359,89 +565,131 @@ public class MatchingGameActivity extends AppCompatActivity {
             return;
         }
 
-        String termTag = (String) selectedTermBtn.getTag();
-        String transTag = (String) selectedTranslationBtn.getTag();
+        String termTag = String.valueOf(selectedTermBtn.getTag());
+        String transTag = String.valueOf(selectedTranslationBtn.getTag());
 
         if (termTag.equals(transTag)) {
-            soundPool.play(soundSuccess, 1f, 1f, 1, 0, 1f);
-
-            pairsFound++;
-
-            if (!isCorrectionMode) {
-                score += 10;
-            } else {
-                fixedErrorsCount++;
-            }
-
-            solvedMatchIds.add(termTag);
-
-            selectedTermBtn.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.duo_green));
-            selectedTranslationBtn.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.duo_green));
-
-            Button termButton = selectedTermBtn;
-            Button translationButton = selectedTranslationBtn;
-
-            selectedTermBtn = null;
-            selectedTranslationBtn = null;
-            btnCheck.setEnabled(false);
-
-            new Handler().postDelayed(() -> {
-                termButton.setVisibility(View.INVISIBLE);
-                translationButton.setVisibility(View.INVISIBLE);
-
-                updateCorrectionUi();
-
-                if (pairsFound == totalPairs) {
-                    onRoundCompleted();
-                }
-            }, 400);
-
+            handleCorrectMatch(termTag);
         } else {
-            soundPool.play(soundError, 1f, 1f, 1, 0, 1f);
-            mistakesCount++;
-
-            Word mistakenWord = findWordByTranslationTag(termTag);
-            if (mistakenWord != null) {
-                mistakenWordsMap.put(mistakenWord.getTranslation(), mistakenWord);
-            }
-
-            selectedTermBtn.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.duo_red));
-            selectedTranslationBtn.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.duo_red));
-
-            Button termButton = selectedTermBtn;
-            Button translationButton = selectedTranslationBtn;
-
-            selectedTermBtn = null;
-            selectedTranslationBtn = null;
-            btnCheck.setEnabled(false);
-
-            new Handler().postDelayed(() -> {
-                resetButtonStyle(termButton);
-                resetButtonStyle(translationButton);
-            }, 600);
+            handleWrongMatch(termTag);
         }
+    }
+
+    private void handleCorrectMatch(String matchId) {
+        soundPool.play(soundSuccess, 1f, 1f, 1, 0, 1f);
+
+        pairsFound++;
+
+        if (isCorrectionMode) {
+            fixedErrorsCount++;
+        } else if (!mistakenWordsMap.containsKey(matchId)) {
+            score += POINTS_PER_FIRST_TRY_PAIR;
+        }
+
+        solvedMatchIds.add(matchId);
+
+        selectedTermBtn.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.duo_green));
+        selectedTranslationBtn.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.duo_green));
+
+        Button termButton = selectedTermBtn;
+        Button translationButton = selectedTranslationBtn;
+
+        selectedTermBtn = null;
+        selectedTranslationBtn = null;
+        selectedDictionaryWord = null;
+
+        cardMatchingDictionaryState.setVisibility(View.GONE);
+
+        new Handler().postDelayed(() -> {
+            termButton.setVisibility(View.INVISIBLE);
+            translationButton.setVisibility(View.INVISIBLE);
+
+            updateProgress();
+            updateCorrectionUi();
+
+            if (pairsFound == totalPairs) {
+                onRoundCompleted();
+            }
+        }, 400);
+    }
+
+    private void handleWrongMatch(String termMatchId) {
+        soundPool.play(soundError, 1f, 1f, 1, 0, 1f);
+        mistakesCount++;
+
+        Word mistakenWord = findWordByMatchId(termMatchId);
+
+        if (mistakenWord != null) {
+            mistakenWordsMap.put(makeMatchId(mistakenWord), mistakenWord);
+            repository.recordWordMistake(mistakenWord);
+        }
+
+        selectedTermBtn.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.duo_red));
+        selectedTranslationBtn.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.duo_red));
+
+        Button termButton = selectedTermBtn;
+        Button translationButton = selectedTranslationBtn;
+
+        selectedTermBtn = null;
+        selectedTranslationBtn = null;
+        selectedDictionaryWord = null;
+
+        cardMatchingDictionaryState.setVisibility(View.GONE);
+
+        new Handler().postDelayed(() -> {
+            resetButtonStyle(termButton);
+            resetButtonStyle(translationButton);
+        }, 600);
     }
 
     private void onRoundCompleted() {
         if (!isCorrectionMode && !mistakenWordsMap.isEmpty()) {
             startCorrectionMode();
         } else {
-            finishGame();
+            markOnlyPerfectWordsLearnedAndFinish();
         }
     }
 
     private void startCorrectionMode() {
         isCorrectionMode = true;
+
         currentLevelWords = new ArrayList<>(mistakenWordsMap.values());
         totalPairs = currentLevelWords.size();
         pairsFound = 0;
+
         solvedMatchIds.clear();
 
         Toast.makeText(this, "Переходим к работе над ошибками", Toast.LENGTH_SHORT).show();
         setupGame();
     }
 
+    private void markOnlyPerfectWordsLearnedAndFinish() {
+        List<Word> learnedWords = new ArrayList<>();
+
+        for (Word word : roundWords) {
+            String matchId = makeMatchId(word);
+
+            if (!mistakenWordsMap.containsKey(matchId)) {
+                learnedWords.add(word);
+            }
+        }
+
+        repository.markWordsAsLearned(learnedWords, new Repository.DataCallback<Void>() {
+            @Override
+            public void onSuccess(Void data) {
+                finishGame();
+            }
+
+            @Override
+            public void onError(String error) {
+                finishGame();
+            }
+        });
+    }
+
     private void resetButtonStyle(Button btn) {
+        if (btn == null) return;
+
         btn.setBackgroundTintList(null);
         btn.setBackgroundResource(R.drawable.bg_word_chip);
     }
@@ -453,14 +701,16 @@ public class MatchingGameActivity extends AppCompatActivity {
         }
 
         int targetProgress = (pairsFound * 100) / totalPairs;
-        android.animation.ObjectAnimator animation = android.animation.ObjectAnimator.ofInt(
+
+        ObjectAnimator animation = ObjectAnimator.ofInt(
                 progressBar,
                 "progress",
                 progressBar.getProgress(),
                 targetProgress
         );
+
         animation.setDuration(600);
-        animation.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        animation.setInterpolator(new DecelerateInterpolator());
         animation.start();
     }
 
@@ -480,7 +730,12 @@ public class MatchingGameActivity extends AppCompatActivity {
         intent.putExtra("TOTAL_WORDS", initialTotalPairs);
         intent.putExtra("MISTAKES_COUNT", mistakesCount);
         startActivity(intent);
+
         finish();
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     @Override

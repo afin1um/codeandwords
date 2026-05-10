@@ -1,34 +1,294 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
     <color name="black">#000000</color>
     <color name="white">#FFFFFF</color>
 
-    <color name="duo_dark_bg">#131F24</color>
-    <color name="duo_card_bg">#1F2E35</color>
-    <color name="duo_card_stroke">#37464F</color>
-    <color name="duo_blue">#1CB0F6</color>
-    <color name="duo_green">#58CC02</color>
-    <color name="duo_red">#EA2B2B</color>
-    <color name="duo_text_white">#FFFFFF</color>
-    <color name="duo_text_gray">#4B595F</color>
+    <!-- LIGHT THEME -->
+    <color name="app_bg">#F4F8FA</color>
+    <color name="app_card_bg">#FFFFFF</color>
+    <color name="app_card_stroke">#D6E2E8</color>
 
-    <color name="avatar_tab_bg">#08171F</color>
-    <color name="avatar_tab_text">#6E8190</color>
-    <color name="avatar_tab_stroke">#2C434F</color>
-    <color name="avatar_tab_selected_bg">#2BB6F6</color>
+    <color name="app_green">#58CC02</color>
+    <color name="app_blue">#1CB0F6</color>
+    <color name="app_red">#FF4B4B</color>
+    <color name="app_orange">#FFB020</color>
+    <color name="app_yellow">#FFD43B</color>
 
-    <color name="duo_progress_bg">#37464F</color>
-    <color name="profile_gold">#FFD54F</color>
+    <color name="app_text_primary">#10212A</color>
+    <color name="app_text_secondary">#60727C</color>
+    <color name="app_text_muted">#8A9AA5</color>
+    <color name="app_text_on_accent">#FFFFFF</color>
+    <color name="app_text_dark">#071A22</color>
 
-    <color name="avatar_editor_screen_bg">#071A22</color>
-    <color name="avatar_editor_header_bg">#08171F</color>
-    <color name="avatar_editor_section_divider">#17313B</color>
+    <color name="app_divider">#DCE8EE</color>
+    <color name="app_surface_dark">#EEF5F8</color>
+    <color name="app_surface_soft">#E7F1F6</color>
+    <color name="app_surface_green">#EAF9E4</color>
+    <color name="app_surface_blue">#E5F6FF</color>
+    <color name="app_surface_red">#FFECEC</color>
+    <color name="app_surface_orange">#FFF5E0</color>
 
-    <color name="avatar_editor_option_bg">#0D202A</color>
-    <color name="avatar_editor_option_stroke">#314957</color>
+    <!-- Bottom navigation -->
+    <color name="bottom_nav_bg">@color/app_card_bg</color>
+    <color name="bottom_nav_stroke">@color/app_card_stroke</color>
+    <color name="bottom_nav_selected">@color/app_green</color>
+    <color name="bottom_nav_unselected">@color/app_text_secondary</color>
+
+    <!-- Старые alias, чтобы старые экраны не ломались -->
+    <color name="duo_dark_bg">@color/app_bg</color>
+    <color name="duo_card_bg">@color/app_card_bg</color>
+    <color name="duo_card_stroke">@color/app_card_stroke</color>
+    <color name="duo_blue">@color/app_blue</color>
+    <color name="duo_green">@color/app_green</color>
+    <color name="duo_red">@color/app_red</color>
+    <color name="duo_text_white">@color/app_text_primary</color>
+    <color name="duo_text_gray">@color/app_text_secondary</color>
+    <color name="duo_progress_bg">@color/app_divider</color>
+
+    <!-- Avatar editor -->
+    <color name="avatar_tab_bg">@color/app_surface_soft</color>
+
+    <color name="avatar_tab_stroke">@color/app_card_stroke</color>
+
+
+    <color name="avatar_editor_screen_bg">@color/app_bg</color>
+    <color name="avatar_editor_header_bg">@color/app_surface_soft</color>
+    <color name="avatar_editor_section_divider">@color/app_divider</color>
+
+
     <color name="avatar_editor_option_inner">#87CEFA</color>
-    <color name="avatar_editor_option_stroke_selected">#2BB6F6</color>
+    <color name="avatar_editor_option_stroke_selected">@color/app_blue</color>
 
-    <color name="avatar_editor_title">#627684</color>
+    <color name="avatar_editor_title">@color/app_text_secondary</color>
+
+
+    <color name="profile_gold">#FFD43B</color>
+    <color name="profile_header_bg">#87CEFA</color>
+
+    <color name="profile_header_text">#3E4452</color>
+    <color name="profile_header_subtitle">#54606D</color>
+
+    <color name="profile_action_bg">#66FFFFFF</color>
+
+    <color name="league_bronze">#CD7F32</color>
+
+    <!-- ========== MISTAKES TRAINING (Светлая тема) ========== -->
+        <color name="mistakes_bg">#F7FBFD</color>
+        <color name="mistakes_card_bg">#FFFFFF</color>
+        <color name="mistakes_card_stroke">#D6E2EA</color>
+
+        <color name="mistakes_text_primary">#0D2029</color>
+        <color name="mistakes_text_secondary">#5C6F7A</color>
+        <color name="mistakes_text_on_primary">#FFFFFF</color>
+
+        <color name="mistakes_blue">#1CB0F6</color>
+        <color name="mistakes_green">#58CC02</color>
+        <color name="mistakes_gray">#8A9AA5</color>
+        <color name="mistakes_progress_bg">#D6E2EA</color>
+
+        <color name="mistakes_dictionary_added_bg">#E8F8EE</color>
+        <color name="mistakes_dictionary_default_bg">#EAF6FE</color>
+
+        <color name="mistakes_input_bg">#FFFFFF</color>
+        <color name="mistakes_icon_secondary">#5C6F7A</color>
+
+        <!-- ========== LISTENING GAME (Светлая тема, на всякий случай) ========== -->
+        <color name="listening_bg">#F7FBFD</color>
+        <color name="listening_card_bg">#FFFFFF</color>
+        <color name="listening_card_stroke">#D6E2EA</color>
+        <color name="listening_text_primary">#0D2029</color>
+        <color name="listening_text_secondary">#5C6F7A</color>
+        <color name="listening_button_text">#FFFFFF</color>
+        <color name="listening_blue">#1CB0F6</color>
+        <color name="listening_green">#58CC02</color>
+        <color name="listening_progress_bg">#D6E2EA</color>
+        <color name="listening_icon_secondary">#5C6F7A</color>
+
+    <!-- ========== THEME FILTER CHIPS (Светлая тема) ========== -->
+    <color name="chip_selected_bg">#58CC02</color>
+    <color name="chip_selected_text">#FFFFFF</color>
+    <color name="chip_selected_stroke">#58CC02</color>
+
+    <color name="chip_unselected_bg">#FFFFFF</color>
+    <color name="chip_unselected_text">#0D2029</color>
+    <color name="chip_unselected_stroke">#D6E2EA</color>
+
+    <!-- ========== LEADERBOARD (Светлая тема) ========== -->
+    <color name="leaderboard_chip_unselected_bg">#FFFFFF</color>
+    <color name="leaderboard_chip_unselected_text">#0D2029</color>
+    <color name="leaderboard_chip_selected_text">#FFFFFF</color>
+
+    <color name="leaderboard_card_bg">#FFFFFF</color>
+    <color name="leaderboard_card_me_bg">#E8F4FB</color>
+    <color name="leaderboard_card_me_stroke">#1CB0F6</color>
+
+    <color name="leaderboard_avatar_placeholder_fill">#D6E2EA</color>
+    <color name="leaderboard_avatar_placeholder_stroke">#B8C8D2</color>
+
+    <color name="leaderboard_rank_default">#5C6F7A</color>
+    <color name="leaderboard_rank_me">#1CB0F6</color>
+    <color name="leaderboard_xp_placeholder">#5C6F7A</color>
+
+    <color name="leaderboard_text_primary">#0D2029</color>
+    <color name="leaderboard_text_secondary">#5C6F7A</color>
+
+    <color name="leaderboard_my_marker">#1CB0F6</color>
+
+    <!-- ========== LEADERBOARD ITEM USERNAME ========== -->
+    <color name="leaderboard_username">#0D2029</color>
+    <color name="leaderboard_username_me">#0D2029</color>
+    <color name="leaderboard_level_text">#5C6F7A</color>
+
+    <!-- ========== PERSONAL DICTIONARY (Светлая тема) ========== -->
+    <color name="dict_chip_unselected_bg">#FFFFFF</color>
+    <color name="dict_chip_unselected_text">#0D2029</color>
+    <color name="dict_chip_unselected_stroke">#D6E2EA</color>
+
+    <color name="dict_chip_selected_bg">#1CB0F6</color>
+    <color name="dict_chip_selected_text">#FFFFFF</color>
+    <color name="dict_chip_selected_stroke">#1CB0F6</color>
+
+    <color name="dict_dialog_text">#0D2029</color>
+    <color name="dict_dialog_hint">#5C6F7A</color>
+
+    <!-- ========== TEAM SCREEN (Светлая тема) ========== -->
+    <color name="team_bg">#F7FBFD</color>
+    <color name="team_toolbar_bg">#FFFFFF</color>
+    <color name="team_toolbar_icon">#5C6F7A</color>
+    <color name="team_toolbar_title">#0D2029</color>
+
+    <color name="team_text_primary">#0D2029</color>
+    <color name="team_text_secondary">#5C6F7A</color>
+    <color name="team_text_muted">#7D8C95</color>
+
+    <color name="team_card_bg">#FFFFFF</color>
+    <color name="team_card_stroke">#D6E2EA</color>
+
+    <color name="team_input_bg">#FFFFFF</color>
+    <color name="team_input_stroke">#D6E2EA</color>
+    <color name="team_input_text">#0D2029</color>
+    <color name="team_input_hint">#7D8C95</color>
+
+    <color name="team_progress_bg">#D6E2EA</color>
+    <color name="team_progress_fill">#58CC02</color>
+
+    <color name="team_button_primary">#58CC02</color>
+    <color name="team_button_text">#FFFFFF</color>
+
+    <!-- ========== AVATAR EDITOR (Светлая тема) ========== -->
+    <color name="avatar_editor_bg">#F7FBFD</color>
+    <color name="avatar_editor_toolbar_bg">#FFFFFF</color>
+    <color name="avatar_editor_toolbar_text">#0D2029</color>
+    <color name="avatar_editor_toolbar_icon">#5C6F7A</color>
     <color name="avatar_editor_done">#1CB0F6</color>
+
+    <color name="avatar_editor_tabs_bg">#FFFFFF</color>
+    <color name="avatar_editor_divider">#D6E2EA</color>
+
+    <color name="avatar_editor_section_title">#0D2029</color>
+
+    <color name="avatar_editor_option_bg">#FFFFFF</color>
+    <color name="avatar_editor_option_stroke">#D6E2EA</color>
+    <color name="avatar_editor_option_inner_bg">#F7FBFD</color>
+
+    <color name="avatar_editor_option_selected_bg">#E8F4FB</color>
+    <color name="avatar_editor_option_selected_stroke">#1CB0F6</color>
+
+    <color name="avatar_editor_color_option_bg">#FFFFFF</color>
+    <color name="avatar_editor_color_option_stroke">#D6E2EA</color>
+
+    <!-- Цвет неактивного таба (иконки) — для светлой темы -->
+    <color name="avatar_tab_text">#5C6F7A</color>
+    <color name="avatar_tab_selected_bg">#1CB0F6</color>
+
+    <!-- ========== ADMIN THEORY EDITOR (Светлая тема) ========== -->
+    <color name="theory_editor_bg">#F7FBFD</color>
+    <color name="theory_editor_toolbar_bg">#FFFFFF</color>
+    <color name="theory_editor_toolbar_icon">#5C6F7A</color>
+    <color name="theory_editor_toolbar_title">#0D2029</color>
+
+    <color name="theory_editor_title">#0D2029</color>
+    <color name="theory_editor_hint">#5C6F7A</color>
+
+    <color name="theory_editor_input_bg">#FFFFFF</color>
+    <color name="theory_editor_input_stroke">#D6E2EA</color>
+    <color name="theory_editor_input_text">#0D2029</color>
+    <color name="theory_editor_input_hint">#7D8C95</color>
+
+    <color name="theory_editor_spinner_bg">#FFFFFF</color>
+
+    <color name="theory_editor_button_primary">#1CB0F6</color>
+    <color name="theory_editor_button_text">#FFFFFF</color>
+
+    <!-- ========== WORD LIST ACTION BUTTONS (Светлая тема) ========== -->
+    <color name="word_action_circle_bg">#FFFFFF</color>
+    <color name="word_action_circle_stroke">#D6E2EA</color>
+    <color name="word_action_text">#5C6F7A</color>
+
+    <!-- ========== ACHIEVEMENT DETAIL (Светлая тема) ========== -->
+    <color name="ach_detail_bg">#F5F8FB</color>
+    <color name="ach_detail_card_start">#FFFFFF</color>
+    <color name="ach_detail_card_end">#F3F8FC</color>
+    <color name="ach_detail_title">#16232D</color>
+    <color name="ach_detail_text_primary">#1F2E38</color>
+    <color name="ach_detail_text_secondary">#55636F</color>
+    <color name="ach_detail_progress_text">#1976D2</color>
+    <color name="ach_detail_back_icon">#23323D</color>
+    <color name="ach_detail_chip_bg">#FFD54F</color>
+    <color name="ach_detail_chip_text">#0B1F2A</color>
+
+    <!-- ========== FRIEND PROFILE (Светлая тема) ========== -->
+    <color name="friend_bg">#F7FBFD</color>
+    <color name="friend_toolbar_bg">#FFFFFF</color>
+    <color name="friend_toolbar_text">#0D2029</color>
+    <color name="friend_toolbar_icon">#5C6F7A</color>
+    <color name="friend_text_primary">#0D2029</color>
+    <color name="friend_text_secondary">#5C6F7A</color>
+    <color name="friend_text_muted">#7D8C95</color>
+    <color name="friend_card_bg">#FFFFFF</color>
+    <color name="friend_card_stroke">#D6E2EA</color>
+    <color name="friend_progress_bg">#D6E2EA</color>
+    <color name="friend_progress_fill">#1CB0F6</color>
+
+    <!-- ========== FIX MISTAKES DIALOG (Светлая тема) ========== -->
+    <color name="fix_dialog_bg">#FFFFFF</color>
+    <color name="fix_dialog_title">#FF4B4B</color>
+    <color name="fix_dialog_word">#1CB0F6</color>
+    <color name="fix_dialog_text_secondary">#5C6F7A</color>
+
+    <!-- ========== MEDALS (Светлая тема) ========== -->
+    <color name="medal_unlocked_bg">#FFFFFF</color>
+    <color name="medal_unlocked_stroke">#58CC02</color>
+    <color name="medal_locked_bg">#F0F4F7</color>
+    <color name="medal_locked_stroke">#C7D2D9</color>
+
+    <!-- ========== TOOLTIP (Светлая тема) ========== -->
+    <color name="tooltip_bg">#FFFFFF</color>
+    <color name="tooltip_stroke">#D6E2EA</color>
+    <color name="tooltip_transcription">#7D8C95</color>
+    <color name="tooltip_divider">#E5E5E5</color>
+    <color name="tooltip_translation">#0D2029</color>
+
+    <!-- ========== AWARD XP CARD (Светлая тема) ========== -->
+    <color name="award_card_start">#FFFFFF</color>
+    <color name="award_card_end">#F5FAFF</color>
+
+    <!-- ========== AVATAR COLOR OPTION (Светлая тема) ========== -->
+    <color name="avatar_color_option_bg">#FFFFFF</color>
+    <color name="avatar_color_option_stroke">#D6E2EA</color>
+    <color name="avatar_color_option_selected_stroke">#1CB0F6</color>
+
+    <!-- ========== AVATAR OPTION INNER (Светлая тема) ========== -->
+    <color name="avatar_option_inner_bg">#F4F8FA</color>
+    <color name="avatar_option_selected_fill">#E8F4FB</color>
+
+    <!-- ========== AVATAR PLACEHOLDER OVAL (Светлая тема) ========== -->
+    <color name="avatar_placeholder_bg">#E0E0E0</color>
+    <color name="avatar_placeholder_stroke">#BDBDBD</color>
+
+    <!-- ========== PROGRESS XP (Светлая тема) ========== -->
+    <color name="progress_xp_bg">#D6E2EA</color>
+    <color name="progress_xp_fill">#58CC02</color>
+
 </resources>

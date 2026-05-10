@@ -4,14 +4,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FAFAFA">
+    android:background="@color/app_bg">
 
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbarTheory"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="#FFFFFF"
-        android:elevation="2dp"
+        android:background="@color/app_card_bg"
+        android:elevation="0dp"
         app:layout_constraintTop_toTopOf="parent">
 
         <ImageButton
@@ -20,7 +20,7 @@
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_revert"
-            app:tint="@color/duo_text_gray" />
+            app:tint="@color/app_text_secondary" />
 
         <TextView
             android:id="@+id/tvTheoryTitle"
@@ -28,29 +28,36 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:text="ТЕОРИЯ"
-            android:textColor="@color/duo_text_gray"
+            android:textColor="@color/app_text_secondary"
             android:textStyle="bold"
-            android:textSize="18sp"/>
+            android:textSize="18sp" />
     </androidx.appcompat.widget.Toolbar>
+
+    <View
+        android:id="@+id/dividerToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/app_divider"
+        app:layout_constraintTop_toBottomOf="@id/toolbarTheory" />
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/toolbarTheory"
-        app:layout_constraintBottom_toBottomOf="parent">
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/dividerToolbar">
 
         <TextView
             android:id="@+id/tvTheoryText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="24dp"
-            android:textSize="20sp"
-            android:lineSpacingExtra="10dp"
-            android:textColor="#3C3C3C"
-            android:fontFamily="sans-serif-medium"
-            android:textIsSelectable="true"
+            android:clickable="true"
             android:focusable="true"
-            android:clickable="true"/>
+            android:fontFamily="sans-serif-medium"
+            android:lineSpacingExtra="10dp"
+            android:padding="24dp"
+            android:textColor="@color/app_text_primary"
+            android:textIsSelectable="true"
+            android:textSize="20sp" />
     </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

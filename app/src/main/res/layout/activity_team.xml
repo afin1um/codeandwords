@@ -2,13 +2,13 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#071A22"
+    android:background="@color/team_bg"
     android:orientation="vertical">
 
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="82dp"
-        android:background="#08171F"
+        android:background="@color/team_toolbar_bg"
         android:paddingStart="12dp"
         android:paddingTop="18dp"
         android:paddingEnd="12dp"
@@ -22,14 +22,14 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="10dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:tint="#6E7F8A" />
+            android:tint="@color/team_toolbar_icon" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
             android:text="Создание команды"
-            android:textColor="#6E7F8A"
+            android:textColor="@color/team_toolbar_title"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -50,7 +50,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Соберите команду"
-                android:textColor="@android:color/white"
+                android:textColor="@color/team_text_primary"
                 android:textSize="28sp"
                 android:textStyle="bold" />
 
@@ -59,7 +59,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="Выберите до 3 друзей. Вместе с вами в команде будет максимум 4 участника."
-                android:textColor="#89A0AE"
+                android:textColor="@color/team_text_secondary"
                 android:textSize="15sp" />
 
             <TextView
@@ -68,7 +68,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:text="Мои команды"
-                android:textColor="@android:color/white"
+                android:textColor="@color/team_text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -78,7 +78,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:text="У вас пока нет команд"
-                android:textColor="#89A0AE"
+                android:textColor="@color/team_text_secondary"
                 android:textSize="15sp"
                 android:visibility="gone" />
 
@@ -94,7 +94,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="28dp"
                 android:text="Создать новую команду"
-                android:textColor="@android:color/white"
+                android:textColor="@color/team_text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -103,12 +103,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
                 android:layout_marginTop="22dp"
-                android:background="#17303B"
+                android:background="@drawable/bg_team_input"
                 android:hint="Название команды"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
-                android:textColor="@android:color/white"
-                android:textColorHint="#6E7F8A"
+                android:textColor="@color/team_input_text"
+                android:textColorHint="@color/team_input_hint"
                 android:textSize="15sp" />
 
             <Spinner
@@ -116,7 +116,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
                 android:layout_marginTop="12dp"
-                android:background="#17303B"
+                android:background="@drawable/bg_team_input"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp" />
 
@@ -125,7 +125,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
                 android:layout_marginTop="12dp"
-                android:background="#17303B"
+                android:background="@drawable/bg_team_input"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp" />
 
@@ -134,7 +134,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:text="Выберите друзей"
-                android:textColor="@android:color/white"
+                android:textColor="@color/team_text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -150,9 +150,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="54dp"
                 android:layout_marginTop="24dp"
-                android:backgroundTint="#58CC02"
+                android:backgroundTint="@color/team_button_primary"
                 android:text="СОЗДАТЬ КОМАНДУ"
-                android:textColor="@android:color/white"
+                android:textColor="@color/team_button_text"
                 android:textStyle="bold" />
 
         </LinearLayout>

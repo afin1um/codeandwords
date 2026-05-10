@@ -2,11 +2,9 @@ package com.example.codeandwords.ui.profile;
 
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.drawable.Drawable;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,6 +14,7 @@ import android.widget.Toast;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.codeandwords.R;
@@ -44,7 +43,8 @@ public class ProfileMedalsAdapter extends RecyclerView.Adapter<ProfileMedalsAdap
     @NonNull
     @Override
     public MedalViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_profile_medal, parent, false);
+        View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_profile_medal, parent, false);
         return new MedalViewHolder(view);
     }
 
@@ -53,39 +53,64 @@ public class ProfileMedalsAdapter extends RecyclerView.Adapter<ProfileMedalsAdap
         AchievementWithProgress item = items.get(position);
 
         @DrawableRes int iconRes = resolveIcon(item);
-        Log.d("ProfileMedalsAdapter", "title=" + item.title
-                + ", iconResName=" + item.iconResName
-                + ", conditionType=" + item.conditionType
-                + ", resolvedRes=" + iconRes);
-
         Drawable drawable = AppCompatResources.getDrawable(context, iconRes);
+
         if (drawable != null) {
             holder.ivMedal.setImageDrawable(drawable.mutate());
         } else {
             holder.ivMedal.setImageResource(R.drawable.ic_achievement_default);
         }
 
-        if (item.isUnlocked) {
+        // ✅ Адаптивные цвета (день/ночь)
+        int unlockedBg = ContextCompat.getColor(context, R.color.medal_unlocked_bg);
+        int unlockedStroke = ContextCompat.getColor(context, R.color.medal_unlocked_stroke);
+        int lockedBg = ContextCompat.getColor(context, R.color.medal_locked_bg);
+        int lockedStroke = ContextCompat.getColor(context, R.color.medal_locked_stroke);
+
+        if (item != null && item.isUnlocked) {
             holder.ivMedal.clearColorFilter();
             holder.ivMedal.setAlpha(1f);
 
-            holder.cardRoot.setCardBackgroundColor(Color.parseColor("#0D2029"));
-            holder.cardRoot.setStrokeColor(Color.parseColor("#314853"));
-            holder.cardRoot.setStrokeWidth(2);
+            holder.cardRoot.setCardBackgroundColor(unlockedBg);
+            holder.cardRoot.setStrokeColor(unlockedStroke);
+            holder.cardRoot.setStrokeWidth(dp(2));
 
             holder.ivLockOverlay.setVisibility(View.GONE);
         } else {
             applyGrayFilter(holder.ivMedal);
-            holder.ivMedal.setAlpha(0.92f);
+            holder.ivMedal.setAlpha(0.78f);
 
-            holder.cardRoot.setCardBackgroundColor(Color.parseColor("#0B161C"));
-            holder.cardRoot.setStrokeColor(Color.parseColor("#23343D"));
-            holder.cardRoot.setStrokeWidth(2);
+            holder.cardRoot.setCardBackgroundColor(lockedBg);
+            holder.cardRoot.setStrokeColor(lockedStroke);
+            holder.cardRoot.setStrokeWidth(dp(2));
 
             holder.ivLockOverlay.setVisibility(View.VISIBLE);
         }
 
         holder.itemView.setOnClickListener(v -> openAchievementDetails(item));
+    }
+
+    private void openAchievementDetails(AchievementWithProgress item) {
+        if (item == null) return;
+
+        try {
+            Intent intent = new Intent(context, AchievementDetailsActivity.class);
+            intent.putExtra("achievement_id", item.id != null ? item.id : -1L);
+            intent.putExtra("title", item.title != null ? item.title : "");
+            intent.putExtra("description", item.description != null ? item.description : "");
+            intent.putExtra("xpReward", item.xpReward != null ? item.xpReward : 0);
+            intent.putExtra("conditionType", item.conditionType != null ? item.conditionType : "");
+            intent.putExtra("conditionValue", item.conditionValue != null ? item.conditionValue : 0);
+            intent.putExtra("progress", item.currentProgress);
+            intent.putExtra("maxProgress", item.maxProgress != null ? item.maxProgress : 0);
+            intent.putExtra("iconResName", item.iconResName != null ? item.iconResName : "");
+            intent.putExtra("isUnlocked", item.isUnlocked);
+            intent.putExtra("isNew", item.isNew);
+            intent.putExtra("dateReceived", item.dateReceived);
+            context.startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(context, "Не удалось открыть достижение", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void applyGrayFilter(ImageView imageView) {
@@ -103,24 +128,6 @@ public class ProfileMedalsAdapter extends RecyclerView.Adapter<ProfileMedalsAdap
         imageView.setColorFilter(new ColorMatrixColorFilter(matrix));
     }
 
-    private void openAchievementDetails(AchievementWithProgress item) {
-        if (item == null) return;
-
-        try {
-            Intent intent = new Intent(context, AchievementDetailsActivity.class);
-            intent.putExtra("title", item.title != null ? item.title : "");
-            intent.putExtra("description", item.description != null ? item.description : "");
-            intent.putExtra("progress", item.currentProgress);
-            intent.putExtra("maxProgress", item.maxProgress != null ? item.maxProgress : 0);
-            intent.putExtra("iconResName", item.iconResName != null ? item.iconResName : "");
-            intent.putExtra("conditionType", item.conditionType != null ? item.conditionType : "");
-            intent.putExtra("isUnlocked", item.isUnlocked);
-            context.startActivity(intent);
-        } catch (Exception e) {
-            Toast.makeText(context, "Не удалось открыть достижение", Toast.LENGTH_SHORT).show();
-        }
-    }
-
     @DrawableRes
     private int resolveIcon(AchievementWithProgress item) {
         if (item == null) {
@@ -128,63 +135,47 @@ public class ProfileMedalsAdapter extends RecyclerView.Adapter<ProfileMedalsAdap
         }
 
         String normalizedIconName = normalizeResourceName(item.iconResName);
+
         if (!normalizedIconName.isEmpty()) {
             int byName = context.getResources().getIdentifier(
                     normalizedIconName,
                     "drawable",
                     context.getPackageName()
             );
+
             if (byName != 0) {
                 return byName;
             }
         }
 
         String normalizedConditionType = normalizeKey(item.conditionType);
+
         switch (normalizedConditionType) {
-            case "LOGIN_STREAK":
-                return R.drawable.ic_ach_streak;
-            case "MAX_XP_DAY":
-                return R.drawable.ic_ach_max_day_xp;
-            case "PERFECT_STREAK":
-                return R.drawable.ic_ach_perfect_streak;
-            case "EARLY_BIRD":
-                return R.drawable.ic_ach_early_bird;
-            case "ERROR_FIXER":
-                return R.drawable.ic_ach_technician;
-            case "TASK_MASTER":
-                return R.drawable.ic_ach_mission;
-            case "NIGHT_OWL":
-                return R.drawable.ic_ach_night;
-            case "TOTAL_XP":
-                return R.drawable.ic_ach_xp_peak;
-            case "PERFECT_TOTAL":
-                return R.drawable.ic_ach_bullseye;
-            case "SPRINT_XP":
-                return R.drawable.ic_ach_sprinter;
+            case "LOGIN_STREAK": return R.drawable.ic_ach_streak;
+            case "MAX_XP_DAY": return R.drawable.ic_ach_max_day_xp;
+            case "PERFECT_STREAK": return R.drawable.ic_ach_perfect_streak;
+            case "EARLY_BIRD": return R.drawable.ic_ach_early_bird;
+            case "ERROR_FIXER": return R.drawable.ic_ach_technician;
+            case "TASK_MASTER": return R.drawable.ic_ach_mission;
+            case "NIGHT_OWL": return R.drawable.ic_ach_night;
+            case "TOTAL_XP": return R.drawable.ic_ach_xp_peak;
+            case "PERFECT_TOTAL": return R.drawable.ic_ach_bullseye;
+            case "SPRINT_XP": return R.drawable.ic_ach_sprinter;
         }
 
         String normalizedTitle = normalizeKey(item.title);
+
         switch (normalizedTitle) {
-            case "УДАРНЫЙ_РЕКОРД":
-                return R.drawable.ic_ach_streak;
-            case "МАКСИМУМ_ОПЫТА":
-                return R.drawable.ic_ach_max_day_xp;
-            case "УРОКИ_БЕЗ_ОШИБОК":
-                return R.drawable.ic_ach_perfect_streak;
-            case "ПРОСНИСЬ_И_ПОЙ":
-                return R.drawable.ic_ach_early_bird;
-            case "ТЕХНИК":
-                return R.drawable.ic_ach_technician;
-            case "МИССИЯ_ВЫПОЛНИМА":
-                return R.drawable.ic_ach_mission;
-            case "ПОД_ПОКРОВОМ_НОЧИ":
-                return R.drawable.ic_ach_night;
-            case "ВЕРШИНЫ_ОПЫТА":
-                return R.drawable.ic_ach_xp_peak;
-            case "В_ЯБЛОЧКО":
-                return R.drawable.ic_ach_bullseye;
-            case "СПРИНТЕР":
-                return R.drawable.ic_ach_sprinter;
+            case "УДАРНЫЙ_РЕКОРД": return R.drawable.ic_ach_streak;
+            case "МАКСИМУМ_ОПЫТА": return R.drawable.ic_ach_max_day_xp;
+            case "УРОКИ_БЕЗ_ОШИБОК": return R.drawable.ic_ach_perfect_streak;
+            case "ПРОСНИСЬ_И_ПОЙ": return R.drawable.ic_ach_early_bird;
+            case "ТЕХНИК": return R.drawable.ic_ach_technician;
+            case "МИССИЯ_ВЫПОЛНИМА": return R.drawable.ic_ach_mission;
+            case "ПОД_ПОКРОВОМ_НОЧИ": return R.drawable.ic_ach_night;
+            case "ВЕРШИНЫ_ОПЫТА": return R.drawable.ic_ach_xp_peak;
+            case "В_ЯБЛОЧКО": return R.drawable.ic_ach_bullseye;
+            case "СПРИНТЕР": return R.drawable.ic_ach_sprinter;
         }
 
         return R.drawable.ic_achievement_default;
@@ -193,9 +184,7 @@ public class ProfileMedalsAdapter extends RecyclerView.Adapter<ProfileMedalsAdap
     private String normalizeResourceName(String value) {
         if (value == null) return "";
         String result = value.trim().toLowerCase(Locale.ROOT);
-        if (result.endsWith(".xml")) {
-            result = result.substring(0, result.length() - 4);
-        }
+        if (result.endsWith(".xml")) result = result.substring(0, result.length() - 4);
         return result;
     }
 
@@ -209,6 +198,10 @@ public class ProfileMedalsAdapter extends RecyclerView.Adapter<ProfileMedalsAdap
                 .replace("'", "")
                 .replace("-", "_")
                 .replace(" ", "_");
+    }
+
+    private int dp(int value) {
+        return Math.round(value * context.getResources().getDisplayMetrics().density);
     }
 
     @Override

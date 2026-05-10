@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="10dp"
-    android:background="@drawable/bg_avatar_option"
+    android:background="@drawable/bg_team_card"
     android:orientation="vertical"
     android:padding="16dp">
 
@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Участник"
-        android:textColor="@android:color/white"
+        android:textColor="@color/team_text_primary"
         android:textSize="17sp"
         android:textStyle="bold" />
 
@@ -22,7 +22,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="5dp"
         android:text="0 / 100"
-        android:textColor="#89A0AE"
+        android:textColor="@color/team_text_secondary"
         android:textSize="14sp" />
 
     <ProgressBar
@@ -33,8 +33,8 @@
         android:layout_marginTop="10dp"
         android:max="100"
         android:progress="0"
-        android:progressTint="#58CC02"
-        android:progressBackgroundTint="#17313D" />
+        android:progressTint="@color/team_progress_fill"
+        android:progressBackgroundTint="@color/team_progress_bg" />
 
     <TextView
         android:id="@+id/tvParticipantStatus"
@@ -42,7 +42,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="7dp"
         android:text="В процессе"
-        android:textColor="#6E7F8A"
+        android:textColor="@color/team_text_muted"
         android:textSize="13sp" />
 
 </LinearLayout>

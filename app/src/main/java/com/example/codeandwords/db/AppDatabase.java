@@ -47,7 +47,7 @@ import java.util.concurrent.Executors;
                 TeamChallenge.class,
                 TeamChallengeProgress.class
         },
-        version = 17,
+        version = 20, // ИЗМЕНЕНО: Увеличена версия БД
         exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {
@@ -72,7 +72,7 @@ public abstract class AppDatabase extends RoomDatabase {
     public static final ExecutorService databaseWriteExecutor =
             Executors.newFixedThreadPool(4);
 
-    private static final Migration MIGRATION_15_16 = new Migration(15, 16) {
+    private static final Migration MIGRATION_17_18 = new Migration(17, 18) {
         @Override
         public void migrate(SupportSQLiteDatabase database) {
             database.execSQL("DROP TABLE IF EXISTS team_challenge_progress");
@@ -126,6 +126,25 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    private static final Migration MIGRATION_18_19 = new Migration(18, 19) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE user_personal_words ADD COLUMN themeId INTEGER");
+            database.execSQL("ALTER TABLE user_personal_words ADD COLUMN themeTitle TEXT");
+        }
+    };
+
+    // НОВАЯ МИГРАЦИЯ: Добавляем поля serverId и isSynced в user_personal_words
+    private static final Migration MIGRATION_19_20 = new Migration(19, 20) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            // serverId может быть NULL, если слово еще не синхронизировано
+            database.execSQL("ALTER TABLE user_personal_words ADD COLUMN serverId INTEGER");
+            // isSynced по умолчанию FALSE для существующих слов (они не были синхронизированы)
+            database.execSQL("ALTER TABLE user_personal_words ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0"); // INTEGER 0/1 for boolean
+        }
+    };
+
     public static AppDatabase getDatabase(final Context context) {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
@@ -135,8 +154,12 @@ public abstract class AppDatabase extends RoomDatabase {
                                     AppDatabase.class,
                                     "codeandwords_database"
                             )
-                            .addMigrations(MIGRATION_15_16)
-                            .fallbackToDestructiveMigration()
+                            // ИЗМЕНЕНО: Добавляем новую миграцию
+                            .addMigrations(MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
+                            // ВАЖНО: УДАЛЕНО fallbackToDestructiveMigration()
+                            // Теперь все миграции должны быть корректно прописаны.
+                            // Если миграция нужна, а её нет, то будет краш, но данные не потеряются.
+                            // Для разработки можно использовать .fallbackToDestructiveMigration(), но для релиза это опасно.
                             .build();
 
                     databaseWriteExecutor.execute(() -> forceInitDatabase(INSTANCE));

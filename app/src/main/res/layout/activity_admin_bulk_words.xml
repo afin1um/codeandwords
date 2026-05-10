@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/app_bg"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <ImageButton
+        android:id="@+id/btnBackBulkWords"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Назад"
+        android:src="@android:drawable/ic_menu_close_clear_cancel"
+        app:tint="@color/app_text_secondary" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Массовое добавление терминов"
+        android:textColor="@color/app_text_primary"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Выберите тему и вставьте список терминов в формате CSV через точку с запятой."
+        android:textColor="@color/app_text_secondary"
+        android:textSize="14sp" />
+
+    <Spinner
+        android:id="@+id/spinnerBulkTheme"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/bg_app_card"
+        android:padding="12dp" />
+
+    <EditText
+        android:id="@+id/etBulkWords"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="18dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_app_card"
+        android:gravity="top|start"
+        android:hint="Формат:&#10;Term;Translation;Transcription;Definition;Example&#10;Compiler;Компилятор;[kəmˈpaɪlər];Переводчик кода;The compiler checks errors."
+        android:inputType="textMultiLine"
+        android:minLines="12"
+        android:padding="16dp"
+        android:textColor="@color/app_text_primary"
+        android:textColorHint="@color/app_text_secondary"
+        android:textSize="15sp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSaveBulkWords"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_marginTop="18dp"
+        android:backgroundTint="@color/app_green"
+        android:text="ДОБАВИТЬ ТЕРМИНЫ"
+        android:textColor="@color/app_text_dark"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:cornerRadius="18dp" />
+
+</LinearLayout>

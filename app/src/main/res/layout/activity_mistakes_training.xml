@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/mistakes_bg"
+    android:padding="16dp">
+
+    <ImageButton
+        android:id="@+id/btnCloseMistakes"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@android:drawable/ic_menu_close_clear_cancel"
+        app:tint="@color/mistakes_icon_secondary"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ProgressBar
+        android:id="@+id/progressMistakes"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="0dp"
+        android:layout_height="10dp"
+        android:layout_marginStart="12dp"
+        android:max="100"
+        android:progress="0"
+        android:progressTint="@color/mistakes_green"
+        android:progressBackgroundTint="@color/mistakes_progress_bg"
+        app:layout_constraintBottom_toBottomOf="@id/btnCloseMistakes"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/btnCloseMistakes"
+        app:layout_constraintTop_toTopOf="@id/btnCloseMistakes" />
+
+    <TextView
+        android:id="@+id/tvMistakesTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:text="Работа над ошибками"
+        android:textColor="@color/mistakes_text_primary"
+        android:textSize="25sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@id/btnCloseMistakes"
+        app:layout_constraintTop_toBottomOf="@id/btnCloseMistakes" />
+
+    <TextView
+        android:id="@+id/tvMistakesCounter"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="0 / 0"
+        android:textColor="@color/mistakes_text_secondary"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="@id/tvMistakesTitle"
+        app:layout_constraintTop_toBottomOf="@id/tvMistakesTitle" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardMistakeQuestion"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="30dp"
+        app:cardBackgroundColor="@color/mistakes_card_bg"
+        app:cardCornerRadius="22dp"
+        app:cardElevation="0dp"
+        app:strokeColor="@color/mistakes_card_stroke"
+        app:strokeWidth="1dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@id/tvMistakesTitle"
+        app:layout_constraintTop_toBottomOf="@id/tvMistakesCounter">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardMistakeDictionaryState"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="14dp"
+                android:layout_marginEnd="14dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                app:cardBackgroundColor="@color/mistakes_dictionary_default_bg"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/mistakes_blue"
+                app:strokeWidth="1dp">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <TextView
+                        android:id="@+id/tvMistakeDictionaryIcon"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="☆"
+                        android:textColor="@color/mistakes_blue"
+                        android:textSize="23sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvMistakeDictionaryText"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:visibility="gone" />
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingEnd="48dp"
+                    android:text="Напиши английский термин для перевода:"
+                    android:textColor="@color/mistakes_text_secondary"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:id="@+id/tvMistakeTranslation"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:paddingEnd="48dp"
+                    android:text="Перевод"
+                    android:textColor="@color/mistakes_text_primary"
+                    android:textSize="26sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </FrameLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tilMistakeAnswer"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:hint="Введите термин"
+        app:boxBackgroundColor="@color/mistakes_input_bg"
+        app:boxStrokeColor="@color/mistakes_blue"
+        app:hintTextColor="@color/mistakes_text_secondary"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@id/cardMistakeQuestion"
+        app:layout_constraintTop_toBottomOf="@id/cardMistakeQuestion">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etMistakeAnswer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:imeOptions="actionDone"
+            android:inputType="text"
+            android:textColor="@color/mistakes_text_primary"
+            android:textColorHint="@color/mistakes_text_secondary" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCheckMistake"
+        android:layout_width="0dp"
+        android:layout_height="60dp"
+        android:layout_marginTop="22dp"
+        android:backgroundTint="@color/mistakes_green"
+        android:text="ПРОВЕРИТЬ"
+        android:textColor="@color/mistakes_text_on_primary"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:cornerRadius="18dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@id/tilMistakeAnswer"
+        app:layout_constraintTop_toBottomOf="@id/tilMistakeAnswer" />
+
+    <ProgressBar
+        android:id="@+id/pbMistakes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

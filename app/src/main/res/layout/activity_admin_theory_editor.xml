@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/theory_editor_bg"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:background="@color/theory_editor_toolbar_bg"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp">
+
+        <ImageButton
+            android:id="@+id/btnCloseTheoryEditor"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="10dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:tint="@color/theory_editor_toolbar_icon" />
+
+        <TextView
+            android:id="@+id/tvTheoryEditorTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="Теория темы"
+            android:textColor="@color/theory_editor_toolbar_title"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:id="@+id/tvTheoryThemeName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Название темы"
+            android:textColor="@color/theory_editor_title"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvTheoryHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Добавьте теоретический материал. Если закрыть окно крестиком, новая тема не будет создана."
+            android:textColor="@color/theory_editor_hint"
+            android:textSize="14sp" />
+
+        <Spinner
+            android:id="@+id/spTheoryThemes"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_theory_editor_spinner"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:visibility="gone" />
+
+        <!-- ✅ ОБЁРТКА (фон + рамка) вместо TextInputLayout — никакой Material-стиль не сможет всё сломать -->
+        <FrameLayout
+            android:id="@+id/tilTheoryText"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="16dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_theory_editor_input">
+
+            <EditText
+                android:id="@+id/etTheoryText"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@android:color/transparent"
+                android:gravity="top|start"
+                android:hint="Текст теории"
+                android:inputType="textMultiLine|textCapSentences"
+                android:minLines="12"
+                android:padding="16dp"
+                android:textColor="@color/theory_editor_input_text"
+                android:textColorHint="@color/theory_editor_input_hint"
+                android:textSize="15sp" />
+        </FrameLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSaveTheory"
+            android:layout_width="match_parent"
+            android:layout_height="58dp"
+            android:layout_marginTop="16dp"
+            android:backgroundTint="@color/theory_editor_button_primary"
+            android:text="СОХРАНИТЬ ТЕМУ"
+            android:textColor="@color/theory_editor_button_text"
+            android:textStyle="bold"
+            app:cornerRadius="18dp" />
+
+    </LinearLayout>
+</LinearLayout>

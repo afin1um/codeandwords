@@ -13,7 +13,8 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class RetrofitClient {
 
-    private static final String BASE_URL = "https://jmdolczqymuvpxyvhfgy.supabase.co/rest/v1/";
+    private static final String BASE_URL =
+            "https://jmdolczqymuvpxyvhfgy.supabase.co/rest/v1/";
 
     private static final String SUPABASE_ANON_KEY =
             "sb_publishable_DzqZslXoYvCnq4FOdfqOZQ_r0ZSCcbZ";
@@ -26,14 +27,16 @@ public class RetrofitClient {
 
     public static ApiService getApiService() {
         if (retrofit == null) {
-            retrofit = buildRetrofit(30, 30, 30, 45, 64, 20);
+            // Увеличены таймауты: 90 сек для всех операций
+            // Добавлен RetryInterceptor (3 попытки, задержка 1 сек)
+            retrofit = buildRetrofit(90, 90, 90, 120, 64, 20, new RetryInterceptor(3, 1000));
         }
         return retrofit.create(ApiService.class);
     }
 
     public static ApiService getFastApiService() {
         if (fastRetrofit == null) {
-            fastRetrofit = buildRetrofit(45, 45, 45, 60, 64, 64);
+            fastRetrofit = buildRetrofit(90, 90, 90, 180, 64, 64, new RetryInterceptor(3, 1000));
         }
         return fastRetrofit.create(ApiService.class);
     }
@@ -44,7 +47,8 @@ public class RetrofitClient {
             int writeTimeout,
             int callTimeout,
             int maxRequests,
-            int maxRequestsPerHost
+            int maxRequestsPerHost,
+            RetryInterceptor retryInterceptor // Добавили параметр интерцептора
     ) {
         Dispatcher dispatcher = new Dispatcher();
         dispatcher.setMaxRequests(maxRequests);
@@ -56,6 +60,9 @@ public class RetrofitClient {
                 .readTimeout(readTimeout, TimeUnit.SECONDS)
                 .writeTimeout(writeTimeout, TimeUnit.SECONDS)
                 .callTimeout(callTimeout, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true) // Встроенный ретрай (базовый)
+                // 🔹 Добавляем наш RetryInterceptor ПЕРЕД заголовками
+                .addInterceptor(retryInterceptor)
                 .addInterceptor(chain -> {
                     Request original = chain.request();
 

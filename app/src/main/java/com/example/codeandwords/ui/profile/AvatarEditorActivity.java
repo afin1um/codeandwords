@@ -184,7 +184,19 @@ public class AvatarEditorActivity extends AppCompatActivity {
         AvatarPrefs.setAvatarCreated(AvatarEditorActivity.this, true);
         AvatarPrefs.setNeedsAvatarSetup(AvatarEditorActivity.this, false);
 
-        Repository repository = new Repository(AvatarEditorActivity.this);
+        Repository repository = Repository.getInstance(AvatarEditorActivity.this);
+
+        // Прогреваем темы заранее, пока обновляется аватар на сервере
+        repository.getThemes(new Repository.DataCallback<java.util.List<com.example.codeandwords.model.Theme>>() {
+            @Override
+            public void onSuccess(java.util.List<com.example.codeandwords.model.Theme> data) {
+            }
+            @Override
+            public void onError(String error) {
+            }
+        });
+
+        // Сохраняем аватар
         repository.updateAvatarConfig(currentConfig, new Repository.DataCallback<Void>() {
             @Override
             public void onSuccess(Void data) {
@@ -211,13 +223,21 @@ public class AvatarEditorActivity extends AppCompatActivity {
 
         final int headerPaddingStart = dp(12);
         final int headerPaddingEnd = dp(12);
+        final int headerPaddingBottom = dp(4);
+        final int extraTopOffset = dp(4); // небольшой дополнительный отступ от статус-бара
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
 
             if (headerContainer != null) {
-                headerContainer.setPadding(headerPaddingStart, systemBars.top, headerPaddingEnd, 0);
-                headerContainer.getLayoutParams().height = headerBaseHeight + systemBars.top;
+                headerContainer.setPadding(
+                        headerPaddingStart,
+                        systemBars.top + extraTopOffset,
+                        headerPaddingEnd,
+                        headerPaddingBottom
+                );
+                headerContainer.getLayoutParams().height =
+                        headerBaseHeight + systemBars.top + extraTopOffset;
                 headerContainer.requestLayout();
             }
 

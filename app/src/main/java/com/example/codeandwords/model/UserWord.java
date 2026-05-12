@@ -9,13 +9,13 @@ import com.google.gson.annotations.SerializedName;
 @Entity(tableName = "user_personal_words")
 public class UserWord {
 
-    // Локальный Room ID — называем в JSON так, чтобы НЕ совпадало с "id" сервера
-    // SerializedName указываем уникальное имя, которого нет в ответе сервера
+    // Локальный Room ID — в JSON называется "local_room_id"
+    // Сервер такого поля не возвращает — Room сам генерирует ID
     @PrimaryKey(autoGenerate = true)
     @SerializedName("local_room_id")
     private Long id;
 
-    // ID на сервере Supabase — именно это поле получает значение из JSON поля "id"
+    // ID записи на сервере Supabase — маппится на JSON поле "id"
     @SerializedName("id")
     private Long serverId;
 
@@ -43,18 +43,16 @@ public class UserWord {
     @SerializedName("date_added")
     private long dateAdded;
 
-    // Локальный флаг — сервер его не возвращает, конфликтов нет
+    // Локальный флаг — сервер его не возвращает
     @SerializedName("is_synced")
     private boolean isSynced;
 
     // ===== КОНСТРУКТОРЫ =====
 
-    // Пустой конструктор для Room и Gson
     public UserWord() {
         this.isSynced = false;
     }
 
-    // Конструктор без темы
     @Ignore
     public UserWord(Integer userId,
                     String word,
@@ -64,7 +62,6 @@ public class UserWord {
         this(userId, null, "Без темы", word, translation, transcription, notes);
     }
 
-    // Полный конструктор
     @Ignore
     public UserWord(Integer userId,
                     Long themeId,
@@ -76,8 +73,7 @@ public class UserWord {
         this.userId = userId;
         this.themeId = themeId;
         this.themeTitle = themeTitle == null || themeTitle.trim().isEmpty()
-                ? "Без темы"
-                : themeTitle.trim();
+                ? "Без темы" : themeTitle.trim();
         this.word = word;
         this.translation = translation;
         this.transcription = transcription;
@@ -88,103 +84,58 @@ public class UserWord {
 
     // ===== GETTERS =====
 
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
 
-    public Long getServerId() {
-        return serverId;
-    }
+    public Long getServerId() { return serverId; }
 
-    public Integer getUserId() {
-        return userId;
-    }
+    public Integer getUserId() { return userId; }
 
-    public Long getThemeId() {
-        return themeId;
-    }
+    public Long getThemeId() { return themeId; }
 
     public String getThemeTitle() {
         return themeTitle == null || themeTitle.trim().isEmpty()
-                ? "Без темы"
-                : themeTitle;
+                ? "Без темы" : themeTitle;
     }
 
-    public String getWord() {
-        return word;
-    }
+    public String getWord() { return word; }
 
-    // Алиас для getWord() — используется в Repository при удалении по термину
     @Ignore
-    public String getTerm() {
-        return word;
-    }
+    public String getTerm() { return word; }
 
-    public String getTranslation() {
-        return translation;
-    }
+    public String getTranslation() { return translation; }
 
-    public String getTranscription() {
-        return transcription;
-    }
+    public String getTranscription() { return transcription; }
 
-    public String getNotes() {
-        return notes;
-    }
+    public String getNotes() { return notes; }
 
-    public long getDateAdded() {
-        return dateAdded;
-    }
+    public long getDateAdded() { return dateAdded; }
 
-    public boolean isSynced() {
-        return isSynced;
-    }
+    public boolean isSynced() { return isSynced; }
 
     // ===== SETTERS =====
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public void setId(Long id) { this.id = id; }
 
-    public void setServerId(Long serverId) {
-        this.serverId = serverId;
-    }
+    public void setServerId(Long serverId) { this.serverId = serverId; }
 
-    public void setUserId(Integer userId) {
-        this.userId = userId;
-    }
+    public void setUserId(Integer userId) { this.userId = userId; }
 
-    public void setThemeId(Long themeId) {
-        this.themeId = themeId;
-    }
+    public void setThemeId(Long themeId) { this.themeId = themeId; }
 
     public void setThemeTitle(String themeTitle) {
         this.themeTitle = themeTitle == null || themeTitle.trim().isEmpty()
-                ? "Без темы"
-                : themeTitle.trim();
+                ? "Без темы" : themeTitle.trim();
     }
 
-    public void setWord(String word) {
-        this.word = word;
-    }
+    public void setWord(String word) { this.word = word; }
 
-    public void setTranslation(String translation) {
-        this.translation = translation;
-    }
+    public void setTranslation(String translation) { this.translation = translation; }
 
-    public void setTranscription(String transcription) {
-        this.transcription = transcription;
-    }
+    public void setTranscription(String transcription) { this.transcription = transcription; }
 
-    public void setNotes(String notes) {
-        this.notes = notes;
-    }
+    public void setNotes(String notes) { this.notes = notes; }
 
-    public void setDateAdded(long dateAdded) {
-        this.dateAdded = dateAdded;
-    }
+    public void setDateAdded(long dateAdded) { this.dateAdded = dateAdded; }
 
-    public void setSynced(boolean synced) {
-        isSynced = synced;
-    }
+    public void setSynced(boolean synced) { isSynced = synced; }
 }

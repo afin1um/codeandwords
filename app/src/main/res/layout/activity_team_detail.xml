@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/team_bg"
@@ -32,78 +33,135 @@
             android:textColor="@color/team_toolbar_title"
             android:textSize="18sp"
             android:textStyle="bold" />
-
     </RelativeLayout>
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="22dp">
+        android:layout_height="match_parent">
 
-        <TextView
-            android:id="@+id/tvTeamDetailName"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Команда"
-            android:textColor="@color/team_text_primary"
-            android:textSize="28sp"
-            android:textStyle="bold" />
-
+        <!-- Основной контент -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:background="@drawable/bg_team_card"
+            android:layout_height="match_parent"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="22dp">
 
             <TextView
-                android:id="@+id/tvTeamChallengeTitle"
+                android:id="@+id/tvTeamDetailName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Задание команды"
+                android:text="Команда"
+                android:textColor="@color/team_text_primary"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:background="@drawable/bg_team_card"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/tvTeamChallengeTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Задание команды"
+                    android:textColor="@color/team_text_primary"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvTeamChallengeTarget"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Цель: 100"
+                    android:textColor="@color/team_text_secondary"
+                    android:textSize="15sp" />
+
+                <ProgressBar
+                    android:id="@+id/progressTeamChallenge"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="12dp"
+                    android:layout_marginTop="14dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressTint="@color/team_progress_fill"
+                    android:progressBackgroundTint="@color/team_progress_bg" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:text="Прогресс участников"
                 android:textColor="@color/team_text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/tvTeamChallengeTarget"
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerTeamProgress"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="Цель: 100"
-                android:textColor="@color/team_text_secondary"
-                android:textSize="15sp" />
-
-            <ProgressBar
-                android:id="@+id/progressTeamChallenge"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="12dp"
-                android:layout_marginTop="14dp"
-                android:max="100"
-                android:progress="0"
-                android:progressTint="@color/team_progress_fill"
-                android:progressBackgroundTint="@color/team_progress_bg" />
-
+                android:layout_marginTop="14dp" />
         </LinearLayout>
 
-        <TextView
+        <!-- Загрузка -->
+        <LinearLayout
+            android:id="@+id/loadingContainer"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:text="Прогресс участников"
-            android:textColor="@color/team_text_primary"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:layout_height="match_parent"
+            android:background="@color/team_bg"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerTeamProgress"
+            <ProgressBar
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Загрузка задания команды..."
+                android:textColor="@color/team_text_secondary"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <!-- Ошибка -->
+        <LinearLayout
+            android:id="@+id/errorContainer"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp" />
+            android:layout_height="match_parent"
+            android:background="@color/team_bg"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="32dp"
+            android:visibility="gone">
 
-    </LinearLayout>
+            <TextView
+                android:id="@+id/tvErrorMessage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="Не удалось загрузить задание команды"
+                android:textColor="@color/team_text_primary"
+                android:textSize="16sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRetry"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="ПОПРОБОВАТЬ СНОВА"
+                android:textColor="@color/team_button_text"
+                app:backgroundTint="@color/team_button_primary"
+                app:cornerRadius="14dp" />
+        </LinearLayout>
+    </FrameLayout>
 
 </LinearLayout>

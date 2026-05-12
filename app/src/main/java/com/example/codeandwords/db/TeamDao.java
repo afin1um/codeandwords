@@ -23,4 +23,16 @@ public interface TeamDao {
 
     @Query("SELECT * FROM teams ORDER BY id DESC")
     List<Team> getAll();
+
+    // Удаление одной команды по id — ИСПРАВЛЕНИЕ ОШИБКИ
+    @Query("DELETE FROM teams WHERE id = :teamId")
+    void deleteById(int teamId);
+
+    // Удаление всех команд пользователя (для сброса кэша)
+    @Query("DELETE FROM teams WHERE owner_id = :userId")
+    void deleteAllTeamsByUser(int userId);
+
+    // Удаление участников команды — если хранятся в той же таблице
+    @Query("DELETE FROM team_members WHERE user_id = :userId")
+    void deleteAllMembersByUser(int userId);
 }

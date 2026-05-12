@@ -1,6 +1,7 @@
 package com.example.codeandwords.ui.profile;
 
 import android.os.Bundle;
+import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -14,6 +15,7 @@ import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
 import com.example.codeandwords.model.TeamChallenge;
 import com.example.codeandwords.model.TeamChallengeProgress;
+import com.google.android.material.button.MaterialButton;
 
 import java.util.List;
 
@@ -27,10 +29,17 @@ public class TeamDetailActivity extends AppCompatActivity {
     private ProgressBar progressTeam;
     private RecyclerView recyclerProgress;
 
+    private View loadingContainer;
+    private View errorContainer;
+    private MaterialButton btnRetry;
+    private TextView tvErrorMessage;
+
     private TeamProgressAdapter adapter;
 
     private int teamId;
     private String teamName;
+
+    private boolean isLoading = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,7 +59,8 @@ public class TeamDetailActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        loadChallenge();
+        // Не перезагружаем при каждом onResume — это вызывало повторные таймауты
+        // loadChallenge() будет вызываться только при первом открытии и по кнопке "Повторить"
     }
 
     private void initViews() {
@@ -63,15 +73,41 @@ public class TeamDetailActivity extends AppCompatActivity {
         progressTeam = findViewById(R.id.progressTeamChallenge);
         recyclerProgress = findViewById(R.id.recyclerTeamProgress);
 
+        loadingContainer = findViewById(R.id.loadingContainer);
+        errorContainer = findViewById(R.id.errorContainer);
+        btnRetry = findViewById(R.id.btnRetry);
+        tvErrorMessage = findViewById(R.id.tvErrorMessage);
+
         tvTeamName.setText(teamName != null && !teamName.trim().isEmpty() ? teamName : "Команда");
+
+        btnRetry.setOnClickListener(v -> loadChallenge());
     }
 
     private void setupRecycler() {
         adapter = new TeamProgressAdapter();
-
         recyclerProgress.setLayoutManager(new LinearLayoutManager(this));
         recyclerProgress.setAdapter(adapter);
         recyclerProgress.setNestedScrollingEnabled(false);
+    }
+
+    private void showLoading() {
+        if (loadingContainer != null) loadingContainer.setVisibility(View.VISIBLE);
+        if (errorContainer != null) errorContainer.setVisibility(View.GONE);
+    }
+
+    private void showContent() {
+        if (loadingContainer != null) loadingContainer.setVisibility(View.GONE);
+        if (errorContainer != null) errorContainer.setVisibility(View.GONE);
+    }
+
+    private void showError(String message) {
+        if (loadingContainer != null) loadingContainer.setVisibility(View.GONE);
+        if (errorContainer != null) errorContainer.setVisibility(View.VISIBLE);
+        if (tvErrorMessage != null) {
+            tvErrorMessage.setText(message != null
+                    ? "Не удалось загрузить задание команды.\n" + message
+                    : "Не удалось загрузить задание команды");
+        }
     }
 
     private void loadChallenge() {
@@ -81,54 +117,70 @@ public class TeamDetailActivity extends AppCompatActivity {
             return;
         }
 
+        if (isLoading) return;
+
+        isLoading = true;
+        showLoading();
+
         repository.getTeamChallenge(teamId, new Repository.DataCallback<TeamChallenge>() {
             @Override
             public void onSuccess(TeamChallenge challenge) {
                 if (challenge == null) {
-                    Toast.makeText(TeamDetailActivity.this, "Задание команды не найдено", Toast.LENGTH_SHORT).show();
+                    isLoading = false;
+                    showError("Задание команды ещё не создано");
                     return;
                 }
 
-                tvChallengeTitle.setText(challenge.title != null ? challenge.title : "Задание команды");
+                tvChallengeTitle.setText(challenge.title != null
+                        ? challenge.title
+                        : "Задание команды");
 
-                String unit = "LESSONS".equals(challenge.conditionType) ? " уроков" : " XP";
+                String unit = "LESSONS".equals(challenge.conditionType)
+                        ? " уроков" : " XP";
                 tvChallengeTarget.setText("Цель: " + challenge.targetValue + unit);
 
-                progressTeam.setMax(challenge.targetValue);
+                progressTeam.setMax(Math.max(challenge.targetValue, 1));
+
                 loadProgress(challenge);
             }
 
             @Override
             public void onError(String error) {
-                Toast.makeText(TeamDetailActivity.this, error, Toast.LENGTH_SHORT).show();
+                isLoading = false;
+                showError(error);
             }
         });
     }
 
     private void loadProgress(TeamChallenge challenge) {
-        repository.getTeamProgress(challenge.id, new Repository.DataCallback<List<TeamChallengeProgress>>() {
-            @Override
-            public void onSuccess(List<TeamChallengeProgress> data) {
-                int maxProgress = 0;
+        repository.getTeamProgress(challenge.id,
+                new Repository.DataCallback<List<TeamChallengeProgress>>() {
+                    @Override
+                    public void onSuccess(List<TeamChallengeProgress> data) {
+                        isLoading = false;
+                        showContent();
 
-                if (data != null) {
-                    for (TeamChallengeProgress p : data) {
-                        if (p != null && p.progress > maxProgress) {
-                            maxProgress = p.progress;
+                        int maxProgress = 0;
+
+                        if (data != null) {
+                            for (TeamChallengeProgress p : data) {
+                                if (p != null && p.progress > maxProgress) {
+                                    maxProgress = p.progress;
+                                }
+                            }
                         }
+
+                        progressTeam.setProgress(
+                                Math.min(maxProgress, challenge.targetValue));
+
+                        adapter.setItems(data, challenge.targetValue);
                     }
-                }
 
-                progressTeam.setProgress(Math.min(maxProgress, challenge.targetValue));
-
-                // ВАЖНО: передаем targetValue, чтобы было 50/50, а не 50/100
-                adapter.setItems(data, challenge.targetValue);
-            }
-
-            @Override
-            public void onError(String error) {
-                Toast.makeText(TeamDetailActivity.this, error, Toast.LENGTH_SHORT).show();
-            }
-        });
+                    @Override
+                    public void onError(String error) {
+                        isLoading = false;
+                        showError(error);
+                    }
+                });
     }
 }

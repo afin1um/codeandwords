@@ -30,11 +30,15 @@ public class ThemesFragment extends Fragment implements ThemeAdapter.OnThemeClic
     private ThemeAdapter adapter;
     private Repository repository;
 
+    private boolean hasShownData = false;
+
     public ThemesFragment() {}
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_themes, container, false);
     }
 
@@ -46,7 +50,7 @@ public class ThemesFragment extends Fragment implements ThemeAdapter.OnThemeClic
         progressBar = view.findViewById(R.id.progressBarThemes);
         tvError = view.findViewById(R.id.tvError);
 
-        repository = new Repository(requireContext());
+        repository = Repository.getInstance(requireContext());
 
         initRecyclerView();
         loadThemes();
@@ -59,32 +63,54 @@ public class ThemesFragment extends Fragment implements ThemeAdapter.OnThemeClic
     }
 
     private void loadThemes() {
-        showLoading(true);
+        // Показываем лоадер только если данных ещё нет
+        showInitialLoading();
+
         repository.getThemes(new Repository.DataCallback<List<Theme>>() {
             @Override
             public void onSuccess(List<Theme> data) {
-                showLoading(false);
-                adapter.setThemes(data);
+                if (!isAdded()) return;
+
+                if (data != null && !data.isEmpty()) {
+                    showData(data);
+                } else if (!hasShownData) {
+                    // Показываем ошибку только если данных вообще нет
+                    showError("Темы не найдены");
+                }
             }
 
             @Override
             public void onError(String error) {
-                showLoading(false);
-                tvError.setVisibility(View.VISIBLE);
-                tvError.setText(error);
+                if (!isAdded()) return;
+
+                // Показываем ошибку только если данных вообще нет
+                if (!hasShownData) {
+                    showError(error);
+                }
             }
         });
     }
 
-    private void showLoading(boolean isLoading) {
-        if (isLoading) {
-            progressBar.setVisibility(View.VISIBLE);
-            recyclerView.setVisibility(View.GONE);
-            tvError.setVisibility(View.GONE);
-        } else {
-            progressBar.setVisibility(View.GONE);
-            recyclerView.setVisibility(View.VISIBLE);
-        }
+    private void showInitialLoading() {
+        if (hasShownData) return;
+        progressBar.setVisibility(View.VISIBLE);
+        recyclerView.setVisibility(View.GONE);
+        tvError.setVisibility(View.GONE);
+    }
+
+    private void showData(List<Theme> themes) {
+        hasShownData = true;
+        progressBar.setVisibility(View.GONE);
+        tvError.setVisibility(View.GONE);
+        recyclerView.setVisibility(View.VISIBLE);
+        adapter.setThemes(themes);
+    }
+
+    private void showError(String error) {
+        progressBar.setVisibility(View.GONE);
+        recyclerView.setVisibility(View.GONE);
+        tvError.setVisibility(View.VISIBLE);
+        tvError.setText(error);
     }
 
     @Override

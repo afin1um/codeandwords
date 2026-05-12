@@ -20,4 +20,16 @@ public interface TeamMemberDao {
 
     @Query("SELECT * FROM team_members WHERE user_id = :userId")
     List<TeamMember> getByUserId(int userId);
+
+    // ДОБАВЛЕНО: удалить конкретного участника из конкретной команды
+    @Query("DELETE FROM team_members WHERE team_id = :teamId AND user_id = :userId")
+    void deleteByTeamAndUser(int teamId, int userId);
+
+    // ДОБАВЛЕНО: удалить всех участников команды
+    @Query("DELETE FROM team_members WHERE team_id = :teamId")
+    void deleteByTeamId(int teamId);
+
+    // ДОБАВЛЕНО: удалить все записи пользователя
+    @Query("DELETE FROM team_members WHERE user_id = :userId")
+    void deleteByUserId(int userId);
 }

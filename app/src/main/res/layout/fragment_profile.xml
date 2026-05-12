@@ -264,6 +264,22 @@
             </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnOpenAdminPanel"
+                android:layout_width="match_parent"
+                android:layout_height="58dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="@color/app_card_bg"
+                android:text="АДМИН-ПАНЕЛЬ"
+                android:textAllCaps="false"
+                android:textColor="@color/app_text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                app:cornerRadius="18dp"
+                app:strokeColor="@color/app_orange"
+                app:strokeWidth="2dp" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnOpenPersonalDictionary"
                 android:layout_width="match_parent"
                 android:layout_height="58dp"
@@ -337,21 +353,7 @@
                 android:textStyle="bold"
                 app:cornerRadius="18dp" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnOpenAdminPanel"
-                android:layout_width="match_parent"
-                android:layout_height="58dp"
-                android:layout_marginTop="12dp"
-                android:backgroundTint="@color/app_card_bg"
-                android:text="АДМИН-ПАНЕЛЬ"
-                android:textAllCaps="false"
-                android:textColor="@color/app_text_primary"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:visibility="gone"
-                app:cornerRadius="18dp"
-                app:strokeColor="@color/app_orange"
-                app:strokeWidth="2dp" />
+
 
             <TextView
                 android:layout_width="wrap_content"

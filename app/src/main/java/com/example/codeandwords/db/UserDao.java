@@ -32,4 +32,7 @@ public interface UserDao {
 
     @Query("SELECT * FROM users WHERE LOWER(username) = LOWER(:username) LIMIT 1")
     User getByUsername(String username);
+    // В интерфейсе UserDao.java добавить:
+    @Query("SELECT * FROM users WHERE username = :username LIMIT 1")
+    User getUserByUsername(String username);
 }

@@ -63,7 +63,6 @@ public class MistakesTrainingActivity extends AppCompatActivity {
     private int soundError;
     private boolean soundsLoaded = false;
 
-    // ✅ Цвета загружаются из ресурсов (поддерживают темы)
     private int colorCardDefault;
     private int colorCardAdded;
     private int colorBlue;
@@ -78,7 +77,7 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_mistakes_training);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         loadThemeColors();
         initSoundPool();
@@ -87,17 +86,13 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         loadMistakeWords();
     }
 
-    /**
-     * ✅ Загружает цвета из ресурсов — автоматически берёт правильные
-     * для светлой или тёмной темы.
-     */
     private void loadThemeColors() {
-        colorCardDefault   = ContextCompat.getColor(this, R.color.mistakes_dictionary_default_bg);
-        colorCardAdded     = ContextCompat.getColor(this, R.color.mistakes_dictionary_added_bg);
-        colorBlue          = ContextCompat.getColor(this, R.color.mistakes_blue);
-        colorGreen         = ContextCompat.getColor(this, R.color.mistakes_green);
-        colorGray          = ContextCompat.getColor(this, R.color.mistakes_gray);
-        colorTextPrimary   = ContextCompat.getColor(this, R.color.mistakes_text_primary);
+        colorCardDefault = ContextCompat.getColor(this, R.color.mistakes_dictionary_default_bg);
+        colorCardAdded = ContextCompat.getColor(this, R.color.mistakes_dictionary_added_bg);
+        colorBlue = ContextCompat.getColor(this, R.color.mistakes_blue);
+        colorGreen = ContextCompat.getColor(this, R.color.mistakes_green);
+        colorGray = ContextCompat.getColor(this, R.color.mistakes_gray);
+        colorTextPrimary = ContextCompat.getColor(this, R.color.mistakes_text_primary);
         colorTextSecondary = ContextCompat.getColor(this, R.color.mistakes_text_secondary);
         colorTextOnPrimary = ContextCompat.getColor(this, R.color.mistakes_text_on_primary);
     }
@@ -115,7 +110,6 @@ public class MistakesTrainingActivity extends AppCompatActivity {
 
         soundSuccess = soundPool.load(this, R.raw.success, 1);
         soundError = soundPool.load(this, R.raw.error, 1);
-
         soundPool.setOnLoadCompleteListener((pool, sampleId, status) -> soundsLoaded = true);
     }
 
@@ -128,7 +122,6 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         tilMistakeAnswer = findViewById(R.id.tilMistakeAnswer);
         etMistakeAnswer = findViewById(R.id.etMistakeAnswer);
         btnCheckMistake = findViewById(R.id.btnCheckMistake);
-
         cardMistakeDictionaryState = findViewById(R.id.cardMistakeDictionaryState);
         tvMistakeDictionaryIcon = findViewById(R.id.tvMistakeDictionaryIcon);
         tvMistakeDictionaryText = findViewById(R.id.tvMistakeDictionaryText);
@@ -136,12 +129,10 @@ public class MistakesTrainingActivity extends AppCompatActivity {
 
     private void setupClicks() {
         btnCloseMistakes.setOnClickListener(v -> finish());
-
         btnCheckMistake.setOnClickListener(v -> checkAnswer());
 
         cardMistakeDictionaryState.setOnClickListener(v -> {
             if (dictionaryStateLoading) return;
-
             if (currentWordAlreadyInDictionary) {
                 Toast.makeText(this, "Это слово уже есть в личном словаре",
                         Toast.LENGTH_SHORT).show();
@@ -205,11 +196,8 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         for (Word word : words) {
             if (word == null) continue;
             String term = word.getTerm() == null ? "" : word.getTerm().trim();
-            String translation = word.getTranslation() == null
-                    ? "" : word.getTranslation().trim();
-            if (!term.isEmpty() && !translation.isEmpty()) {
-                result.add(word);
-            }
+            String translation = word.getTranslation() == null ? "" : word.getTranslation().trim();
+            if (!term.isEmpty() && !translation.isEmpty()) result.add(word);
         }
         return result;
     }
@@ -248,25 +236,26 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         cardMistakeDictionaryState.setVisibility(View.VISIBLE);
         renderDictionaryLoadingState();
 
-        repository.isWordInPersonalDictionary(currentWord, new Repository.DataCallback<Boolean>() {
-            @Override
-            public void onSuccess(Boolean isAdded) {
-                dictionaryStateLoading = false;
-                currentWordAlreadyInDictionary = isAdded != null && isAdded;
-                if (currentWordAlreadyInDictionary) {
-                    renderDictionaryAddedState();
-                } else {
-                    renderDictionaryCanAddState();
-                }
-            }
+        repository.isWordInPersonalDictionary(currentWord,
+                new Repository.DataCallback<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean isAdded) {
+                        dictionaryStateLoading = false;
+                        currentWordAlreadyInDictionary = isAdded != null && isAdded;
+                        if (currentWordAlreadyInDictionary) {
+                            renderDictionaryAddedState();
+                        } else {
+                            renderDictionaryCanAddState();
+                        }
+                    }
 
-            @Override
-            public void onError(String error) {
-                dictionaryStateLoading = false;
-                currentWordAlreadyInDictionary = false;
-                renderDictionaryCanAddState();
-            }
-        });
+                    @Override
+                    public void onError(String error) {
+                        dictionaryStateLoading = false;
+                        currentWordAlreadyInDictionary = false;
+                        renderDictionaryCanAddState();
+                    }
+                });
     }
 
     private void renderDictionaryLoadingState() {
@@ -274,10 +263,8 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         cardMistakeDictionaryState.setCardBackgroundColor(colorCardDefault);
         cardMistakeDictionaryState.setStrokeColor(colorGray);
         cardMistakeDictionaryState.setStrokeWidth(dp(1));
-
         tvMistakeDictionaryIcon.setText("…");
         tvMistakeDictionaryIcon.setTextColor(colorGray);
-
         tvMistakeDictionaryText.setText("Проверяем");
         tvMistakeDictionaryText.setTextColor(colorTextPrimary);
     }
@@ -287,10 +274,8 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         cardMistakeDictionaryState.setCardBackgroundColor(colorCardDefault);
         cardMistakeDictionaryState.setStrokeColor(colorBlue);
         cardMistakeDictionaryState.setStrokeWidth(dp(1));
-
         tvMistakeDictionaryIcon.setText("☆");
         tvMistakeDictionaryIcon.setTextColor(colorBlue);
-
         tvMistakeDictionaryText.setText("Сохранить");
         tvMistakeDictionaryText.setTextColor(colorTextPrimary);
     }
@@ -300,52 +285,44 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         cardMistakeDictionaryState.setCardBackgroundColor(colorCardAdded);
         cardMistakeDictionaryState.setStrokeColor(colorGreen);
         cardMistakeDictionaryState.setStrokeWidth(dp(1));
-
         tvMistakeDictionaryIcon.setText("★");
         tvMistakeDictionaryIcon.setTextColor(colorGreen);
-
         tvMistakeDictionaryText.setText("В словаре");
         tvMistakeDictionaryText.setTextColor(colorGreen);
     }
 
     private void addCurrentWordToDictionary() {
-        if (currentWord == null) {
-            Toast.makeText(this, "Слово ещё не загружено",
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (currentWord == null) return;
 
         dictionaryStateLoading = true;
         renderDictionaryLoadingState();
 
-        repository.addWordToPersonalDictionary(currentWord, new Repository.DataCallback<Void>() {
-            @Override
-            public void onSuccess(Void data) {
-                dictionaryStateLoading = false;
-                currentWordAlreadyInDictionary = true;
-                renderDictionaryAddedState();
+        repository.addWordToPersonalDictionary(currentWord,
+                new Repository.DataCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void data) {
+                        dictionaryStateLoading = false;
+                        currentWordAlreadyInDictionary = true;
+                        renderDictionaryAddedState();
+                        Toast.makeText(MistakesTrainingActivity.this,
+                                "Слово добавлено в личный словарь",
+                                Toast.LENGTH_SHORT).show();
+                    }
 
-                Toast.makeText(MistakesTrainingActivity.this,
-                        "Слово добавлено в личный словарь",
-                        Toast.LENGTH_SHORT).show();
-            }
-
-            @Override
-            public void onError(String error) {
-                dictionaryStateLoading = false;
-
-                if (error != null && error.toLowerCase().contains("уже есть")) {
-                    currentWordAlreadyInDictionary = true;
-                    renderDictionaryAddedState();
-                } else {
-                    currentWordAlreadyInDictionary = false;
-                    renderDictionaryCanAddState();
-                }
-
-                Toast.makeText(MistakesTrainingActivity.this, error,
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
+                    @Override
+                    public void onError(String error) {
+                        dictionaryStateLoading = false;
+                        if (error != null && error.toLowerCase().contains("уже есть")) {
+                            currentWordAlreadyInDictionary = true;
+                            renderDictionaryAddedState();
+                        } else {
+                            currentWordAlreadyInDictionary = false;
+                            renderDictionaryCanAddState();
+                        }
+                        Toast.makeText(MistakesTrainingActivity.this, error,
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     private void checkAnswer() {
@@ -369,10 +346,12 @@ public class MistakesTrainingActivity extends AppCompatActivity {
             score += POINTS_PER_FIXED_MISTAKE;
             fixedErrorsCount++;
 
-            repository.resolveWordMistake(currentWord, new Repository.DataCallback<Void>() {
-                @Override public void onSuccess(Void data) {}
-                @Override public void onError(String error) {}
-            });
+            // ✅ ИСПРАВЛЕНИЕ ОШИБКИ
+            repository.resolveWordMistake(currentWord,
+                    new Repository.DataCallback<Void>() {
+                        @Override public void onSuccess(Void data) { }
+                        @Override public void onError(String error) { }
+                    });
 
             new Handler().postDelayed(() -> {
                 currentIndex++;
@@ -406,14 +385,8 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         progressMistakes.setProgress(100);
 
         repository.recordLessonCompletion(
-                "TRAINING_MISTAKES",
-                null,
-                0,
-                mistakeWords.size(),
-                mistakesMade,
-                fixedErrorsCount,
-                false
-        );
+                "TRAINING_MISTAKES", null, 0, mistakeWords.size(),
+                mistakesMade, fixedErrorsCount, false);
 
         Intent intent = new Intent(this, GameResultActivity.class);
         intent.putExtra("SCORE", 0);
@@ -455,9 +428,6 @@ public class MistakesTrainingActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (soundPool != null) {
-            soundPool.release();
-            soundPool = null;
-        }
+        if (soundPool != null) { soundPool.release(); soundPool = null; }
     }
 }

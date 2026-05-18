@@ -6,6 +6,7 @@ import com.example.codeandwords.model.User;
 import com.example.codeandwords.model.UserWord;
 import com.example.codeandwords.model.UserWordProgress;
 import com.example.codeandwords.model.Word;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import java.util.List;
@@ -308,7 +309,9 @@ public interface ApiService {
     @GET("user_word_progress")
     Call<List<UserWordProgress>> getUserProgressByUser(
             @Query("user_id") String userFilter,
-            @Query("select") String select);
+            @Query("select") String select,
+            @Query("order") String order,
+            @Query("limit") Integer limit);
 
     @GET("user_word_progress")
     Call<List<UserWordProgress>> getUserWordProgress(
@@ -327,6 +330,24 @@ public interface ApiService {
     Call<Void> updateWordProgress(
             @Query("id") String idFilter,
             @Body UserWordProgress progress);
+
+    @GET("user_word_progress")
+    Call<List<UserWordProgress>> getLearnedProgress(
+            @Query("user_id") String userFilter,
+            @Query("is_learned") String learnedFilter,
+            @Query("select") String select,
+            @Query("order") String order,
+            @Query("limit") Integer limit
+    );
+
+    @GET("user_word_progress")
+    Call<List<UserWordProgress>> getMistakeProgress(
+            @Query("user_id") String userFilter,
+            @Query("mistakes_count") String mistakesFilter,
+            @Query("select") String select,
+            @Query("order") String order,
+            @Query("limit") Integer limit
+    );
 
     @GET("words")
     Call<List<Word>> getWordsByIds(
@@ -381,4 +402,26 @@ public interface ApiService {
     // ДОБАВЛЕНО: удаление команды по id
     @DELETE("teams")
     Call<Void> deleteTeamRaw(@Query("id") String idFilter);
+
+    /**
+     * Получить ВСЕ ачивки пользователя одним запросом (вместо проверки каждой)
+     */
+    @GET("user_achievements")
+    Call<List<JsonObject>> getUserAchievementsByUserRaw(
+            @Query("user_id") String userIdFilter,
+            @Query("select") String select
+    );
+
+    /**
+     * Батчевый upsert ачивок одним запросом
+     */
+    @Headers({
+            "Content-Type: application/json",
+            "Prefer: resolution=merge-duplicates"
+    })
+    @POST("user_achievements")
+    Call<Void> upsertUserAchievementsBatchRaw(
+            @Query("on_conflict") String onConflict,
+            @Body JsonArray batch
+    );
 }

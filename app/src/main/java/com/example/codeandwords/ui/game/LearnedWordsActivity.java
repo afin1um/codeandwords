@@ -71,7 +71,7 @@ public class LearnedWordsActivity extends AppCompatActivity implements TextToSpe
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_learned_words);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
         tts = new TextToSpeech(this, this);
 
         loadThemeColors();
@@ -81,10 +81,6 @@ public class LearnedWordsActivity extends AppCompatActivity implements TextToSpe
         loadThemesAndWords();
     }
 
-    /**
-     * ✅ Загружаем цвета через ContextCompat — они автоматически
-     * берутся из values/ или values-night/ в зависимости от системной темы.
-     */
     private void loadThemeColors() {
         chipSelectedBg     = ContextCompat.getColor(this, R.color.chip_selected_bg);
         chipSelectedText   = ContextCompat.getColor(this, R.color.chip_selected_text);

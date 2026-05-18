@@ -175,11 +175,6 @@ public class TeamsRepository {
             }
         });
     }
-
-    /**
-     * НОВЫЙ МЕТОД: Синхронизирует локальный кэш с актуальным списком от сервера.
-     * Удаляет из локальной БД те команды, которых больше нет на сервере.
-     */
     private void syncLocalTeamsWithServer(int userId, List<Team> serverTeams) {
         executor.execute(() -> {
             try {
@@ -189,42 +184,53 @@ public class TeamsRepository {
                     if (t != null && t.id > 0) serverTeamIds.add(t.id);
                 }
 
-                // 1. Удаляем команды-владельца, которых нет на сервере
+                // Собираем команды для удаления ЗАРАНЕЕ
+                List<Integer> teamsToDelete = new ArrayList<>();
+
                 List<Team> localOwned = teamDao.getOwnedTeams(userId);
                 if (localOwned != null) {
                     for (Team localTeam : localOwned) {
                         if (localTeam == null) continue;
                         if (!serverTeamIds.contains(localTeam.id)) {
-                            try {
-                                teamDao.deleteById(localTeam.id);
-                                Log.d(TAG, "Удалена устаревшая команда из кэша: id=" + localTeam.id);
-                            } catch (Exception e) {
-                                Log.e(TAG, "Ошибка удаления устаревшей команды: " + e.getMessage(), e);
-                            }
+                            teamsToDelete.add(localTeam.id);
                         }
                     }
                 }
 
-                // 2. Удаляем участия пользователя в командах, которых больше нет на сервере
                 List<TeamMember> memberships = teamMemberDao.getByUserId(userId);
+                List<Integer> membershipsToDelete = new ArrayList<>();
                 if (memberships != null) {
                     for (TeamMember m : memberships) {
                         if (m == null) continue;
                         if (!serverTeamIds.contains(m.teamId)) {
-                            try {
-                                teamMemberDao.deleteByTeamAndUser(m.teamId, userId);
-                                // Также удаляем саму команду из локального кэша
-                                teamDao.deleteById(m.teamId);
-                                Log.d(TAG, "Удалено устаревшее участие в команде id=" + m.teamId);
-                            } catch (Exception e) {
-                                Log.e(TAG, "Ошибка удаления устаревшего участия: " + e.getMessage(), e);
-                            }
+                            membershipsToDelete.add(m.teamId);
                         }
                     }
                 }
 
-                // 3. Сохраняем актуальные команды в кэш
+                // Удаляем устаревшие команды
+                for (int teamId : teamsToDelete) {
+                    try {
+                        teamDao.deleteById(teamId);
+                        Log.d(TAG, "Удалена устаревшая команда: id=" + teamId);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Ошибка удаления команды: " + e.getMessage(), e);
+                    }
+                }
+
+                // Удаляем устаревшие участия
+                for (int teamId : membershipsToDelete) {
+                    try {
+                        teamMemberDao.deleteByTeamAndUser(teamId, userId);
+                        teamDao.deleteById(teamId);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Ошибка удаления участия: " + e.getMessage(), e);
+                    }
+                }
+
+                // Вставляем актуальные команды
                 for (Team t : serverTeams) {
+                    if (t == null) continue;
                     try {
                         teamDao.insert(t);
                     } catch (Exception ignored) {}

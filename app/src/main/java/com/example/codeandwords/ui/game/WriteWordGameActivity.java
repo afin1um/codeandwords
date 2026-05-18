@@ -50,8 +50,8 @@ public class WriteWordGameActivity extends AppCompatActivity {
     private TextView tvCorrectionHeader;
     private TextView tvMistakesLeft;
     private MaterialCardView correctionBannerCard;
-    private FrameLayout tilInput;            // ✅ Изменено с TextInputLayout
-    private EditText etInput;                // ✅ Изменено с TextInputEditText
+    private FrameLayout tilInput;
+    private EditText etInput;
     private Button btnCheck;
     private ProgressBar progressBar;
     private LottieAnimationView lottieConfetti;
@@ -89,11 +89,10 @@ public class WriteWordGameActivity extends AppCompatActivity {
         setContentView(R.layout.activity_write_word_game);
 
         initThemeColors();
-
         initSoundPool();
         initViews();
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         String trainingMode = getIntent().getStringExtra("TRAINING_MODE");
         isTrainingMode = TRAINING_MODE_LEARNED_WORDS.equals(trainingMode);
@@ -103,7 +102,6 @@ public class WriteWordGameActivity extends AppCompatActivity {
             loadLearnedWordsForTraining();
         } else {
             themeId = getIntent().getLongExtra("THEME_ID", -1);
-
             if (themeId != -1) {
                 loadWordsByTheme();
             } else {
@@ -126,7 +124,6 @@ public class WriteWordGameActivity extends AppCompatActivity {
 
         soundSuccess = soundPool.load(this, R.raw.success, 1);
         soundError = soundPool.load(this, R.raw.error, 1);
-
         soundPool.setOnLoadCompleteListener((pool, sampleId, status) -> soundsLoaded = true);
     }
 
@@ -150,19 +147,11 @@ public class WriteWordGameActivity extends AppCompatActivity {
         btnCheck.setOnClickListener(v -> checkAnswer());
 
         cardWriteDictionaryState.setOnClickListener(v -> {
-            if (dictionaryStateLoading) {
-                return;
-            }
-
+            if (dictionaryStateLoading) return;
             if (currentWordAlreadyInDictionary) {
-                Toast.makeText(
-                        WriteWordGameActivity.this,
-                        "Это слово уже есть в личном словаре",
-                        Toast.LENGTH_SHORT
-                ).show();
+                Toast.makeText(this, "Это слово уже есть в личном словаре", Toast.LENGTH_SHORT).show();
                 return;
             }
-
             addCurrentWordToDictionary();
         });
 
@@ -186,19 +175,13 @@ public class WriteWordGameActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<Word> words) {
                 progressBar.setVisibility(View.GONE);
-
                 List<Word> playableWords = preparePlayableWords(words);
-
                 if (playableWords.size() < 5) {
-                    Toast.makeText(
-                            WriteWordGameActivity.this,
-                            "Для режима нужно минимум 5 терминов",
-                            Toast.LENGTH_LONG
-                    ).show();
+                    Toast.makeText(WriteWordGameActivity.this,
+                            "Для режима нужно минимум 5 терминов", Toast.LENGTH_LONG).show();
                     finish();
                     return;
                 }
-
                 startGame(playableWords);
             }
 
@@ -219,19 +202,13 @@ public class WriteWordGameActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<Word> words) {
                 progressBar.setVisibility(View.GONE);
-
                 List<Word> playableWords = preparePlayableWords(words);
-
                 if (playableWords.isEmpty()) {
-                    Toast.makeText(
-                            WriteWordGameActivity.this,
-                            "Пока нет изученных слов для тренировки",
-                            Toast.LENGTH_LONG
-                    ).show();
+                    Toast.makeText(WriteWordGameActivity.this,
+                            "Пока нет изученных слов для тренировки", Toast.LENGTH_LONG).show();
                     finish();
                     return;
                 }
-
                 startGame(playableWords);
             }
 
@@ -253,15 +230,9 @@ public class WriteWordGameActivity extends AppCompatActivity {
         totalMistakesMade = 0;
         score = 0;
         isCorrectionMode = false;
-
         mistakenWords.clear();
 
-        if (isTrainingMode) {
-            tvScore.setText("Тренировка");
-        } else {
-            tvScore.setText("Очки: 0");
-        }
-
+        tvScore.setText(isTrainingMode ? "Тренировка" : "Очки: 0");
         tvMistakes.setText("Ошибок: 0");
         cardWriteDictionaryState.setVisibility(View.GONE);
 
@@ -270,22 +241,13 @@ public class WriteWordGameActivity extends AppCompatActivity {
 
     private List<Word> preparePlayableWords(List<Word> words) {
         List<Word> result = new ArrayList<>();
-
-        if (words == null) {
-            return result;
-        }
-
+        if (words == null) return result;
         for (Word word : words) {
             if (word == null) continue;
-
             String term = word.getTerm() == null ? "" : word.getTerm().trim();
             String translation = word.getTranslation() == null ? "" : word.getTranslation().trim();
-
-            if (!term.isEmpty() && !translation.isEmpty()) {
-                result.add(word);
-            }
+            if (!term.isEmpty() && !translation.isEmpty()) result.add(word);
         }
-
         return result;
     }
 
@@ -302,7 +264,6 @@ public class WriteWordGameActivity extends AppCompatActivity {
                 isCorrectionMode = true;
                 updateCorrectionUi();
             }
-
             currentWord = mistakenWords.get(0);
         }
 
@@ -318,16 +279,10 @@ public class WriteWordGameActivity extends AppCompatActivity {
         showKeyboard();
     }
 
-    /**
-     * ✅ Сбрасывает рамку поля ввода в нейтральное состояние (синюю).
-     */
     private void resetInputBorder() {
         setInputBorder(COLOR_BLUE);
     }
 
-    /**
-     * ✅ Меняет цвет рамки поля ввода (для индикации ошибки).
-     */
     private void setInputBorder(int color) {
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(colorCardDefault);
@@ -348,26 +303,23 @@ public class WriteWordGameActivity extends AppCompatActivity {
         cardWriteDictionaryState.setVisibility(View.VISIBLE);
         renderDictionaryLoadingState();
 
-        repository.isWordInPersonalDictionary(currentWord, new Repository.DataCallback<Boolean>() {
-            @Override
-            public void onSuccess(Boolean isAdded) {
-                dictionaryStateLoading = false;
-                currentWordAlreadyInDictionary = isAdded != null && isAdded;
+        repository.isWordInPersonalDictionary(currentWord,
+                new Repository.DataCallback<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean isAdded) {
+                        dictionaryStateLoading = false;
+                        currentWordAlreadyInDictionary = isAdded != null && isAdded;
+                        if (currentWordAlreadyInDictionary) renderDictionaryAddedState();
+                        else renderDictionaryCanAddState();
+                    }
 
-                if (currentWordAlreadyInDictionary) {
-                    renderDictionaryAddedState();
-                } else {
-                    renderDictionaryCanAddState();
-                }
-            }
-
-            @Override
-            public void onError(String error) {
-                dictionaryStateLoading = false;
-                currentWordAlreadyInDictionary = false;
-                renderDictionaryCanAddState();
-            }
-        });
+                    @Override
+                    public void onError(String error) {
+                        dictionaryStateLoading = false;
+                        currentWordAlreadyInDictionary = false;
+                        renderDictionaryCanAddState();
+                    }
+                });
     }
 
     private void renderDictionaryLoadingState() {
@@ -375,10 +327,8 @@ public class WriteWordGameActivity extends AppCompatActivity {
         cardWriteDictionaryState.setCardBackgroundColor(colorCardDefault);
         cardWriteDictionaryState.setStrokeColor(COLOR_GRAY);
         cardWriteDictionaryState.setStrokeWidth(dp(1));
-
         tvWriteDictionaryIcon.setText("…");
         tvWriteDictionaryIcon.setTextColor(COLOR_GRAY);
-
         tvWriteDictionaryText.setText("Проверяем");
         tvWriteDictionaryText.setTextColor(colorTextPrimary);
     }
@@ -388,10 +338,8 @@ public class WriteWordGameActivity extends AppCompatActivity {
         cardWriteDictionaryState.setCardBackgroundColor(colorCardDefault);
         cardWriteDictionaryState.setStrokeColor(COLOR_BLUE);
         cardWriteDictionaryState.setStrokeWidth(dp(1));
-
         tvWriteDictionaryIcon.setText("☆");
         tvWriteDictionaryIcon.setTextColor(COLOR_BLUE);
-
         tvWriteDictionaryText.setText("Сохранить");
         tvWriteDictionaryText.setTextColor(colorTextPrimary);
     }
@@ -401,66 +349,51 @@ public class WriteWordGameActivity extends AppCompatActivity {
         cardWriteDictionaryState.setCardBackgroundColor(colorCardSuccess);
         cardWriteDictionaryState.setStrokeColor(COLOR_GREEN);
         cardWriteDictionaryState.setStrokeWidth(dp(1));
-
         tvWriteDictionaryIcon.setText("★");
         tvWriteDictionaryIcon.setTextColor(COLOR_GREEN);
-
         tvWriteDictionaryText.setText("В словаре");
         tvWriteDictionaryText.setTextColor(COLOR_GREEN);
     }
 
     private void addCurrentWordToDictionary() {
-        if (currentWord == null) {
-            Toast.makeText(this, "Слово ещё не загружено", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (currentWord == null) return;
 
         dictionaryStateLoading = true;
         renderDictionaryLoadingState();
 
-        repository.addWordToPersonalDictionary(currentWord, new Repository.DataCallback<Void>() {
-            @Override
-            public void onSuccess(Void data) {
-                dictionaryStateLoading = false;
-                currentWordAlreadyInDictionary = true;
-                renderDictionaryAddedState();
+        repository.addWordToPersonalDictionary(currentWord,
+                new Repository.DataCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void data) {
+                        dictionaryStateLoading = false;
+                        currentWordAlreadyInDictionary = true;
+                        renderDictionaryAddedState();
+                        Toast.makeText(WriteWordGameActivity.this,
+                                "Слово добавлено в личный словарь", Toast.LENGTH_SHORT).show();
+                    }
 
-                Toast.makeText(
-                        WriteWordGameActivity.this,
-                        "Слово добавлено в личный словарь",
-                        Toast.LENGTH_SHORT
-                ).show();
-            }
-
-            @Override
-            public void onError(String error) {
-                dictionaryStateLoading = false;
-
-                if (error != null && error.toLowerCase().contains("уже есть")) {
-                    currentWordAlreadyInDictionary = true;
-                    renderDictionaryAddedState();
-                } else {
-                    currentWordAlreadyInDictionary = false;
-                    renderDictionaryCanAddState();
-                }
-
-                Toast.makeText(WriteWordGameActivity.this, error, Toast.LENGTH_SHORT).show();
-            }
-        });
+                    @Override
+                    public void onError(String error) {
+                        dictionaryStateLoading = false;
+                        if (error != null && error.toLowerCase().contains("уже есть")) {
+                            currentWordAlreadyInDictionary = true;
+                            renderDictionaryAddedState();
+                        } else {
+                            currentWordAlreadyInDictionary = false;
+                            renderDictionaryCanAddState();
+                        }
+                        Toast.makeText(WriteWordGameActivity.this, error, Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     private void checkAnswer() {
-        if (currentWord == null) {
-            return;
-        }
+        if (currentWord == null) return;
 
         String userAnswer = etInput.getText() == null
-                ? ""
-                : etInput.getText().toString().trim();
-
+                ? "" : etInput.getText().toString().trim();
         String correctAnswer = currentWord.getTerm() == null
-                ? ""
-                : currentWord.getTerm().trim();
+                ? "" : currentWord.getTerm().trim();
 
         if (userAnswer.isEmpty()) {
             setInputBorder(COLOR_RED);
@@ -485,18 +418,24 @@ public class WriteWordGameActivity extends AppCompatActivity {
             mistakenWords.remove(0);
             fixedErrorsCount++;
 
-            if (isTrainingMode) {
-                repository.resolveWordMistake(currentWord, new Repository.DataCallback<Void>() {
-                    @Override public void onSuccess(Void data) {}
-                    @Override public void onError(String error) {}
-                });
-            }
-
+            // ✅ ИСПРАВЛЕНИЕ ОШИБКИ — вызываем resolveWordMistake
+            repository.resolveWordMistake(currentWord,
+                    new Repository.DataCallback<Void>() {
+                        @Override public void onSuccess(Void data) { }
+                        @Override public void onError(String error) { }
+                    });
         } else {
             if (!isTrainingMode) {
                 score += 20;
                 tvScore.setText("Очки: " + score);
             }
+
+            // ✅ ПРАВИЛЬНЫЙ ОТВЕТ — начисляем прогресс (все режимы)
+            repository.getCurrentUserId(userId -> {
+                if (userId != null && userId > 0) {
+                    repository.incrementWordProgress(userId, currentWord.getId());
+                }
+            });
         }
 
         new Handler().postDelayed(this::showNextQuestion, 600);
@@ -506,25 +445,18 @@ public class WriteWordGameActivity extends AppCompatActivity {
         playGameSound(soundError);
         setInputBorder(COLOR_RED);
 
+        // ✅ ОШИБКА — записываем в любом режиме
+        repository.recordWordMistake(currentWord);
+
         if (!isCorrectionMode) {
             mistakenWords.add(currentWord);
             totalMistakesMade++;
             tvMistakes.setText("Ошибок: " + totalMistakesMade);
-
-            if (isTrainingMode) {
-                repository.recordWordMistake(currentWord);
-            }
-
         } else {
             Collections.shuffle(mistakenWords);
-
-            if (isTrainingMode) {
-                repository.recordWordMistake(currentWord);
-            }
         }
 
         updateCorrectionUi();
-
         Toast.makeText(this, "Правильно: " + correctAnswer, Toast.LENGTH_SHORT).show();
 
         new Handler().postDelayed(this::showNextQuestion, 1500);
@@ -542,15 +474,8 @@ public class WriteWordGameActivity extends AppCompatActivity {
         int finalScore = isTrainingMode ? 0 : score;
         String lessonType = isTrainingMode ? "TRAINING_WORDS" : "WRITE_WORD";
 
-        repository.recordLessonCompletion(
-                lessonType,
-                themeId,
-                finalScore,
-                totalInitialWords,
-                totalMistakesMade,
-                fixedErrorsCount,
-                false
-        );
+        repository.recordLessonCompletion(lessonType, themeId, finalScore,
+                totalInitialWords, totalMistakesMade, fixedErrorsCount, false);
 
         Intent intent = new Intent(this, GameResultActivity.class);
         intent.putExtra("SCORE", finalScore);
@@ -558,23 +483,20 @@ public class WriteWordGameActivity extends AppCompatActivity {
         intent.putExtra("MISTAKES_COUNT", totalMistakesMade);
         intent.putExtra("IS_TRAINING", isTrainingMode);
         startActivity(intent);
-
         finish();
     }
 
     private void showKeyboard() {
         etInput.postDelayed(() -> {
-            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-
-            if (imm != null) {
-                imm.showSoftInput(etInput, InputMethodManager.SHOW_IMPLICIT);
-            }
+            InputMethodManager imm = (InputMethodManager)
+                    getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) imm.showSoftInput(etInput, InputMethodManager.SHOW_IMPLICIT);
         }, 200);
     }
 
     private void hideKeyboard() {
-        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-
+        InputMethodManager imm = (InputMethodManager)
+                getSystemService(Context.INPUT_METHOD_SERVICE);
         if (imm != null && getCurrentFocus() != null) {
             imm.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
         }
@@ -585,29 +507,17 @@ public class WriteWordGameActivity extends AppCompatActivity {
     }
 
     private void initThemeColors() {
-        boolean isDarkTheme =
-                (getResources().getConfiguration().uiMode
-                        & Configuration.UI_MODE_NIGHT_MASK)
-                        == Configuration.UI_MODE_NIGHT_YES;
+        boolean isDarkTheme = (getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
 
-        // ✅ Берём цвета из ресурсов (теперь они зависят от темы автоматически)
         colorCardDefault = ContextCompat.getColor(this, R.color.app_card_bg);
         colorTextPrimary = ContextCompat.getColor(this, R.color.app_text_primary);
-
-        if (isDarkTheme) {
-            colorCardSuccess = Color.rgb(9, 37, 26);
-        } else {
-            colorCardSuccess = Color.rgb(232, 255, 232);
-        }
+        colorCardSuccess = isDarkTheme ? Color.rgb(9, 37, 26) : Color.rgb(232, 255, 232);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
-        if (soundPool != null) {
-            soundPool.release();
-            soundPool = null;
-        }
+        if (soundPool != null) { soundPool.release(); soundPool = null; }
     }
 }

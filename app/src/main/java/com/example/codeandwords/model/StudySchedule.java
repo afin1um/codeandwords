@@ -1,11 +1,16 @@
 package com.example.codeandwords.model;
 
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
-@Entity(tableName = "study_schedule")
+@Entity(
+        tableName = "study_schedule",
+        indices = {
+                @Index(value = {"userId", "scheduleDate", "startTime"}, name = "idx_schedule_user_date_time")
+        }
+)
 public class StudySchedule {
-
     @PrimaryKey(autoGenerate = true)
     public int id;
 

@@ -211,6 +211,7 @@ public class Repository {
                 mainHandler
         );
         this.friendsRepository = new FriendsRepository(
+                db,
                 friendDao, userDao, apiService, scheduleApiService, executor, mainHandler);
         teamsRepository = new TeamsRepository(
                 teamDao, teamMemberDao, teamChallengeDao,
@@ -308,6 +309,7 @@ public class Repository {
         });
 
         this.achievementRepository = new AchievementRepository(
+                db,
                 achievementDao, userDao, apiService);
 
         this.achievementRepository.setListener(new AchievementRepository.AchievementListener() {
@@ -364,6 +366,7 @@ public class Repository {
         });
 
         this.adminRepository = new AdminRepository(
+                db,
                 themeDao, wordDao, userWordDao, apiService, executor, mainHandler);
 
         this.adminRepository.setListener(new AdminRepository.AdminListener() {
@@ -1506,7 +1509,9 @@ public class Repository {
 
         apiService.getUserProgressByUser(
                 "eq." + currentUser.getId(),
-                "id,user_id,word_id,correct_answers_count,mistakes_count,is_learned"
+                "id,user_id,word_id,correct_answers_count,mistakes_count,is_learned",
+                "id.asc",
+                null
         ).enqueue(new Callback<List<UserWordProgress>>() {
             @Override
             public void onResponse(Call<List<UserWordProgress>> call,

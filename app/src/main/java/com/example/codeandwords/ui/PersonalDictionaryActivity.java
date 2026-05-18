@@ -71,7 +71,7 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_personal_dictionary);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         loadThemeColors();
         initViews();

@@ -3,7 +3,7 @@ package com.example.codeandwords.ui.game;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.content.Intent;
-import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -25,8 +25,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-
-import android.content.res.Configuration;
 
 public class SprintGameActivity extends AppCompatActivity {
 
@@ -88,7 +86,7 @@ public class SprintGameActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sprint_game);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
         initViews();
 
         long themeId = getIntent().getLongExtra("THEME_ID", -1);
@@ -122,7 +120,8 @@ public class SprintGameActivity extends AppCompatActivity {
         if (confettiAnimation != null) {
             confettiAnimation.setFailureListener(throwable -> isAnimationLoaded = false);
             try {
-                confettiAnimation.setAnimationFromUrl("https://lottie.host/cdf24a8a-39d5-4c33-9b29-4cc066c6ea89/gctBV2eOOq.lottie");
+                confettiAnimation.setAnimationFromUrl(
+                        "https://lottie.host/cdf24a8a-39d5-4c33-9b29-4cc066c6ea89/gctBV2eOOq.lottie");
                 isAnimationLoaded = true;
             } catch (Exception e) {
                 isAnimationLoaded = false;
@@ -134,20 +133,15 @@ public class SprintGameActivity extends AppCompatActivity {
 
         cardSprintDictionaryState.setVisibility(View.GONE);
         cardSprintDictionaryState.setOnClickListener(v -> {
-            if (dictionaryStateLoading) {
-                return;
-            }
-
+            if (dictionaryStateLoading) return;
             if (currentWord == null) {
                 Toast.makeText(this, "Слово ещё не загружено", Toast.LENGTH_SHORT).show();
                 return;
             }
-
             if (currentWordAlreadyInDictionary) {
                 Toast.makeText(this, "Это слово уже есть в личном словаре", Toast.LENGTH_SHORT).show();
                 return;
             }
-
             addCurrentWordToDictionary();
         });
 
@@ -157,7 +151,8 @@ public class SprintGameActivity extends AppCompatActivity {
     private void updateCorrectionUi() {
         if (isCorrectionMode) {
             correctionBannerCard.setVisibility(View.VISIBLE);
-            tvMistakesLeft.setText("Осталось исправить: " + (correctionQuestions.size() - correctionIndex));
+            tvMistakesLeft.setText("Осталось исправить: "
+                    + (correctionQuestions.size() - correctionIndex));
             progressBarTimer.setVisibility(View.GONE);
             tvTimer.setText("Без времени");
             tvWordLabel.setText("ПРОВЕРЬ СЕБЯ");
@@ -178,19 +173,14 @@ public class SprintGameActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<Word> data) {
                 progressBarLoading.setVisibility(View.GONE);
-
                 List<Word> playableWords = preparePlayableWords(data);
 
                 if (playableWords.size() < 5) {
-                    Toast.makeText(
-                            SprintGameActivity.this,
-                            "Для режима нужно минимум 5 терминов",
-                            Toast.LENGTH_LONG
-                    ).show();
+                    Toast.makeText(SprintGameActivity.this,
+                            "Для режима нужно минимум 5 терминов", Toast.LENGTH_LONG).show();
                     finish();
                     return;
                 }
-
                 startGame(playableWords);
             }
 
@@ -233,22 +223,13 @@ public class SprintGameActivity extends AppCompatActivity {
 
     private List<Word> preparePlayableWords(List<Word> words) {
         List<Word> result = new ArrayList<>();
-
-        if (words == null) {
-            return result;
-        }
-
+        if (words == null) return result;
         for (Word word : words) {
             if (word == null) continue;
-
             String term = word.getTerm() == null ? "" : word.getTerm().trim();
             String translation = word.getTranslation() == null ? "" : word.getTranslation().trim();
-
-            if (!term.isEmpty() && !translation.isEmpty()) {
-                result.add(word);
-            }
+            if (!term.isEmpty() && !translation.isEmpty()) result.add(word);
         }
-
         return result;
     }
 
@@ -285,14 +266,13 @@ public class SprintGameActivity extends AppCompatActivity {
             isCorrectPair = true;
         } else {
             Word randomWord = gameWords.get(random.nextInt(gameWords.size()));
-
-            while (randomWord.getId() != null
-                    && currentWord.getId() != null
+            int safety = 0;
+            while (randomWord.getId() != null && currentWord.getId() != null
                     && randomWord.getId().equals(currentWord.getId())
-                    && gameWords.size() > 1) {
+                    && gameWords.size() > 1 && safety < 10) {
                 randomWord = gameWords.get(random.nextInt(gameWords.size()));
+                safety++;
             }
-
             displayedTranslation = randomWord.getTranslation();
             isCorrectPair = false;
         }
@@ -331,116 +311,88 @@ public class SprintGameActivity extends AppCompatActivity {
         cardSprintDictionaryState.setVisibility(View.VISIBLE);
         renderDictionaryLoadingState();
 
-        repository.isWordInPersonalDictionary(currentWord, new Repository.DataCallback<Boolean>() {
-            @Override
-            public void onSuccess(Boolean isAdded) {
-                dictionaryStateLoading = false;
-                currentWordAlreadyInDictionary = isAdded != null && isAdded;
+        repository.isWordInPersonalDictionary(currentWord,
+                new Repository.DataCallback<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean isAdded) {
+                        dictionaryStateLoading = false;
+                        currentWordAlreadyInDictionary = isAdded != null && isAdded;
+                        if (currentWordAlreadyInDictionary) renderDictionaryAddedState();
+                        else renderDictionaryCanAddState();
+                    }
 
-                if (currentWordAlreadyInDictionary) {
-                    renderDictionaryAddedState();
-                } else {
-                    renderDictionaryCanAddState();
-                }
-            }
-
-            @Override
-            public void onError(String error) {
-                dictionaryStateLoading = false;
-                currentWordAlreadyInDictionary = false;
-                renderDictionaryCanAddState();
-            }
-        });
+                    @Override
+                    public void onError(String error) {
+                        dictionaryStateLoading = false;
+                        currentWordAlreadyInDictionary = false;
+                        renderDictionaryCanAddState();
+                    }
+                });
     }
 
     private void renderDictionaryLoadingState() {
         cardSprintDictionaryState.setEnabled(false);
-
-        cardSprintDictionaryState.setCardBackgroundColor(
-                getDictionaryCardBackgroundColor()
-        );
-
+        cardSprintDictionaryState.setCardBackgroundColor(getDictionaryCardBackgroundColor());
         cardSprintDictionaryState.setStrokeColor(COLOR_GRAY);
         cardSprintDictionaryState.setStrokeWidth(dp(1));
-
         tvSprintDictionaryIcon.setText("…");
         tvSprintDictionaryIcon.setTextColor(COLOR_GRAY);
-
         tvSprintDictionaryText.setText("Проверяем");
         tvSprintDictionaryText.setTextColor(getDictionaryCardTextColor());
     }
+
     private void renderDictionaryCanAddState() {
         cardSprintDictionaryState.setEnabled(true);
-
-        cardSprintDictionaryState.setCardBackgroundColor(
-                getDictionaryCardBackgroundColor()
-        );
-
+        cardSprintDictionaryState.setCardBackgroundColor(getDictionaryCardBackgroundColor());
         cardSprintDictionaryState.setStrokeColor(COLOR_BLUE);
         cardSprintDictionaryState.setStrokeWidth(dp(1));
-
         tvSprintDictionaryIcon.setText("☆");
         tvSprintDictionaryIcon.setTextColor(COLOR_BLUE);
-
         tvSprintDictionaryText.setText("Сохранить");
         tvSprintDictionaryText.setTextColor(getDictionaryCardTextColor());
     }
 
     private void renderDictionaryAddedState() {
         cardSprintDictionaryState.setEnabled(true);
-
-        cardSprintDictionaryState.setCardBackgroundColor(
-                getDictionaryAddedBackgroundColor()
-        );
-
+        cardSprintDictionaryState.setCardBackgroundColor(getDictionaryAddedBackgroundColor());
         cardSprintDictionaryState.setStrokeColor(COLOR_GREEN);
         cardSprintDictionaryState.setStrokeWidth(dp(1));
-
         tvSprintDictionaryIcon.setText("★");
         tvSprintDictionaryIcon.setTextColor(COLOR_GREEN);
-
         tvSprintDictionaryText.setText("В словаре");
         tvSprintDictionaryText.setTextColor(COLOR_GREEN);
     }
 
     private void addCurrentWordToDictionary() {
-        if (currentWord == null) {
-            Toast.makeText(this, "Слово ещё не загружено", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (currentWord == null) return;
 
         dictionaryStateLoading = true;
         renderDictionaryLoadingState();
 
-        repository.addWordToPersonalDictionary(currentWord, new Repository.DataCallback<Void>() {
-            @Override
-            public void onSuccess(Void data) {
-                dictionaryStateLoading = false;
-                currentWordAlreadyInDictionary = true;
-                renderDictionaryAddedState();
+        repository.addWordToPersonalDictionary(currentWord,
+                new Repository.DataCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void data) {
+                        dictionaryStateLoading = false;
+                        currentWordAlreadyInDictionary = true;
+                        renderDictionaryAddedState();
+                        Toast.makeText(SprintGameActivity.this,
+                                "Слово добавлено в личный словарь", Toast.LENGTH_SHORT).show();
+                    }
 
-                Toast.makeText(
-                        SprintGameActivity.this,
-                        "Слово добавлено в личный словарь",
-                        Toast.LENGTH_SHORT
-                ).show();
-            }
-
-            @Override
-            public void onError(String error) {
-                dictionaryStateLoading = false;
-
-                if (error != null && error.toLowerCase().contains("уже есть")) {
-                    currentWordAlreadyInDictionary = true;
-                    renderDictionaryAddedState();
-                } else {
-                    currentWordAlreadyInDictionary = false;
-                    renderDictionaryCanAddState();
-                }
-
-                Toast.makeText(SprintGameActivity.this, error, Toast.LENGTH_SHORT).show();
-            }
-        });
+                    @Override
+                    public void onError(String error) {
+                        dictionaryStateLoading = false;
+                        if (error != null && error.toLowerCase().contains("уже есть")) {
+                            currentWordAlreadyInDictionary = true;
+                            renderDictionaryAddedState();
+                        } else {
+                            currentWordAlreadyInDictionary = false;
+                            renderDictionaryCanAddState();
+                        }
+                        Toast.makeText(SprintGameActivity.this, error, Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     private void checkAnswer(boolean userSaidCorrect) {
@@ -458,13 +410,15 @@ public class SprintGameActivity extends AppCompatActivity {
             correctAnswers++;
             score += 10;
 
+            // ✅ ПРАВИЛЬНЫЙ ОТВЕТ — начисляем прогресс
             repository.getCurrentUserId(userId -> {
-                if (userId != -1) {
+                if (userId != null && userId > 0) {
                     repository.incrementWordProgress(userId, currentWord.getId());
                 }
             });
         } else {
-            mistakeQuestions.add(new SprintQuestion(currentWord, displayedTranslation, isCorrectPair));
+            mistakeQuestions.add(new SprintQuestion(
+                    currentWord, displayedTranslation, isCorrectPair));
             repository.recordWordMistake(currentWord);
         }
 
@@ -476,6 +430,14 @@ public class SprintGameActivity extends AppCompatActivity {
     private void handleCorrectionAnswer(boolean userSaidCorrect) {
         if (userSaidCorrect == isCorrectPair) {
             fixedErrorsCount++;
+
+            // ✅ ИСПРАВЛЕНИЕ ОШИБКИ — вызываем resolveWordMistake
+            repository.resolveWordMistake(currentWord,
+                    new Repository.DataCallback<Void>() {
+                        @Override public void onSuccess(Void data) { }
+                        @Override public void onError(String error) { }
+                    });
+
             correctionIndex++;
             showCorrectionQuestion();
         } else {
@@ -486,12 +448,8 @@ public class SprintGameActivity extends AppCompatActivity {
 
     private void finishMainPhase() {
         if (!isGameActive) return;
-
         isGameActive = false;
-
-        if (timer != null) {
-            timer.cancel();
-        }
+        if (timer != null) timer.cancel();
 
         if (!mistakeQuestions.isEmpty()) {
             startCorrectionMode();
@@ -503,21 +461,16 @@ public class SprintGameActivity extends AppCompatActivity {
     private void startCorrectionMode() {
         isCorrectionMode = true;
         isGameActive = true;
-
         correctionQuestions.clear();
         correctionQuestions.addAll(mistakeQuestions);
         correctionIndex = 0;
-
         Toast.makeText(this, "Переходим к работе над ошибками", Toast.LENGTH_LONG).show();
         showCorrectionQuestion();
     }
 
     private void finishGame() {
         isGameActive = false;
-
-        if (timer != null) {
-            timer.cancel();
-        }
+        if (timer != null) timer.cancel();
 
         playLottieWinAnimation();
 
@@ -526,15 +479,10 @@ public class SprintGameActivity extends AppCompatActivity {
         int bonus = isPerfectGame ? WIN_BONUS : 0;
         int totalXp = xpForWords + bonus;
 
-        repository.recordLessonCompletion(
-                "SPRINT",
+        repository.recordLessonCompletion("SPRINT",
                 getIntent().getLongExtra("THEME_ID", -1),
-                totalXp,
-                initialTotalWords,
-                mistakeQuestions.size(),
-                fixedErrorsCount,
-                true
-        );
+                totalXp, initialTotalWords, mistakeQuestions.size(),
+                fixedErrorsCount, true);
 
         Intent intent = new Intent(this, GameResultActivity.class);
         intent.putExtra("SCORE", totalXp);
@@ -562,52 +510,35 @@ public class SprintGameActivity extends AppCompatActivity {
     }
 
     private boolean isDarkTheme() {
-        int nightModeFlags =
-                getResources().getConfiguration().uiMode
-                        & Configuration.UI_MODE_NIGHT_MASK;
-
+        int nightModeFlags = getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK;
         return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
     }
 
     private int getDictionaryCardBackgroundColor() {
-        if (isDarkTheme()) {
-            return Color.parseColor("#102733");
-        } else {
-            return Color.parseColor("#FFFFFF");
-        }
+        return isDarkTheme() ? Color.parseColor("#102733") : Color.parseColor("#FFFFFF");
     }
 
     private int getDictionaryCardTextColor() {
-        if (isDarkTheme()) {
-            return Color.WHITE;
-        } else {
-            return Color.parseColor("#14303C");
-        }
+        return isDarkTheme() ? Color.WHITE : Color.parseColor("#14303C");
     }
 
     private int getDictionaryAddedBackgroundColor() {
-        if (isDarkTheme()) {
-            return Color.parseColor("#09251A");
-        } else {
-            return Color.parseColor("#EAF9DF");
-        }
+        return isDarkTheme() ? Color.parseColor("#09251A") : Color.parseColor("#EAF9DF");
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
-        if (timer != null) {
-            timer.cancel();
-        }
+        if (timer != null) timer.cancel();
     }
 
     private static class SprintQuestion {
-        private final Word word;
-        private final String displayedTranslation;
-        private final boolean isCorrectPair;
+        final Word word;
+        final String displayedTranslation;
+        final boolean isCorrectPair;
 
-        private SprintQuestion(Word word, String displayedTranslation, boolean isCorrectPair) {
+        SprintQuestion(Word word, String displayedTranslation, boolean isCorrectPair) {
             this.word = word;
             this.displayedTranslation = displayedTranslation;
             this.isCorrectPair = isCorrectPair;

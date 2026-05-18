@@ -52,7 +52,7 @@ public class DictionaryActivity extends AppCompatActivity implements TextToSpeec
 
         initViews();
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         themeId = getIntent().getLongExtra("THEME_ID", -1);
         themeTitle = getIntent().getStringExtra("THEME_TITLE");

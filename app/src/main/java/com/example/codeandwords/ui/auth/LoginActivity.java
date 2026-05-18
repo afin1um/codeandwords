@@ -35,7 +35,8 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        repository = new Repository(getApplicationContext());
+        // ✅ ИСПРАВЛЕНО: используем singleton вместо создания нового Repository
+        repository = Repository.getInstance(getApplicationContext());
 
         initViews();
         fillTestUserData();
@@ -58,12 +59,10 @@ public class LoginActivity extends AppCompatActivity {
     private void setupListeners() {
         btnLogin.setOnClickListener(v -> {
             String email = etEmail.getText() != null
-                    ? etEmail.getText().toString().trim()
-                    : "";
+                    ? etEmail.getText().toString().trim() : "";
 
             String password = etPassword.getText() != null
-                    ? etPassword.getText().toString().trim()
-                    : "";
+                    ? etPassword.getText().toString().trim() : "";
 
             if (validateInput(email, password)) {
                 performLogin(email, password);
@@ -81,53 +80,56 @@ public class LoginActivity extends AppCompatActivity {
             etEmail.setError("Введите Email");
             return false;
         }
-
         if (password.isEmpty()) {
             etPassword.setError("Введите пароль");
             return false;
         }
-
         return true;
     }
 
     private void performLogin(String email, String password) {
         showLoading(true);
 
-        String hashedPassword = SecurityUtils.hashPassword(password);
+        // ✅ ИСПРАВЛЕНО: хеширование в фоне (занимает ~50ms)
+        new Thread(() -> {
+            String hashedPassword = SecurityUtils.hashPassword(password);
 
-        User user = new User();
-        user.setEmail(email);
-        user.setPasswordHash(hashedPassword);
+            User user = new User();
+            user.setEmail(email);
+            user.setPasswordHash(hashedPassword);
 
-        repository.login(user, new Repository.DataCallback<User>() {
-            @Override
-            public void onSuccess(User data) {
-                showLoading(false);
+            runOnUiThread(() -> {
+                repository.login(user, new Repository.DataCallback<User>() {
+                    @Override
+                    public void onSuccess(User data) {
+                        showLoading(false);
+                        prepareAvatarSetupState(data);
 
-                prepareAvatarSetupState(data);
+                        Toast.makeText(
+                                LoginActivity.this,
+                                "Добро пожаловать, " + data.getUsername() + "!",
+                                Toast.LENGTH_SHORT
+                        ).show();
 
-                Toast.makeText(
-                        LoginActivity.this,
-                        "Добро пожаловать, " + data.getUsername() + "!",
-                        Toast.LENGTH_SHORT
-                ).show();
+                        Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
+                    }
 
-                Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
-            }
-
-            @Override
-            public void onError(String error) {
-                showLoading(false);
-
-                Toast.makeText(
-                        LoginActivity.this,
-                        "Ошибка входа: " + error,
-                        Toast.LENGTH_LONG
-                ).show();
-            }
-        });
+                    @Override
+                    public void onError(String error) {
+                        showLoading(false);
+                        Toast.makeText(
+                                LoginActivity.this,
+                                "Ошибка входа: " + error,
+                                Toast.LENGTH_LONG
+                        ).show();
+                    }
+                });
+            });
+        }).start();
     }
 
     private void prepareAvatarSetupState(User user) {
@@ -138,7 +140,8 @@ public class LoginActivity extends AppCompatActivity {
 
         String avatarJson = user.getAvatarConfig();
 
-        if (avatarJson == null || avatarJson.trim().isEmpty() || "null".equals(avatarJson.trim())) {
+        if (avatarJson == null || avatarJson.trim().isEmpty()
+                || "null".equals(avatarJson.trim())) {
             AvatarConfig defaultConfig = new AvatarConfig();
             defaultConfig.gender = user.getGender();
 

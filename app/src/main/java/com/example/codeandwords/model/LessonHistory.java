@@ -2,13 +2,19 @@ package com.example.codeandwords.model;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 import com.google.gson.annotations.SerializedName;
 
-@Entity(tableName = "lesson_history")
+@Entity(
+        tableName = "lesson_history",
+        indices = {
+                @Index(value = "finished_at", name = "idx_lesson_finished_at"),
+                @Index(value = {"user_id", "finished_at"}, name = "idx_user_finished_at")
+        }
+)
 public class LessonHistory {
-
     @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = "id")
     @SerializedName("id")

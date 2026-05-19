@@ -51,7 +51,7 @@ public class RegisterActivity extends AppCompatActivity {
 
         progressBar = findViewById(R.id.progressBarReg);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         updateGenderButtons();
 

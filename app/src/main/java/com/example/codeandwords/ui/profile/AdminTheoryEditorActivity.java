@@ -58,7 +58,7 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_theory_editor);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         readIntent();
         initViews();

@@ -261,4 +261,13 @@ public class ListeningGameActivity extends AppCompatActivity {
     private int dp(int v) {
         return Math.round(v * getResources().getDisplayMetrics().density);
     }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Это важно! Иначе TTS и SoundPool остаются в памяти
+        if (repository != null) {
+            repository.onDestroy();
+        }
+    }
 }

@@ -46,7 +46,7 @@ public class TeamDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_team_detail);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         teamId = getIntent().getIntExtra("team_id", -1);
         teamName = getIntent().getStringExtra("team_name");

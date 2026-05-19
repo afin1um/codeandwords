@@ -35,7 +35,7 @@ public class FriendProfileActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_friend_profile);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         initViews();
         loadDataFromIntent();

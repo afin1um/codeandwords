@@ -648,7 +648,12 @@ public class MatchingGameActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // Это важно! Иначе TTS и SoundPool остаются в памяти
+        if (repository != null) {
+            repository.onDestroy();
+        }
         if (soundPool != null) soundPool.release();
+
         if (tts != null) { tts.stop(); tts.shutdown(); }
     }
 }

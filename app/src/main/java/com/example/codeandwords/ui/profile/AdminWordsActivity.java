@@ -58,7 +58,7 @@ public class AdminWordsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_words);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         initViews();
         setupRecycler();

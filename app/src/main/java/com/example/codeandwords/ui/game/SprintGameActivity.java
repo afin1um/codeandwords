@@ -530,6 +530,10 @@ public class SprintGameActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // Это важно! Иначе TTS и SoundPool остаются в памяти
+        if (repository != null) {
+            repository.onDestroy();
+        }
         if (timer != null) timer.cancel();
     }
 

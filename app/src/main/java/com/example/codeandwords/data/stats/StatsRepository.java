@@ -48,7 +48,7 @@ public class StatsRepository {
 
     private StatsListener listener;
 
-    // ===== КЭШ ТЕКУЩЕГО ПРОГРЕССА (живёт пока приложение запущено) =====
+    // ===== КЭШ ТЕКУЩЕГО ПРОГРЕССА =====
     private volatile List<Long> cachedLearnedWordIds;
     private volatile long lastLearnedIdsLoadTime = 0;
     private static final long LEARNED_IDS_CACHE_TTL = 30_000; // 30 секунд
@@ -192,7 +192,7 @@ public class StatsRepository {
         return stats;
     }
 
-    public LeagueData getStatisticsLeagueData(int xp) {
+    private LeagueData getStatisticsLeagueData(int xp) {
         if (xp >= 2500) return new LeagueData("Алмазная лига", "💎");
         if (xp >= 1200) return new LeagueData("Изумрудная лига", "💚");
         if (xp >= 600) return new LeagueData("Золотая лига", "🥇");
@@ -216,26 +216,28 @@ public class StatsRepository {
         return newQuests;
     }
 
-    private ThemeProgressStats buildThemeProgressFromActualWords(
-            Theme theme,
-            List<Word> actualThemeWords,
-            List<Long> learnedWordIds) {
-
+    private ThemeProgressStats buildThemeProgressFromActualWords(Theme theme, List<Word> actualThemeWords, List<Long> learnedWordIds) {
         int totalWords = actualThemeWords != null ? actualThemeWords.size() : 0;
         int learnedWords = 0;
-
         if (actualThemeWords != null && learnedWordIds != null && !learnedWordIds.isEmpty()) {
             for (Word word : actualThemeWords) {
                 if (word == null || word.getId() == null) continue;
                 if (learnedWordIds.contains(word.getId())) learnedWords++;
             }
         }
-
-        int progressPercent = totalWords > 0
-                ? Math.max(0, Math.min(100, (learnedWords * 100) / totalWords)) : 0;
+        int progressPercent = totalWords > 0 ? Math.max(0, Math.min(100, (learnedWords * 100) / totalWords)) : 0;
         boolean mastered = totalWords > 0 && learnedWords >= totalWords;
-
         return new ThemeProgressStats(theme, learnedWords, totalWords, progressPercent, mastered);
+    }
+
+    private void finishThemeProgress(List<Theme> originalThemes, ConcurrentHashMap<Long, ThemeProgressStats> map, DataCallback<List<ThemeProgressStats>> callback) {
+        List<ThemeProgressStats> result = new ArrayList<>();
+        for (Theme theme : originalThemes) {
+            if (theme == null || theme.getId() == null) continue;
+            ThemeProgressStats stats = map.get(theme.getId());
+            if (stats != null) result.add(stats);
+        }
+        mainHandler.post(() -> callback.onSuccess(result));
     }
 
     private String getErrorBody(Response<?> response) {
@@ -266,7 +268,6 @@ public class StatsRepository {
 
                 if (quests.isEmpty() || !isSameDay(quests.get(0).getDateCreated(), today)) {
                     quests = generateNewQuests();
-                    // Атомарная замена квестов в одной транзакции
                     dailyQuestDao.replaceAll(quests);
                 }
 
@@ -282,7 +283,6 @@ public class StatsRepository {
     public void updateQuestProgress(String type, int amount) {
         executor.execute(() -> {
             try {
-                // Берём только активные квесты нужного типа — не всю таблицу
                 List<DailyQuest> quests = dailyQuestDao.getActiveQuestsByType(type);
 
                 for (DailyQuest q : quests) {
@@ -340,35 +340,36 @@ public class StatsRepository {
         });
     }
 
-    // ===== СТАТИСТИКА =====
+    // ===== СТАТИСТИКА — ГЛАВНОЕ ИСПРАВЛЕНИЕ =====
 
-    public void getUserOverallStatistics(User currentUser,
-                                         DataCallback<UserOverallStats> callback) {
+    public void getUserOverallStatistics(User currentUser, DataCallback<UserOverallStats> callback) {
         if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
             return;
         }
 
-        User user = currentUser;
-        int userId = user.getId();
+        final int userId = currentUser.getId();
 
+        // ✅ ИСПРАВЛЕНИЕ: Сначала получаем количество изученных слов, потом считаем статистику
         getLearnedWordIdsForCurrentUser(currentUser, new DataCallback<List<Long>>() {
             @Override
             public void onSuccess(List<Long> learnedWordIds) {
-                buildOverallStats(user, userId, learnedWordIds, callback);
+                int learnedCount = learnedWordIds != null ? learnedWordIds.size() : 0;
+                calculateAndReturnStats(currentUser, userId, learnedCount, callback);
             }
 
             @Override
             public void onError(String error) {
-                buildOverallStats(user, userId, new ArrayList<>(), callback);
+                // Если ошибка — продолжаем с 0 изученных слов
+                calculateAndReturnStats(currentUser, userId, 0, callback);
             }
         });
     }
 
-    private void buildOverallStats(User user, int userId, List<Long> learnedWordIds,
-                                   DataCallback<UserOverallStats> callback) {
+    private void calculateAndReturnStats(User currentUser, int userId, int learnedCount, DataCallback<UserOverallStats> callback) {
         executor.execute(() -> {
             try {
+                // 1. Загружаем историю уроков из SQLite
                 List<LessonHistory> history = lessonHistoryDao.getAllByUser(userId);
 
                 int totalLessons = history != null ? history.size() : 0;
@@ -389,18 +390,23 @@ public class StatsRepository {
                 int accuracy = totalWords > 0
                         ? Math.max(0, Math.min(100, (correctWords * 100) / totalWords)) : 0;
 
-                int totalXp = user.getTotalXp() != null ? user.getTotalXp() : 0;
-                int level = user.getCurrentLevel() != null
-                        ? user.getCurrentLevel() : ((totalXp / 100) + 1);
+                int totalXp = currentUser.getTotalXp() != null ? currentUser.getTotalXp() : 0;
+                int level = currentUser.getCurrentLevel() != null
+                        ? currentUser.getCurrentLevel() : ((totalXp / 100) + 1);
 
                 LeagueData leagueData = getStatisticsLeagueData(totalXp);
 
                 UserOverallStats stats = new UserOverallStats(
-                        totalLessons, totalWords, totalMistakes, fixedErrors,
+                        totalLessons,
+                        totalWords,
+                        totalMistakes,
+                        fixedErrors,
                         accuracy,
-                        learnedWordIds != null ? learnedWordIds.size() : 0,
-                        totalXp, level,
-                        leagueData.title, leagueData.icon
+                        learnedCount,  // ✅ ТЕПЕРЬ ПРАВИЛЬНОЕ ЗНАЧЕНИЕ
+                        totalXp,
+                        level,
+                        leagueData.title,
+                        leagueData.icon
                 );
 
                 mainHandler.post(() -> callback.onSuccess(stats));
@@ -411,49 +417,49 @@ public class StatsRepository {
         });
     }
 
-    public void getThemeProgressStatistics(User currentUser,
-                                           DataCallback<List<ThemeProgressStats>> callback) {
+    // ===== ПРОГРЕСС ПО ТЕМАМ =====
+
+    public void getThemeProgressStatistics(User currentUser, DataCallback<List<ThemeProgressStats>> callback) {
         if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
             return;
         }
 
-        getLearnedWordIdsForCurrentUser(currentUser, new DataCallback<List<Long>>() {
-            @Override
-            public void onSuccess(List<Long> learnedWordIds) {
-                if (listener == null) {
-                    callback.onError("Listener не установлен");
-                    return;
+        if (cachedLearnedWordIds != null && System.currentTimeMillis() - lastLearnedIdsLoadTime < LEARNED_IDS_CACHE_TTL) {
+            processThemeProgress(currentUser, new ArrayList<>(cachedLearnedWordIds), callback);
+        } else {
+            getLearnedWordIdsForCurrentUser(currentUser, new DataCallback<List<Long>>() {
+                @Override
+                public void onSuccess(List<Long> learnedWordIds) {
+                    processThemeProgress(currentUser, learnedWordIds, callback);
                 }
+                @Override
+                public void onError(String error) {
+                    processThemeProgress(currentUser, new ArrayList<>(), callback);
+                }
+            });
+        }
+    }
 
-                listener.getThemes(new DataCallback<List<Theme>>() {
-                    @Override
-                    public void onSuccess(List<Theme> themes) {
-                        calculateThemeProgressOptimized(
-                                themes != null ? themes : new ArrayList<>(),
-                                learnedWordIds != null ? learnedWordIds : new ArrayList<>(),
-                                callback
-                        );
-                    }
+    private void processThemeProgress(User currentUser, List<Long> learnedWordIds, DataCallback<List<ThemeProgressStats>> callback) {
+        if (listener == null) {
+            callback.onError("Listener не установлен");
+            return;
+        }
 
-                    @Override
-                    public void onError(String error) {
-                        callback.onError(error != null ? error : "Не удалось загрузить темы");
-                    }
-                });
+        listener.getThemes(new DataCallback<List<Theme>>() {
+            @Override
+            public void onSuccess(List<Theme> themes) {
+                calculateThemeProgressOptimized(themes != null ? themes : new ArrayList<>(), learnedWordIds, callback);
             }
 
             @Override
             public void onError(String error) {
-                callback.onError(error != null ? error : "Не удалось загрузить изученные слова");
+                callback.onError(error != null ? error : "Не удалось загрузить темы");
             }
         });
     }
 
-    /**
-     * ✅ ОПТИМИЗИРОВАНО: загружаем все слова всех тем параллельно
-     * через ConcurrentHashMap, без race condition
-     */
     private void calculateThemeProgressOptimized(
             List<Theme> themes,
             List<Long> learnedWordIds,
@@ -476,9 +482,7 @@ public class StatsRepository {
         for (Theme theme : themes) {
             if (theme == null || theme.getId() == null) {
                 int done = completed.incrementAndGet();
-                if (done >= totalThemes) {
-                    finishThemeProgress(themes, resultMap, callback);
-                }
+                if (done >= totalThemes) finishThemeProgress(themes, resultMap, callback);
                 continue;
             }
 
@@ -487,146 +491,90 @@ public class StatsRepository {
             listener.getWordsByTheme(themeKey, new DataCallback<List<Word>>() {
                 @Override
                 public void onSuccess(List<Word> words) {
-                    ThemeProgressStats stats = buildThemeProgressFromActualWords(
-                            theme,
-                            words != null ? words : new ArrayList<>(),
-                            learnedWordIds
-                    );
+                    ThemeProgressStats stats = buildThemeProgressFromActualWords(theme, words != null ? words : new ArrayList<>(), learnedWordIds);
                     resultMap.put(themeKey, stats);
-
                     int done = completed.incrementAndGet();
-                    if (done >= totalThemes) {
-                        finishThemeProgress(themes, resultMap, callback);
-                    }
+                    if (done >= totalThemes) finishThemeProgress(themes, resultMap, callback);
                 }
 
                 @Override
                 public void onError(String error) {
-                    ThemeProgressStats stats = buildThemeProgressFromActualWords(
-                            theme, new ArrayList<>(), learnedWordIds);
+                    ThemeProgressStats stats = buildThemeProgressFromActualWords(theme, new ArrayList<>(), learnedWordIds);
                     resultMap.put(themeKey, stats);
-
                     int done = completed.incrementAndGet();
-                    if (done >= totalThemes) {
-                        finishThemeProgress(themes, resultMap, callback);
-                    }
+                    if (done >= totalThemes) finishThemeProgress(themes, resultMap, callback);
                 }
             });
         }
     }
 
-    private void finishThemeProgress(List<Theme> originalThemes,
-                                     ConcurrentHashMap<Long, ThemeProgressStats> map,
-                                     DataCallback<List<ThemeProgressStats>> callback) {
-        List<ThemeProgressStats> result = new ArrayList<>();
-
-        // Сохраняем порядок тем — итерируемся по исходному списку
-        for (Theme theme : originalThemes) {
-            if (theme == null || theme.getId() == null) continue;
-            ThemeProgressStats stats = map.get(theme.getId());
-            if (stats != null) result.add(stats);
-        }
-
-        mainHandler.post(() -> callback.onSuccess(result));
-    }
-
-    public void getLearnedWordIdsForCurrentUser(User currentUser,
-                                                DataCallback<List<Long>> callback) {
+    public void getLearnedWordIdsForCurrentUser(User currentUser, DataCallback<List<Long>> callback) {
         if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
             return;
         }
 
-        // ===== ПРОВЕРКА КЭША =====
         long now = System.currentTimeMillis();
-        if (cachedLearnedWordIds != null
-                && (now - lastLearnedIdsLoadTime) < LEARNED_IDS_CACHE_TTL) {
+        if (cachedLearnedWordIds != null && (now - lastLearnedIdsLoadTime) < LEARNED_IDS_CACHE_TTL) {
             mainHandler.post(() -> callback.onSuccess(new ArrayList<>(cachedLearnedWordIds)));
             return;
         }
 
-        // ✅ ИСПРАВЛЕНО: Теперь передаем 4 параметра (добавлены "id.asc" и null)
-        apiService.getUserProgressByUser(
-                "eq." + currentUser.getId(),
-                "word_id,is_learned",
-                "id.asc",
-                null
-        ).enqueue(new Callback<List<UserWordProgress>>() {
-            @Override
-            public void onResponse(Call<List<UserWordProgress>> call,
-                                   Response<List<UserWordProgress>> response) {
-                if (!response.isSuccessful() || response.body() == null) {
-                    mainHandler.post(() -> callback.onError(
-                            "Не удалось загрузить прогресс пользователя"));
-                    return;
-                }
-
-                List<Long> learnedIds = new ArrayList<>();
-
-                for (UserWordProgress progress : response.body()) {
-                    if (progress == null) continue;
-                    if (progress.getWordId() != null && Boolean.TRUE.equals(progress.getIsLearned())) {
-                        if (!learnedIds.contains(progress.getWordId())) {
-                            learnedIds.add(progress.getWordId());
+        apiService.getUserProgressByUser("eq." + currentUser.getId(), "word_id,is_learned", "id.asc", null)
+                .enqueue(new Callback<List<UserWordProgress>>() {
+                    @Override
+                    public void onResponse(Call<List<UserWordProgress>> call, Response<List<UserWordProgress>> response) {
+                        if (!response.isSuccessful() || response.body() == null) {
+                            mainHandler.post(() -> callback.onError("Не удалось загрузить прогресс"));
+                            return;
                         }
+                        List<Long> learnedIds = new ArrayList<>();
+                        for (UserWordProgress p : response.body()) {
+                            if (p != null && p.getWordId() != null && Boolean.TRUE.equals(p.getIsLearned())) {
+                                learnedIds.add(p.getWordId());
+                            }
+                        }
+                        cachedLearnedWordIds = Collections.unmodifiableList(learnedIds);
+                        lastLearnedIdsLoadTime = System.currentTimeMillis();
+                        mainHandler.post(() -> callback.onSuccess(new ArrayList<>(learnedIds)));
                     }
-                }
 
-                // Сохраняем в кэш
-                cachedLearnedWordIds = Collections.unmodifiableList(learnedIds);
-                lastLearnedIdsLoadTime = System.currentTimeMillis();
-
-                mainHandler.post(() -> callback.onSuccess(new ArrayList<>(learnedIds)));
-            }
-
-            @Override
-            public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
-                mainHandler.post(() -> callback.onError(
-                        "Ошибка загрузки прогресса: " + (t.getMessage() != null
-                                ? t.getMessage() : "")));
-            }
-        });
+                    @Override
+                    public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
+                        mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
+                    }
+                });
     }
 
-    public void getRecentLessonHistory(int limit, User currentUser,
-                                       DataCallback<List<LessonHistory>> callback) {
+    public void getRecentLessonHistory(int limit, User currentUser, DataCallback<List<LessonHistory>> callback) {
         if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
             return;
         }
-
         int userId = currentUser.getId();
         int safeLimit = Math.max(1, limit);
-
         executor.execute(() -> {
             try {
                 List<LessonHistory> history = lessonHistoryDao.getRecentByUser(userId, safeLimit);
-                mainHandler.post(() -> callback.onSuccess(
-                        history != null ? history : new ArrayList<>()));
+                mainHandler.post(() -> callback.onSuccess(history != null ? history : new ArrayList<>()));
             } catch (Exception e) {
-                Log.e("StatsRepository", "Ошибка загрузки истории: " + e.getMessage(), e);
-                mainHandler.post(() -> callback.onError("Не удалось загрузить историю занятий"));
+                mainHandler.post(() -> callback.onError("Не удалось загрузить историю"));
             }
         });
     }
 
-    public void getLessonHistoryForStatistics(User currentUser,
-                                              DataCallback<List<LessonHistory>> callback) {
+    public void getLessonHistoryForStatistics(User currentUser, DataCallback<List<LessonHistory>> callback) {
         if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
             return;
         }
-
         int userId = currentUser.getId();
-
         executor.execute(() -> {
             try {
                 List<LessonHistory> history = lessonHistoryDao.getAllByUser(userId);
-                mainHandler.post(() -> callback.onSuccess(
-                        history != null ? history : new ArrayList<>()));
+                mainHandler.post(() -> callback.onSuccess(history != null ? history : new ArrayList<>()));
             } catch (Exception e) {
-                Log.e("StatsRepository", "Ошибка загрузки LessonHistory: " + e.getMessage(), e);
-                mainHandler.post(() -> callback.onError("Не удалось загрузить историю занятий"));
+                mainHandler.post(() -> callback.onError("Не удалось загрузить историю"));
             }
         });
     }
@@ -685,9 +633,7 @@ public class StatsRepository {
 
         if (currentUser == null) return;
 
-        // Инвалидируем кэш — потому что слово могло стать выученным
         invalidateLearnedIdsCache();
-
         addXp(earnedXp);
 
         User finalUser = currentUser;

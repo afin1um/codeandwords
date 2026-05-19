@@ -52,7 +52,7 @@ public class AdminThemesActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_themes);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         initViews();
         setupSpinner();

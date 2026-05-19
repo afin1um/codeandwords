@@ -51,7 +51,7 @@ public class TheoryActivity extends AppCompatActivity {
         tvTitle = findViewById(R.id.tvTheoryTitle);
         tvTheoryText = findViewById(R.id.tvTheoryText);
         btnBack = findViewById(R.id.btnBackTheory);
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         // Инициализация TTS
         tts = new TextToSpeech(this, status -> {
@@ -293,5 +293,9 @@ public class TheoryActivity extends AppCompatActivity {
             tts.shutdown();
         }
         super.onDestroy();
+        // Это важно! Иначе TTS и SoundPool остаются в памяти
+        if (repository != null) {
+            repository.onDestroy();
+        }
     }
 }

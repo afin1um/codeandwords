@@ -428,6 +428,10 @@ public class MistakesTrainingActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // Это важно! Иначе TTS и SoundPool остаются в памяти
+        if (repository != null) {
+            repository.onDestroy();
+        }
         if (soundPool != null) { soundPool.release(); soundPool = null; }
     }
 }

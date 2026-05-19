@@ -43,7 +43,7 @@ public class UserSearchActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_user_search);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         initViews();
         setupRecycler();

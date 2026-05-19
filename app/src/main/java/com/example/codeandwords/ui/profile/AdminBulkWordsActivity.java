@@ -35,7 +35,7 @@ public class AdminBulkWordsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin_bulk_words);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         initViews();
         setupClicks();

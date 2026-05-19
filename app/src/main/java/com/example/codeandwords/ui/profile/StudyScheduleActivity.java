@@ -84,7 +84,7 @@ public class StudyScheduleActivity extends AppCompatActivity {
         setContentView(R.layout.activity_study_schedule);
 
         db = AppDatabase.getInstance(this);
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         selectedDate = dbDateFormat.format(Calendar.getInstance().getTime());
 

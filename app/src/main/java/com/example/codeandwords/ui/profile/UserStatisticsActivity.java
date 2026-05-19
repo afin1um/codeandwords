@@ -33,26 +33,20 @@ public class UserStatisticsActivity extends AppCompatActivity {
     private static final int PREVIEW_LIMIT = 5;
 
     private ImageButton btnBackStatistics;
-
     private TextView tvStatsLessons;
     private TextView tvStatsAccuracy;
     private TextView tvStatsFixedErrors;
     private TextView tvStatsLearnedWords;
     private TextView tvStatsXp;
     private TextView tvStatsLeague;
-
     private LinearLayout chartContainer;
     private TextView tvChartEmpty;
-
     private RecyclerView rvThemeProgress;
     private RecyclerView rvRecentLessons;
-
     private TextView tvThemeProgressEmpty;
     private TextView tvRecentLessonsEmpty;
-
     private MaterialButton btnShowAllThemes;
     private MaterialButton btnShowAllLessons;
-
     private ProgressBar pbStatistics;
 
     private Repository repository;
@@ -65,12 +59,16 @@ public class UserStatisticsActivity extends AppCompatActivity {
     private final SimpleDateFormat dayKeyFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
     private final SimpleDateFormat dayLabelFormat = new SimpleDateFormat("dd.MM", Locale.getDefault());
 
+    // Переменные для управления состоянием загрузки
+    private int loadedRequests = 0;
+    private static final int TOTAL_REQUESTS = 4; // Overall, Themes, Lessons, Chart
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_user_statistics);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         initViews();
         setupRecyclerViews();
@@ -122,15 +120,15 @@ public class UserStatisticsActivity extends AppCompatActivity {
 
     private void setupClicks() {
         btnBackStatistics.setOnClickListener(v -> finish());
-
         btnShowAllThemes.setOnClickListener(v -> showAllThemesBottomSheet());
-
         btnShowAllLessons.setOnClickListener(v -> showAllLessonsBottomSheet());
     }
 
     private void loadStatistics() {
         pbStatistics.setVisibility(View.VISIBLE);
+        loadedRequests = 0; // Сброс счетчика
 
+        // Запускаем все 4 запроса параллельно
         loadOverallStats();
         loadThemeProgress();
         loadRecentLessons();
@@ -141,31 +139,25 @@ public class UserStatisticsActivity extends AppCompatActivity {
         repository.getUserOverallStatistics(new Repository.DataCallback<UserOverallStats>() {
             @Override
             public void onSuccess(UserOverallStats data) {
-                pbStatistics.setVisibility(View.GONE);
-
                 if (data == null) {
                     setEmptyOverallStats();
-                    return;
+                } else {
+                    tvStatsLessons.setText(String.valueOf(data.getTotalLessons()));
+                    tvStatsAccuracy.setText(data.getAccuracyPercent() + "%");
+                    tvStatsFixedErrors.setText(String.valueOf(data.getFixedErrors()));
+                    tvStatsLearnedWords.setText(String.valueOf(data.getLearnedWords()));
+                    tvStatsXp.setText(String.valueOf(data.getTotalXp()));
+                    tvStatsLeague.setText(data.getLeagueIcon() + " " + data.getLeagueTitle());
                 }
-
-                tvStatsLessons.setText(String.valueOf(data.getTotalLessons()));
-                tvStatsAccuracy.setText(data.getAccuracyPercent() + "%");
-                tvStatsFixedErrors.setText(String.valueOf(data.getFixedErrors()));
-                tvStatsLearnedWords.setText(String.valueOf(data.getLearnedWords()));
-                tvStatsXp.setText(String.valueOf(data.getTotalXp()));
-                tvStatsLeague.setText(data.getLeagueIcon() + " " + data.getLeagueTitle());
+                checkAllLoaded();
             }
 
             @Override
             public void onError(String error) {
-                pbStatistics.setVisibility(View.GONE);
                 setEmptyOverallStats();
-
-                Toast.makeText(
-                        UserStatisticsActivity.this,
-                        error != null ? error : "Не удалось загрузить статистику",
-                        Toast.LENGTH_SHORT
-                ).show();
+                Toast.makeText(UserStatisticsActivity.this,
+                        error != null ? error : "Не удалось загрузить статистику", Toast.LENGTH_SHORT).show();
+                checkAllLoaded();
             }
         });
     }
@@ -184,12 +176,9 @@ public class UserStatisticsActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<ThemeProgressStats> data) {
                 allThemeProgressItems.clear();
-
-                if (data != null) {
-                    allThemeProgressItems.addAll(data);
-                }
-
+                if (data != null) allThemeProgressItems.addAll(data);
                 bindThemeProgressPreview();
+                checkAllLoaded();
             }
 
             @Override
@@ -199,6 +188,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
                 tvThemeProgressEmpty.setVisibility(View.VISIBLE);
                 rvThemeProgress.setVisibility(View.GONE);
                 btnShowAllThemes.setVisibility(View.GONE);
+                checkAllLoaded();
             }
         });
     }
@@ -213,7 +203,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
         }
 
         List<ThemeProgressStats> previewItems = takeFirstItems(allThemeProgressItems, PREVIEW_LIMIT);
-
         themeProgressAdapter.setItems(previewItems);
         tvThemeProgressEmpty.setVisibility(View.GONE);
         rvThemeProgress.setVisibility(View.VISIBLE);
@@ -231,12 +220,9 @@ public class UserStatisticsActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<LessonHistory> data) {
                 allRecentLessonItems.clear();
-
-                if (data != null) {
-                    allRecentLessonItems.addAll(data);
-                }
-
+                if (data != null) allRecentLessonItems.addAll(data);
                 bindRecentLessonsPreview();
+                checkAllLoaded();
             }
 
             @Override
@@ -246,6 +232,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
                 tvRecentLessonsEmpty.setVisibility(View.VISIBLE);
                 rvRecentLessons.setVisibility(View.GONE);
                 btnShowAllLessons.setVisibility(View.GONE);
+                checkAllLoaded();
             }
         });
     }
@@ -260,7 +247,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
         }
 
         List<LessonHistory> previewItems = takeFirstItems(allRecentLessonItems, PREVIEW_LIMIT);
-
         recentLessonsAdapter.setItems(previewItems);
         tvRecentLessonsEmpty.setVisibility(View.GONE);
         rvRecentLessons.setVisibility(View.VISIBLE);
@@ -275,76 +261,19 @@ public class UserStatisticsActivity extends AppCompatActivity {
 
     private <T> List<T> takeFirstItems(List<T> source, int limit) {
         List<T> result = new ArrayList<>();
-
-        if (source == null || source.isEmpty() || limit <= 0) {
-            return result;
-        }
-
+        if (source == null || source.isEmpty() || limit <= 0) return result;
         int count = Math.min(source.size(), limit);
-
-        for (int i = 0; i < count; i++) {
-            result.add(source.get(i));
-        }
-
+        for (int i = 0; i < count; i++) result.add(source.get(i));
         return result;
     }
 
-    private void showAllThemesBottomSheet() {
-        if (allThemeProgressItems.isEmpty()) {
-            Toast.makeText(this, "Нет данных по темам", Toast.LENGTH_SHORT).show();
-            return;
+    // Метод-контроллер завершения загрузки
+    private synchronized void checkAllLoaded() {
+        loadedRequests++;
+        if (loadedRequests >= TOTAL_REQUESTS) {
+            pbStatistics.setVisibility(View.GONE);
+            loadedRequests = 0; // Сбрасываем счетчик на всякий случай
         }
-
-        BottomSheetDialog dialog = new BottomSheetDialog(this);
-        View sheetView = LayoutInflater.from(this).inflate(R.layout.dialog_statistics_full_list, null, false);
-
-        TextView tvTitle = sheetView.findViewById(R.id.tvStatisticsDialogTitle);
-        TextView tvSubtitle = sheetView.findViewById(R.id.tvStatisticsDialogSubtitle);
-        TextView btnClose = sheetView.findViewById(R.id.btnCloseStatisticsDialog);
-        RecyclerView rvItems = sheetView.findViewById(R.id.rvStatisticsDialogItems);
-
-        tvTitle.setText("Все темы");
-        tvSubtitle.setText("Полный прогресс по темам: " + allThemeProgressItems.size());
-
-        ThemeProgressAdapter dialogAdapter = new ThemeProgressAdapter();
-        dialogAdapter.setItems(allThemeProgressItems);
-
-        rvItems.setLayoutManager(new LinearLayoutManager(this));
-        rvItems.setAdapter(dialogAdapter);
-
-        btnClose.setOnClickListener(v -> dialog.dismiss());
-
-        dialog.setContentView(sheetView);
-        dialog.show();
-    }
-
-    private void showAllLessonsBottomSheet() {
-        if (allRecentLessonItems.isEmpty()) {
-            Toast.makeText(this, "История занятий пока пустая", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        BottomSheetDialog dialog = new BottomSheetDialog(this);
-        View sheetView = LayoutInflater.from(this).inflate(R.layout.dialog_statistics_full_list, null, false);
-
-        TextView tvTitle = sheetView.findViewById(R.id.tvStatisticsDialogTitle);
-        TextView tvSubtitle = sheetView.findViewById(R.id.tvStatisticsDialogSubtitle);
-        TextView btnClose = sheetView.findViewById(R.id.btnCloseStatisticsDialog);
-        RecyclerView rvItems = sheetView.findViewById(R.id.rvStatisticsDialogItems);
-
-        tvTitle.setText("Все тренировки");
-        tvSubtitle.setText("История последних занятий: " + allRecentLessonItems.size());
-
-        RecentLessonsAdapter dialogAdapter = new RecentLessonsAdapter();
-        dialogAdapter.setItems(allRecentLessonItems);
-
-        rvItems.setLayoutManager(new LinearLayoutManager(this));
-        rvItems.setAdapter(dialogAdapter);
-
-        btnClose.setOnClickListener(v -> dialog.dismiss());
-
-        dialog.setContentView(sheetView);
-        dialog.show();
     }
 
     private void loadActivityChart() {
@@ -352,11 +281,13 @@ public class UserStatisticsActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<LessonHistory> data) {
                 buildActivityChart(data != null ? data : new ArrayList<>());
+                checkAllLoaded();
             }
 
             @Override
             public void onError(String error) {
                 buildActivityChart(new ArrayList<>());
+                checkAllLoaded();
             }
         });
     }
@@ -381,7 +312,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
         if (history != null) {
             for (LessonHistory item : history) {
                 if (item == null || item.finishedAt <= 0) continue;
-
                 Calendar itemCalendar = Calendar.getInstance();
                 itemCalendar.setTimeInMillis(item.finishedAt);
                 String key = dayKeyFormat.format(itemCalendar.getTime());
@@ -396,12 +326,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
         }
 
         int max = 0;
-
-        for (int count : lessonsByDay) {
-            if (count > max) {
-                max = count;
-            }
-        }
+        for (int count : lessonsByDay) if (count > max) max = count;
 
         tvChartEmpty.setVisibility(max == 0 ? View.VISIBLE : View.GONE);
 
@@ -410,11 +335,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
             itemLayout.setOrientation(LinearLayout.VERTICAL);
             itemLayout.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
 
-            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(
-                    0,
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    1f
-            );
+            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
             itemParams.setMargins(4, 0, 4, 0);
             itemLayout.setLayoutParams(itemParams);
 
@@ -426,7 +347,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
 
             View bar = new View(this);
             int barHeight = max > 0 ? dp(22 + (lessonsByDay[i] * 88 / max)) : dp(12);
-
             LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(dp(18), barHeight);
             barParams.setMargins(0, 6, 0, 6);
             bar.setLayoutParams(barParams);
@@ -441,12 +361,63 @@ public class UserStatisticsActivity extends AppCompatActivity {
             itemLayout.addView(countView);
             itemLayout.addView(bar);
             itemLayout.addView(labelView);
-
             chartContainer.addView(itemLayout);
         }
     }
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private void showAllThemesBottomSheet() {
+        if (allThemeProgressItems.isEmpty()) {
+            Toast.makeText(this, "Нет данных по темам", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        View sheetView = LayoutInflater.from(this).inflate(R.layout.dialog_statistics_full_list, null, false);
+        TextView tvTitle = sheetView.findViewById(R.id.tvStatisticsDialogTitle);
+        TextView tvSubtitle = sheetView.findViewById(R.id.tvStatisticsDialogSubtitle);
+        TextView btnClose = sheetView.findViewById(R.id.btnCloseStatisticsDialog);
+        RecyclerView rvItems = sheetView.findViewById(R.id.rvStatisticsDialogItems);
+
+        tvTitle.setText("Все темы");
+        tvSubtitle.setText("Полный прогресс по темам: " + allThemeProgressItems.size());
+
+        ThemeProgressAdapter dialogAdapter = new ThemeProgressAdapter();
+        dialogAdapter.setItems(allThemeProgressItems);
+
+        rvItems.setLayoutManager(new LinearLayoutManager(this));
+        rvItems.setAdapter(dialogAdapter);
+        btnClose.setOnClickListener(v -> dialog.dismiss());
+        dialog.setContentView(sheetView);
+        dialog.show();
+    }
+
+    private void showAllLessonsBottomSheet() {
+        if (allRecentLessonItems.isEmpty()) {
+            Toast.makeText(this, "История занятий пока пустая", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        BottomSheetDialog dialog = new BottomSheetDialog(this);
+        View sheetView = LayoutInflater.from(this).inflate(R.layout.dialog_statistics_full_list, null, false);
+        TextView tvTitle = sheetView.findViewById(R.id.tvStatisticsDialogTitle);
+        TextView tvSubtitle = sheetView.findViewById(R.id.tvStatisticsDialogSubtitle);
+        TextView btnClose = sheetView.findViewById(R.id.btnCloseStatisticsDialog);
+        RecyclerView rvItems = sheetView.findViewById(R.id.rvStatisticsDialogItems);
+
+        tvTitle.setText("Все тренировки");
+        tvSubtitle.setText("История последних занятий: " + allRecentLessonItems.size());
+
+        RecentLessonsAdapter dialogAdapter = new RecentLessonsAdapter();
+        dialogAdapter.setItems(allRecentLessonItems);
+
+        rvItems.setLayoutManager(new LinearLayoutManager(this));
+        rvItems.setAdapter(dialogAdapter);
+        btnClose.setOnClickListener(v -> dialog.dismiss());
+        dialog.setContentView(sheetView);
+        dialog.show();
     }
 }

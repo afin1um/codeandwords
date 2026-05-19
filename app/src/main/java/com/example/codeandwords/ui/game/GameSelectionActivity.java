@@ -41,7 +41,7 @@ public class GameSelectionActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game_selection);
 
-        repository = new Repository(this);
+        repository = Repository.getInstance(getApplicationContext());
 
         initViews();
         readIntent();
@@ -206,5 +206,14 @@ public class GameSelectionActivity extends AppCompatActivity {
         intent.putExtra("THEME_ID", themeId);
         intent.putExtra("THEME_TITLE", themeTitle);
         startActivity(intent);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Это важно! Иначе TTS и SoundPool остаются в памяти
+        if (repository != null) {
+            repository.onDestroy();
+        }
     }
 }

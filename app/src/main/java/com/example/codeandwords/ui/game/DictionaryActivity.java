@@ -239,5 +239,9 @@ public class DictionaryActivity extends AppCompatActivity implements TextToSpeec
             tts.shutdown();
         }
         super.onDestroy();
+        // Это важно! Иначе TTS и SoundPool остаются в памяти
+        if (repository != null) {
+            repository.onDestroy();
+        }
     }
 }

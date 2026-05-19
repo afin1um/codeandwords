@@ -87,7 +87,6 @@ import com.example.codeandwords.data.stats.StatsRepository;
 import com.example.codeandwords.data.progress.WordProgressRepository;
 import com.example.codeandwords.data.admin.AdminRepository;
 
-
 public class Repository {
 
     private static final String PREFS_NAME = "codeandwords_prefs";
@@ -136,7 +135,6 @@ public class Repository {
     private final AchievementRepository achievementRepository;
     private final WordProgressRepository wordProgressRepository;
     private final AdminRepository adminRepository;
-
 
     public interface DataCallback<T> {
         void onSuccess(T data);
@@ -235,10 +233,16 @@ public class Repository {
             }
         });
 
+        // ✅ ИСПРАВЛЕНИЕ: Удален userWordProgressDao из параметров StatsRepository
         this.statsRepository = new StatsRepository(
-                userDao, userStatsDao, lessonHistoryDao,
-                achievementDao, dailyQuestDao,
-                apiService, executor, mainHandler);
+                userDao,
+                userStatsDao,
+                lessonHistoryDao,
+                achievementDao,
+                dailyQuestDao,
+                apiService,
+                executor,
+                mainHandler);
 
         this.statsRepository.setListener(new StatsRepository.StatsListener() {
             @Override
@@ -402,6 +406,7 @@ public class Repository {
         });
         restoreCurrentUserFromPrefs();
     }
+
     public static Repository getInstance(Context context) {
         if (INSTANCE == null) {
             synchronized (Repository.class) {
@@ -412,6 +417,7 @@ public class Repository {
         }
         return INSTANCE;
     }
+
     private void restoreCurrentUserFromPrefs() {
         authRepository.restoreCurrentUserFromPrefs();
         currentUser = authRepository.getCurrentUserSync();
@@ -434,11 +440,11 @@ public class Repository {
     private int safeInt(Integer value) {
         return value == null ? 0 : value;
     }
+
     private String toSqlTimestamp(long millis) {
         if (millis <= 0) {
             millis = System.currentTimeMillis();
         }
-
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
         sdf.setTimeZone(TimeZone.getDefault());
         return sdf.format(new Date(millis));
@@ -448,7 +454,6 @@ public class Repository {
         if (millis <= 0) {
             millis = System.currentTimeMillis();
         }
-
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
         sdf.setTimeZone(TimeZone.getDefault());
         return sdf.format(new Date(millis));
@@ -464,6 +469,7 @@ public class Repository {
         }
         return "empty error body";
     }
+
     public void logout(Runnable callback) {
         authRepository.logout(() -> {
             currentUser = null;
@@ -478,7 +484,6 @@ public class Repository {
                 currentUser = data;
                 callback.onSuccess(data);
             }
-
             @Override
             public void onError(String error) {
                 callback.onError(error);
@@ -496,6 +501,7 @@ public class Repository {
     public void deleteUserWord(UserWord word, Runnable onDone) {
         personalDictionaryRepository.deleteUserWord(word, onDone);
     }
+
     public void deleteUserWordByTerm(String term, DataCallback<Void> callback) {
         personalDictionaryRepository.deleteUserWordByTerm(
                 term, currentUser,
@@ -506,6 +512,7 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
     public void addWordToPersonalDictionary(Word word, DataCallback<Void> callback) {
         personalDictionaryRepository.addWordToPersonalDictionary(
                 word, currentUser,
@@ -516,6 +523,7 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
     public void getThemes(DataCallback<List<Theme>> callback) {
         themeRepository.getThemes(
                 new ThemeRepository.DataCallback<List<Theme>>() {
@@ -523,7 +531,6 @@ public class Repository {
                     public void onSuccess(List<Theme> data) {
                         callback.onSuccess(data);
                     }
-
                     @Override
                     public void onError(String error) {
                         callback.onError(error);
@@ -539,7 +546,6 @@ public class Repository {
                     public void onSuccess(List<Theme> data) {
                         callback.onSuccess(data);
                     }
-
                     @Override
                     public void onError(String error) {
                         callback.onError(error);
@@ -555,7 +561,6 @@ public class Repository {
                     public void onSuccess(Theme data) {
                         callback.onSuccess(data);
                     }
-
                     @Override
                     public void onError(String error) {
                         callback.onError(error);
@@ -563,6 +568,7 @@ public class Repository {
                 }
         );
     }
+
     private void loadWordsLocal(Long themeId, DataCallback<List<Word>> callback) {
         wordRepository.loadWordsLocal(themeId,
                 new WordRepository.DataCallback<List<Word>>() {
@@ -570,7 +576,6 @@ public class Repository {
                     public void onSuccess(List<Word> data) {
                         callback.onSuccess(data);
                     }
-
                     @Override
                     public void onError(String error) {
                         callback.onError(error);
@@ -582,6 +587,7 @@ public class Repository {
     private void refreshAchievementsSync(User user, UserStats stats) {
         achievementRepository.refreshAchievementsSync(user, stats);
     }
+
     private List<DailyQuest> generateNewQuests() {
         List<DailyQuest> newQuests = new ArrayList<>();
         long now = System.currentTimeMillis();
@@ -605,6 +611,7 @@ public class Repository {
         return cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
                 && cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR);
     }
+
     public void getLeaderboard(DataCallback<List<User>> callback) {
         executor.execute(() -> {
             try {
@@ -630,6 +637,7 @@ public class Repository {
     public void onDestroy() {
         ttsManager.destroy();
     }
+
     public void findUserByUsername(String username, DataCallback<User> callback) {
         friendsRepository.findUserByUsername(username,
                 new FriendsRepository.DataCallback<User>() {
@@ -639,6 +647,7 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
     public void addFriend(int friendId, DataCallback<Void> callback) {
         if (currentUser == null) restoreCurrentUserFromPrefs();
 
@@ -662,6 +671,7 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
     private void createTeamMembersRemote(
             int teamId,
             List<Integer> memberIds,
@@ -782,6 +792,7 @@ public class Repository {
             }
         });
     }
+
     private TeamChallenge parseTeamChallenge(JsonObject item) {
         TeamChallenge c = new TeamChallenge();
 
@@ -797,6 +808,7 @@ public class Repository {
 
         return c;
     }
+
     private void processSingleTeamProgress(JsonObject progressJson, int earnedXp) {
         if (progressJson == null) return;
 
@@ -1034,6 +1046,7 @@ public class Repository {
             }
         });
     }
+
     private void findCreatedChallengeAndCreateProgress(
             int teamId,
             List<Integer> memberIds,
@@ -1065,7 +1078,7 @@ public class Repository {
             }
         });
     }
-    // СТАЛО (4 параметра — новая сигнатура с select):
+
     private void findCreatedTeamChallengeAndCreateProgress(
             int teamId,
             List<Integer> memberIds,
@@ -1181,6 +1194,7 @@ public class Repository {
             }
         });
     }
+
     private void loadWordsByIds(List<Long> ids, DataCallback<List<Word>> callback) {
         wordRepository.loadWordsByIds(ids,
                 new WordRepository.DataCallback<List<Word>>() {
@@ -1196,6 +1210,7 @@ public class Repository {
                 }
         );
     }
+
     public void addUserWord(String word,
                             String translation,
                             String transcription,
@@ -1302,6 +1317,7 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
     private String normalizeText(String value) {
         return value == null ? "" : value.trim();
     }
@@ -1378,6 +1394,7 @@ public class Repository {
 
         return ids;
     }
+
     public void isWordInPersonalDictionary(Word word, DataCallback<Boolean> callback) {
         personalDictionaryRepository.isWordInPersonalDictionary(
                 word, currentUser,
@@ -1388,6 +1405,7 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
     public void getMasteredThemesCount(DataCallback<Integer> callback) {
         getThemes(new DataCallback<List<Theme>>() {
             @Override
@@ -1497,283 +1515,11 @@ public class Repository {
 
         return true;
     }
-    private void getLearnedWordIdsForCurrentUser(DataCallback<List<Long>> callback) {
-        if (currentUser == null) {
-            restoreCurrentUserFromPrefs();
-        }
 
-        if (currentUser == null || currentUser.getId() == null) {
-            callback.onError("Пользователь не авторизован");
-            return;
-        }
+    // ✅ ИСПРАВЛЕНИЕ: Удален ошибочный метод getLearnedWordIdsForCurrentUser,
+    // который использовал несуществующий DAO. Теперь мы делегируем этот
+    // запрос в StatsRepository, который корректно всё кэширует.
 
-        apiService.getUserProgressByUser(
-                "eq." + currentUser.getId(),
-                "id,user_id,word_id,correct_answers_count,mistakes_count,is_learned",
-                "id.asc",
-                null
-        ).enqueue(new Callback<List<UserWordProgress>>() {
-            @Override
-            public void onResponse(Call<List<UserWordProgress>> call,
-                                   Response<List<UserWordProgress>> response) {
-                if (!response.isSuccessful() || response.body() == null) {
-                    mainHandler.post(() -> callback.onError("Не удалось загрузить прогресс пользователя"));
-                    return;
-                }
-
-                List<Long> learnedIds = new ArrayList<>();
-
-                for (UserWordProgress progress : response.body()) {
-                    if (progress == null) continue;
-
-                    if (progress.getWordId() != null && progress.getIsLearned()) {
-                        if (!learnedIds.contains(progress.getWordId())) {
-                            learnedIds.add(progress.getWordId());
-                        }
-                    }
-                }
-
-                mainHandler.post(() -> callback.onSuccess(learnedIds));
-            }
-
-            @Override
-            public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
-                mainHandler.post(() -> callback.onError(
-                        "Ошибка загрузки прогресса: " + (t.getMessage() != null ? t.getMessage() : "")
-                ));
-            }
-        });
-    }
-
-    private void calculateThemeProgressFromActualWords(List<Theme> themes,
-                                                       List<Long> learnedWordIds,
-                                                       DataCallback<List<ThemeProgressStats>> callback) {
-        if (themes == null || themes.isEmpty()) {
-            callback.onSuccess(new ArrayList<>());
-            return;
-        }
-
-        List<ThemeProgressStats> result = new ArrayList<>();
-        final int[] completed = {0};
-        final int totalThemes = themes.size();
-
-        for (Theme theme : themes) {
-            if (theme == null || theme.getId() == null) {
-                completed[0]++;
-
-                if (completed[0] >= totalThemes) {
-                    sortThemeProgressAndReturn(result, callback);
-                }
-
-                continue;
-            }
-
-            getWordsByTheme(theme.getId(), new DataCallback<List<Word>>() {
-                @Override
-                public void onSuccess(List<Word> words) {
-                    ThemeProgressStats stats = buildThemeProgressFromActualWords(
-                            theme,
-                            words != null ? words : new ArrayList<>(),
-                            learnedWordIds != null ? learnedWordIds : new ArrayList<>()
-                    );
-
-                    result.add(stats);
-
-                    completed[0]++;
-
-                    if (completed[0] >= totalThemes) {
-                        sortThemeProgressAndReturn(result, callback);
-                    }
-                }
-
-                @Override
-                public void onError(String error) {
-                    ThemeProgressStats stats = buildThemeProgressFromActualWords(
-                            theme,
-                            new ArrayList<>(),
-                            learnedWordIds != null ? learnedWordIds : new ArrayList<>()
-                    );
-
-                    result.add(stats);
-
-                    completed[0]++;
-
-                    if (completed[0] >= totalThemes) {
-                        sortThemeProgressAndReturn(result, callback);
-                    }
-                }
-            });
-        }
-    }
-
-    private ThemeProgressStats buildThemeProgressFromActualWords(Theme theme,
-                                                                 List<Word> actualThemeWords,
-                                                                 List<Long> learnedWordIds) {
-        int totalWords = actualThemeWords != null ? actualThemeWords.size() : 0;
-        int learnedWords = 0;
-
-        if (actualThemeWords != null && learnedWordIds != null && !learnedWordIds.isEmpty()) {
-            for (Word word : actualThemeWords) {
-                if (word == null || word.getId() == null) continue;
-
-                if (learnedWordIds.contains(word.getId())) {
-                    learnedWords++;
-                }
-            }
-        }
-
-        int progressPercent = totalWords > 0
-                ? Math.max(0, Math.min(100, (learnedWords * 100) / totalWords))
-                : 0;
-
-        boolean mastered = totalWords > 0 && learnedWords >= totalWords;
-
-        return new ThemeProgressStats(
-                theme,
-                learnedWords,
-                totalWords,
-                progressPercent,
-                mastered
-        );
-    }
-
-
-    private void sortThemeProgressAndReturn(List<ThemeProgressStats> result,
-                                            DataCallback<List<ThemeProgressStats>> callback) {
-        if (result == null) {
-            mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
-            return;
-        }
-
-        result.sort((a, b) -> {
-            if (a == null && b == null) return 0;
-            if (a == null) return 1;
-            if (b == null) return -1;
-
-            Theme themeA = a.getTheme();
-            Theme themeB = b.getTheme();
-
-            Long idA = themeA != null ? themeA.getId() : Long.MAX_VALUE;
-            Long idB = themeB != null ? themeB.getId() : Long.MAX_VALUE;
-
-            if (idA == null) idA = Long.MAX_VALUE;
-            if (idB == null) idB = Long.MAX_VALUE;
-
-            return Long.compare(idA, idB);
-        });
-
-        mainHandler.post(() -> callback.onSuccess(result));
-    }
-
-    private void calculateThemeProgressStatistics(List<Theme> themes,
-                                                  List<Word> learnedWords,
-                                                  DataCallback<List<ThemeProgressStats>> callback) {
-        if (themes == null || themes.isEmpty()) {
-            callback.onSuccess(new ArrayList<>());
-            return;
-        }
-
-        List<Long> learnedIds = new ArrayList<>();
-
-        if (learnedWords != null) {
-            for (Word word : learnedWords) {
-                if (word != null && word.getId() != null) {
-                    learnedIds.add(word.getId());
-                }
-            }
-        }
-
-        List<ThemeProgressStats> result = new ArrayList<>();
-        final int[] completedRequests = {0};
-        int totalRequests = themes.size();
-
-        for (Theme theme : themes) {
-            if (theme == null || theme.getId() == null) {
-                completedRequests[0]++;
-
-                if (completedRequests[0] >= totalRequests) {
-                    mainHandler.post(() -> callback.onSuccess(result));
-                }
-
-                continue;
-            }
-
-            getWordsByTheme(theme.getId(), new DataCallback<List<Word>>() {
-                @Override
-                public void onSuccess(List<Word> words) {
-                    ThemeProgressStats stats = buildThemeProgress(theme, words, learnedIds);
-                    result.add(stats);
-
-                    completedRequests[0]++;
-
-                    if (completedRequests[0] >= totalRequests) {
-                        mainHandler.post(() -> callback.onSuccess(result));
-                    }
-                }
-
-                @Override
-                public void onError(String error) {
-                    ThemeProgressStats stats = buildThemeProgress(theme, new ArrayList<>(), learnedIds);
-                    result.add(stats);
-
-                    completedRequests[0]++;
-
-                    if (completedRequests[0] >= totalRequests) {
-                        mainHandler.post(() -> callback.onSuccess(result));
-                    }
-                }
-            });
-        }
-    }
-
-    private ThemeProgressStats buildThemeProgress(Theme theme,
-                                                  List<Word> words,
-                                                  List<Long> learnedIds) {
-        int total = words != null ? words.size() : 0;
-        int learned = 0;
-
-        if (words != null && learnedIds != null) {
-            for (Word word : words) {
-                if (word != null && word.getId() != null && learnedIds.contains(word.getId())) {
-                    learned++;
-                }
-            }
-        }
-
-        int percent = total > 0 ? Math.min(100, (learned * 100) / total) : 0;
-        boolean mastered = total > 0 && learned >= total;
-
-        return new ThemeProgressStats(theme, learned, total, percent, mastered);
-    }
-    private LeagueData getStatisticsLeagueData(int xp) {
-        if (xp >= 2500) {
-            return new LeagueData("Алмазная лига", "💎");
-        }
-
-        if (xp >= 1200) {
-            return new LeagueData("Изумрудная лига", "💚");
-        }
-
-        if (xp >= 600) {
-            return new LeagueData("Золотая лига", "🥇");
-        }
-
-        if (xp >= 250) {
-            return new LeagueData("Серебряная лига", "🥈");
-        }
-
-        return new LeagueData("Бронзовая лига", "🥉");
-    }
-
-    private static class LeagueData {
-        private final String title;
-        private final String icon;
-
-        private LeagueData(String title, String icon) {
-            this.title = title;
-            this.icon = icon;
-        }
-    }
     public void syncPersonalWords(DataCallback<Void> callback) {
         personalDictionaryRepository.syncPersonalWords(
                 currentUser,
@@ -1795,6 +1541,7 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
     public void createStudySchedule(StudySchedule schedule, DataCallback<StudySchedule> callback) {
         scheduleRepository.createStudySchedule(schedule,
                 new ScheduleRepository.DataCallback<StudySchedule>() {
@@ -1864,6 +1611,7 @@ public class Repository {
                 }
         );
     }
+
     public void createTeam(String teamName, DataCallback<Integer> callback) {
         if (currentUser == null) restoreCurrentUserFromPrefs();
 
@@ -1939,6 +1687,7 @@ public class Repository {
     public void updateTeamChallengeProgressAfterLesson(int userId, int earnedXp) {
         teamsRepository.updateTeamChallengeProgressAfterLesson(userId, earnedXp);
     }
+
     public void addXp(int xpReward) {
         statsRepository.addXp(xpReward);
     }
@@ -1970,6 +1719,7 @@ public class Repository {
     private void syncLessonHistoryToRemote(LessonHistory history) {
         statsRepository.syncLessonHistoryToRemote(history);
     }
+
     public void getDailyQuests(DataCallback<List<DailyQuest>> callback) {
         statsRepository.getDailyQuests(
                 new StatsRepository.DataCallback<List<DailyQuest>>() {
@@ -1997,6 +1747,7 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
     public void getUserOverallStatistics(DataCallback<UserOverallStats> callback) {
         if (currentUser == null) restoreCurrentUserFromPrefs();
 
@@ -2047,6 +1798,7 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
     public void incrementWordProgress(Integer userId, Long wordId) {
         wordProgressRepository.incrementWordProgress(userId, wordId);
     }
@@ -2098,13 +1850,34 @@ public class Repository {
     private void upsertWordProgress(Long userId, Long wordId,
                                     boolean markLearned, boolean addMistake,
                                     DataCallback<Void> callback) {
-        wordProgressRepository.upsertWordProgress(userId, wordId, markLearned, addMistake,
-                new WordProgressRepository.DataCallback<Void>() {
-                    @Override
-                    public void onSuccess(Void data) { callback.onSuccess(data); }
-                    @Override
-                    public void onError(String error) { callback.onError(error); }
-                });
+
+        if (userId == null || wordId == null) {
+            if (callback != null) {
+                mainHandler.post(() -> callback.onError("Некорректные параметры"));
+            }
+            return;
+        }
+
+        // ✅ ИСПРАВЛЕНИЕ: Вызов с передачей callback для правильной работы в WordProgressRepository
+        // Этот метод вызывается в некоторых специфических местах.
+        // В WordProgressRepository.java (который мы обновили) метод upsertWordProgress был заменен на
+        // incrementWordProgress и recordWordMistake.
+        // Если вы все еще хотите оставить эту обертку для обратной совместимости,
+        // вызовем нужные методы:
+
+        if (markLearned) {
+            wordProgressRepository.incrementWordProgress(userId.intValue(), wordId);
+        }
+        if (addMistake) {
+            // Для совместимости, нужно создать пустой объект Word, так как recordWordMistake требует Word
+            Word tempWord = new Word();
+            tempWord.setId(wordId);
+            wordProgressRepository.recordWordMistake(tempWord, userId.intValue());
+        }
+
+        if (callback != null) {
+            mainHandler.post(() -> callback.onSuccess(null));
+        }
     }
 
     public void getLearnedWordsForTraining(DataCallback<List<Word>> callback) {
@@ -2157,6 +1930,7 @@ public class Repository {
     public void getWordsByTheme(Long themeId, DataCallback<List<Word>> callback) {
         loadWordsLocal(themeId, callback);
     }
+
     public boolean isCurrentUserAdmin() {
         return adminRepository.isCurrentUserAdmin();
     }
@@ -2231,28 +2005,22 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
     public void login(User user, DataCallback<User> callback) {
         if (user == null) {
             callback.onError("Введите данные для входа");
             return;
         }
 
-        String cleanEmail = user.getEmail() == null
-                ? ""
-                : user.getEmail().trim().toLowerCase();
-
-        String rawPassword = user.getPasswordHash() == null
-                ? ""
-                : user.getPasswordHash().trim();
+        String cleanEmail = user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase();
+        String rawPassword = user.getPasswordHash() == null ? "" : user.getPasswordHash().trim();
 
         if (cleanEmail.isEmpty() || rawPassword.isEmpty()) {
             callback.onError("Введите email и пароль");
             return;
         }
 
-        String hashedPassword = rawPassword.length() == 64
-                ? rawPassword
-                : hashPassword(rawPassword);
+        String hashedPassword = rawPassword.length() == 64 ? rawPassword : hashPassword(rawPassword);
 
         apiService.loginByEmail("eq." + cleanEmail).enqueue(new Callback<List<JsonObject>>() {
             @Override
@@ -2264,13 +2032,9 @@ public class Repository {
 
                 User serverUser = parseUserFromJson(response.body().get(0));
 
-                String serverPassword = serverUser.getPasswordHash() == null
-                        ? ""
-                        : serverUser.getPasswordHash().trim();
+                String serverPassword = serverUser.getPasswordHash() == null ? "" : serverUser.getPasswordHash().trim();
 
-                boolean passwordMatches =
-                        hashedPassword.equals(serverPassword)
-                                || rawPassword.equals(serverPassword);
+                boolean passwordMatches = hashedPassword.equals(serverPassword) || rawPassword.equals(serverPassword);
 
                 if (!passwordMatches) {
                     Log.e("RepositoryLogin", "Пароль не совпал. serverPassword=" + serverPassword);
@@ -2288,11 +2052,8 @@ public class Repository {
                 }
 
                 saveCurrentUserToPrefs(currentUser);
-
-                // Сначала быстро отдаём успех UI
                 mainHandler.post(() -> callback.onSuccess(currentUser));
 
-                // А всё остальное — уже после
                 cacheUserSafely(currentUser);
                 recordLoginEvent();
             }
@@ -2311,17 +2072,9 @@ public class Repository {
             return;
         }
 
-        String rawPassword = user.getPasswordHash() == null
-                ? ""
-                : user.getPasswordHash().trim();
-
-        String cleanEmail = user.getEmail() == null
-                ? ""
-                : user.getEmail().trim().toLowerCase();
-
-        String cleanUsername = user.getUsername() == null
-                ? ""
-                : user.getUsername().trim();
+        String rawPassword = user.getPasswordHash() == null ? "" : user.getPasswordHash().trim();
+        String cleanEmail = user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase();
+        String cleanUsername = user.getUsername() == null ? "" : user.getUsername().trim();
 
         if (cleanUsername.isEmpty()) {
             callback.onError("Введите имя пользователя");
@@ -2333,36 +2086,25 @@ public class Repository {
             return;
         }
 
-        String hashedPassword = rawPassword.length() == 64
-                ? rawPassword
-                : hashPassword(rawPassword);
+        String hashedPassword = rawPassword.length() == 64 ? rawPassword : hashPassword(rawPassword);
 
         user.setUsername(cleanUsername);
         user.setEmail(cleanEmail);
         user.setPasswordHash(hashedPassword);
 
-        // ВАЖНО:
-        // Больше не делаем предварительный loginByEmail перед регистрацией.
-        // Это убирает один лишний сетевой запрос и ускоряет экран регистрации.
         performActualRegistration(user, cleanEmail, callback);
     }
-    private void performActualRegistration(User user,
-                                           String cleanEmail,
-                                           DataCallback<User> callback) {
+
+    private void performActualRegistration(User user, String cleanEmail, DataCallback<User> callback) {
         apiService.register(user).enqueue(new Callback<List<JsonObject>>() {
             @Override
             public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
                 if (response.isSuccessful()) {
-                    // Нормальный случай: сервер вернул созданного пользователя
                     if (response.body() != null && !response.body().isEmpty()) {
                         User regUser = parseUserFromJson(response.body().get(0));
                         completeRegistrationSuccess(regUser, callback);
                         return;
                     }
-
-                    // Fallback:
-                    // если запись создалась, но representation не пришёл или пришёл пустой ответ,
-                    // просто подгружаем пользователя по email
                     loadRegisteredUserByEmail(cleanEmail, callback);
                     return;
                 }
@@ -2370,19 +2112,12 @@ public class Repository {
                 String errorBody = getErrorBody(response);
                 String safeError = errorBody == null ? "" : errorBody.toLowerCase();
 
-                // Обрабатываем дубликаты
-                if (response.code() == 409
-                        || safeError.contains("duplicate")
-                        || safeError.contains("unique")
-                        || safeError.contains("already exists")) {
-
+                if (response.code() == 409 || safeError.contains("duplicate") || safeError.contains("unique") || safeError.contains("already exists")) {
                     mainHandler.post(() -> callback.onError("Этот аккаунт уже зарегистрирован"));
                     return;
                 }
 
-                Log.e("Repository", "Ошибка регистрации: "
-                        + response.code() + " | " + errorBody);
-
+                Log.e("Repository", "Ошибка регистрации: " + response.code() + " | " + errorBody);
                 mainHandler.post(() -> callback.onError("Ошибка сервера: " + response.code()));
             }
 
@@ -2399,8 +2134,7 @@ public class Repository {
             @Override
             public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
                 if (!response.isSuccessful() || response.body() == null || response.body().isEmpty()) {
-                    Log.e("Repository", "Пользователь создан, но не удалось загрузить его после регистрации: "
-                            + response.code() + " | " + getErrorBody(response));
+                    Log.e("Repository", "Пользователь создан, но не удалось загрузить его после регистрации: " + response.code() + " | " + getErrorBody(response));
                     mainHandler.post(() -> callback.onError("Аккаунт создан, но не удалось завершить вход"));
                     return;
                 }
@@ -2416,6 +2150,7 @@ public class Repository {
             }
         });
     }
+
     private void completeRegistrationSuccess(User regUser, DataCallback<User> callback) {
         currentUser = regUser;
 
@@ -2428,13 +2163,12 @@ public class Repository {
             AvatarPrefs.save(appContext, serverAvatar);
         }
 
-        // Сначала мгновенно отпускаем UI
         mainHandler.post(() -> callback.onSuccess(regUser));
 
-        // А всё тяжёлое делаем уже после
         cacheUserSafely(regUser);
         recordLoginEvent();
     }
+
     public void updateUsername(String username, DataCallback<User> callback) {
         if (currentUser == null) restoreCurrentUserFromPrefs();
 

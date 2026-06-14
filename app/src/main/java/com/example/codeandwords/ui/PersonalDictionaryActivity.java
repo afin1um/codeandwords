@@ -3,15 +3,12 @@ package com.example.codeandwords.ui;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -24,7 +21,6 @@ import com.example.codeandwords.model.UserWord;
 import com.example.codeandwords.ui.adapters.UserWordAdapter;
 import com.example.codeandwords.ui.game.WriteWordGameActivity;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,7 +36,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
     private UserWordAdapter adapter;
 
     private RecyclerView rvWords;
-    private FloatingActionButton fabAdd;
     private TextView tvWordsCount;
     private TextView tvSort;
     private TextView tvEmpty;
@@ -58,7 +53,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
     private int withoutThemeCount = 0;
     private int totalWordsCount = 0;
 
-    // ✅ Адаптивные цвета чипов (день/ночь)
     private int chipUnselectedBg;
     private int chipUnselectedText;
     private int chipUnselectedStroke;
@@ -78,13 +72,9 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         setupRecycler();
         setupClicks();
 
-        // ИЗМЕНЕНО: Вызываем синхронизацию перед загрузкой
         syncAndLoadDictionary();
     }
 
-    /**
-     * ✅ Загружаем цвета чипов из ресурсов (поддержка светлой/тёмной темы).
-     */
     private void loadThemeColors() {
         chipUnselectedBg     = ContextCompat.getColor(this, R.color.dict_chip_unselected_bg);
         chipUnselectedText   = ContextCompat.getColor(this, R.color.dict_chip_unselected_text);
@@ -97,7 +87,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
 
     private void initViews() {
         rvWords = findViewById(R.id.rvUserWords);
-        fabAdd = findViewById(R.id.fabAddWord);
         tvWordsCount = findViewById(R.id.tvWordsCount);
         tvSort = findViewById(R.id.tvSort);
         tvEmpty = findViewById(R.id.tvEmpty);
@@ -108,14 +97,11 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
 
     private void setupRecycler() {
         rvWords.setLayoutManager(new LinearLayoutManager(this));
-        // При удалении слова из адаптера, он сам должен перезагрузить слова и обновить счетчики
         adapter = new UserWordAdapter(repository, this::reloadCountsAndWords);
         rvWords.setAdapter(adapter);
     }
 
     private void setupClicks() {
-        fabAdd.setOnClickListener(v -> showAddWordDialog());
-
         btnBack.setOnClickListener(v -> finish());
 
         btnStartWordsTraining.setOnClickListener(v -> {
@@ -136,7 +122,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         repository.syncPersonalWords(new Repository.DataCallback<Void>() {
             @Override
             public void onSuccess(Void data) {
-                // После успешной синхронизации, восстанавливаем темы и загружаем слова
                 repairDictionaryAndLoadThemes();
             }
 
@@ -147,7 +132,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
                         "Ошибка синхронизации словаря: " + error + ". Загрузка локальных данных.",
                         Toast.LENGTH_LONG
                 ).show();
-                // В случае ошибки синхронизации, все равно пытаемся загрузить локальные данные
                 repairDictionaryAndLoadThemes();
             }
         });
@@ -162,7 +146,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
 
             @Override
             public void onError(String error) {
-                // Если ремонт тем не удался, всё равно пробуем загрузить темы
                 Toast.makeText(
                         PersonalDictionaryActivity.this,
                         "Ошибка восстановления тем: " + error,
@@ -241,9 +224,7 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         withoutThemeCount = 0;
         totalWordsCount = 0;
 
-        if (words == null) {
-            return;
-        }
+        if (words == null) return;
 
         totalWordsCount = words.size();
 
@@ -262,17 +243,12 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
                 withoutThemeCount++;
             } else {
                 int oldCount = themeCountById.containsKey(themeId)
-                        ? themeCountById.get(themeId)
-                        : 0;
-
+                        ? themeCountById.get(themeId) : 0;
                 themeCountById.put(themeId, oldCount + 1);
             }
         }
     }
 
-    /**
-     * ✅ Чипы используют адаптивные цвета.
-     */
     private void renderThemeFilters() {
         themeFilterContainer.removeAllViews();
 
@@ -290,7 +266,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
 
             boolean selected = item.title.equals(selectedThemeTitle);
 
-            // ✅ Адаптивные цвета
             if (selected) {
                 chip.setTextColor(chipSelectedText);
                 chip.setBackgroundTintList(ColorStateList.valueOf(chipSelectedBg));
@@ -331,7 +306,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         }
 
         int count = 0;
-
         if (item.id != null && themeCountById.containsKey(item.id)) {
             count = themeCountById.get(item.id);
         }
@@ -391,81 +365,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         }
     }
 
-    private void showAddWordDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        View view = LayoutInflater.from(this).inflate(R.layout.dialog_add_word, null);
-
-        EditText etWord = view.findViewById(R.id.etNewWord);
-        EditText etTranslation = view.findViewById(R.id.etNewTranslation);
-        EditText etTranscription = view.findViewById(R.id.etNewTranscription);
-        EditText etNotes = view.findViewById(R.id.etNewNotes);
-
-        builder.setView(view)
-                .setTitle("Добавить новое слово")
-                .setPositiveButton("Добавить", (dialog, which) -> {
-                    String word = etWord.getText().toString().trim();
-                    String translation = etTranslation.getText().toString().trim();
-                    String transcription = etTranscription.getText().toString().trim();
-                    String notes = etNotes.getText().toString().trim();
-
-                    if (word.isEmpty() || translation.isEmpty()) {
-                        Toast.makeText(
-                                PersonalDictionaryActivity.this,
-                                "Заполните слово и перевод",
-                                Toast.LENGTH_SHORT
-                        ).show();
-                        return;
-                    }
-
-                    Long themeIdForWord;
-                    String themeTitleForWord;
-
-                    if (THEME_ALL.equals(selectedThemeTitle)) {
-                        themeIdForWord = null;
-                        themeTitleForWord = THEME_NONE;
-                    } else if (THEME_NONE.equals(selectedThemeTitle)) {
-                        themeIdForWord = null;
-                        themeTitleForWord = THEME_NONE;
-                    } else {
-                        themeIdForWord = selectedThemeId;
-                        themeTitleForWord = selectedThemeTitle;
-                    }
-
-                    repository.addUserWord(
-                            themeIdForWord,
-                            themeTitleForWord,
-                            word,
-                            translation,
-                            transcription,
-                            notes,
-                            new Repository.DataCallback<Void>() {
-                                @Override
-                                public void onSuccess(Void data) {
-                                    // После добавления инициируем повторную синхронизацию
-                                    // для обновления отображения и отправки на сервер
-                                    syncAndLoadDictionary();
-                                    Toast.makeText(
-                                            PersonalDictionaryActivity.this,
-                                            "Добавлено!",
-                                            Toast.LENGTH_SHORT
-                                    ).show();
-                                }
-
-                                @Override
-                                public void onError(String error) {
-                                    Toast.makeText(
-                                            PersonalDictionaryActivity.this,
-                                            error,
-                                            Toast.LENGTH_SHORT
-                                    ).show();
-                                }
-                            }
-                    );
-                })
-                .setNegativeButton("Отмена", null)
-                .show();
-    }
-
     private String getWordCountLabel(int count) {
         int lastDigit = count % 10;
         int lastTwoDigits = count % 100;
@@ -492,7 +391,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
         if (repository != null) {
             repository.onDestroy();
         }

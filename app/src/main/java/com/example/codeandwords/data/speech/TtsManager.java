@@ -25,15 +25,21 @@ public class TtsManager {
                 int result = tts.setLanguage(Locale.US);
                 isTtsReady = result != TextToSpeech.LANG_MISSING_DATA
                         && result != TextToSpeech.LANG_NOT_SUPPORTED;
+
+                // ✅ ЛОГ ДЛЯ ОТЛАДКИ
+                Log.d("TtsManager", "TTS инициализирован: " + isTtsReady
+                        + ", lang_result=" + result);
             } else {
                 isTtsReady = false;
-                Log.e("TtsManager", "Ошибка инициализации TextToSpeech");
+                Log.e("TtsManager", "Ошибка инициализации TextToSpeech: " + status);
             }
         });
     }
 
     public void speak(String text, boolean isSlow) {
         if (tts == null || !isTtsReady || text == null || text.trim().isEmpty()) {
+            Log.w("TtsManager", "speak() пропущен: tts=" + (tts != null)
+                    + ", ready=" + isTtsReady + ", text=" + text);
             return;
         }
 
@@ -41,6 +47,7 @@ public class TtsManager {
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "WORD_TTS");
     }
 
+    // ✅ ДОБАВЛЕН МЕТОД
     public boolean isReady() {
         return isTtsReady;
     }

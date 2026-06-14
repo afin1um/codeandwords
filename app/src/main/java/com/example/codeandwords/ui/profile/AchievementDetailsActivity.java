@@ -1,5 +1,6 @@
 package com.example.codeandwords.ui.profile;
 
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.ColorMatrix;
@@ -54,7 +55,8 @@ public class AchievementDetailsActivity extends AppCompatActivity {
         tvCondition = findViewById(R.id.tvAchievementCondition);
         progressBar = findViewById(R.id.progressAchievementDetails);
 
-        btnBack.setOnClickListener(v -> finish());
+        // ✅ Переход в AchievementsActivity
+        btnBack.setOnClickListener(v -> goToAchievements());
     }
 
     private void bindData() {
@@ -115,28 +117,17 @@ public class AchievementDetailsActivity extends AppCompatActivity {
         String type = normalizeKey(conditionType);
 
         switch (type) {
-            case "LOGIN_STREAK":
-                return "Заходите в приложение несколько дней подряд.";
-            case "MAX_XP_DAY":
-                return "Набирайте много опыта за один день.";
-            case "PERFECT_STREAK":
-                return "Проходите уроки без ошибок подряд.";
-            case "EARLY_BIRD":
-                return "Занимайтесь утром.";
-            case "ERROR_FIXER":
-                return "Исправляйте ошибки в тренировке.";
-            case "TASK_MASTER":
-                return "Выполняйте задания и тренировки.";
-            case "NIGHT_OWL":
-                return "Занимайтесь поздно вечером.";
-            case "TOTAL_XP":
-                return "Набирайте общий опыт.";
-            case "PERFECT_TOTAL":
-                return "Проходите уроки без ошибок.";
-            case "SPRINT_XP":
-                return "Зарабатывайте опыт в режиме спринта.";
-            default:
-                return "Продолжайте учиться, чтобы открыть это достижение.";
+            case "LOGIN_STREAK": return "Заходите в приложение несколько дней подряд.";
+            case "MAX_XP_DAY": return "Набирайте много опыта за один день.";
+            case "PERFECT_STREAK": return "Проходите уроки без ошибок подряд.";
+            case "EARLY_BIRD": return "Занимайтесь утром.";
+            case "ERROR_FIXER": return "Исправляйте ошибки в тренировке.";
+            case "TASK_MASTER": return "Выполняйте задания и тренировки.";
+            case "NIGHT_OWL": return "Занимайтесь поздно вечером.";
+            case "TOTAL_XP": return "Набирайте общий опыт.";
+            case "PERFECT_TOTAL": return "Проходите уроки без ошибок.";
+            case "SPRINT_XP": return "Зарабатывайте опыт в режиме спринта.";
+            default: return "Продолжайте учиться, чтобы открыть это достижение.";
         }
     }
 
@@ -174,51 +165,31 @@ public class AchievementDetailsActivity extends AppCompatActivity {
         String normalizedConditionType = normalizeKey(conditionType);
 
         switch (normalizedConditionType) {
-            case "LOGIN_STREAK":
-                return R.drawable.ic_ach_streak;
-            case "MAX_XP_DAY":
-                return R.drawable.ic_ach_max_day_xp;
-            case "PERFECT_STREAK":
-                return R.drawable.ic_ach_perfect_streak;
-            case "EARLY_BIRD":
-                return R.drawable.ic_ach_early_bird;
-            case "ERROR_FIXER":
-                return R.drawable.ic_ach_technician;
-            case "TASK_MASTER":
-                return R.drawable.ic_ach_mission;
-            case "NIGHT_OWL":
-                return R.drawable.ic_ach_night;
-            case "TOTAL_XP":
-                return R.drawable.ic_ach_xp_peak;
-            case "PERFECT_TOTAL":
-                return R.drawable.ic_ach_bullseye;
-            case "SPRINT_XP":
-                return R.drawable.ic_ach_sprinter;
+            case "LOGIN_STREAK": return R.drawable.ic_ach_streak;
+            case "MAX_XP_DAY": return R.drawable.ic_ach_max_day_xp;
+            case "PERFECT_STREAK": return R.drawable.ic_ach_perfect_streak;
+            case "EARLY_BIRD": return R.drawable.ic_ach_early_bird;
+            case "ERROR_FIXER": return R.drawable.ic_ach_technician;
+            case "TASK_MASTER": return R.drawable.ic_ach_mission;
+            case "NIGHT_OWL": return R.drawable.ic_ach_night;
+            case "TOTAL_XP": return R.drawable.ic_ach_xp_peak;
+            case "PERFECT_TOTAL": return R.drawable.ic_ach_bullseye;
+            case "SPRINT_XP": return R.drawable.ic_ach_sprinter;
         }
 
         String normalizedTitle = normalizeKey(title);
 
         switch (normalizedTitle) {
-            case "УДАРНЫЙ_РЕКОРД":
-                return R.drawable.ic_ach_streak;
-            case "МАКСИМУМ_ОПЫТА":
-                return R.drawable.ic_ach_max_day_xp;
-            case "УРОКИ_БЕЗ_ОШИБОК":
-                return R.drawable.ic_ach_perfect_streak;
-            case "ПРОСНИСЬ_И_ПОЙ":
-                return R.drawable.ic_ach_early_bird;
-            case "ТЕХНИК":
-                return R.drawable.ic_ach_technician;
-            case "МИССИЯ_ВЫПОЛНИМА":
-                return R.drawable.ic_ach_mission;
-            case "ПОД_ПОКРОВОМ_НОЧИ":
-                return R.drawable.ic_ach_night;
-            case "ВЕРШИНЫ_ОПЫТА":
-                return R.drawable.ic_ach_xp_peak;
-            case "В_ЯБЛОЧКО":
-                return R.drawable.ic_ach_bullseye;
-            case "СПРИНТЕР":
-                return R.drawable.ic_ach_sprinter;
+            case "УДАРНЫЙ_РЕКОРД": return R.drawable.ic_ach_streak;
+            case "МАКСИМУМ_ОПЫТА": return R.drawable.ic_ach_max_day_xp;
+            case "УРОКИ_БЕЗ_ОШИБОК": return R.drawable.ic_ach_perfect_streak;
+            case "ПРОСНИСЬ_И_ПОЙ": return R.drawable.ic_ach_early_bird;
+            case "ТЕХНИК": return R.drawable.ic_ach_technician;
+            case "МИССИЯ_ВЫПОЛНИМА": return R.drawable.ic_ach_mission;
+            case "ПОД_ПОКРОВОМ_НОЧИ": return R.drawable.ic_ach_night;
+            case "ВЕРШИНЫ_ОПЫТА": return R.drawable.ic_ach_xp_peak;
+            case "В_ЯБЛОЧКО": return R.drawable.ic_ach_bullseye;
+            case "СПРИНТЕР": return R.drawable.ic_ach_sprinter;
         }
 
         return R.drawable.ic_achievement_default;
@@ -247,5 +218,19 @@ public class AchievementDetailsActivity extends AppCompatActivity {
                 .replace("'", "")
                 .replace("-", "_")
                 .replace(" ", "_");
+    }
+
+    // ✅ Перехват системной кнопки "назад"
+    @Override
+    public void onBackPressed() {
+        goToAchievements();
+    }
+
+    // ✅ Метод явного возврата
+    private void goToAchievements() {
+        Intent intent = new Intent(this, AchievementsActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish();
     }
 }

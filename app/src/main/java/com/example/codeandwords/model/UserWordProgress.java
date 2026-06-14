@@ -29,6 +29,18 @@ public class UserWordProgress {
     @Expose
     private Boolean isLearned = false;
 
+    @SerializedName("passed_sprint")
+    @Expose
+    private Boolean passedSprint = false;
+
+    @SerializedName("passed_matching")
+    @Expose
+    private Boolean passedMatching = false;
+
+    @SerializedName("passed_writing")
+    @Expose
+    private Boolean passedWriting = false;
+
     public Long getId() {
         return id;
     }
@@ -58,7 +70,8 @@ public class UserWordProgress {
     }
 
     public void setCorrectAnswersCount(Integer correctAnswersCount) {
-        this.correctAnswersCount = correctAnswersCount == null ? 0 : correctAnswersCount;
+        this.correctAnswersCount =
+                correctAnswersCount == null ? 0 : correctAnswersCount;
     }
 
     public Integer getMistakesCount() {
@@ -75,5 +88,29 @@ public class UserWordProgress {
 
     public void setIsLearned(Boolean learned) {
         isLearned = learned != null && learned;
+    }
+
+    public Boolean getPassedSprint() {
+        return passedSprint != null && passedSprint;
+    }
+
+    public void setPassedSprint(Boolean value) {
+        passedSprint = value != null && value;
+    }
+
+    public Boolean getPassedMatching() {
+        return passedMatching != null && passedMatching;
+    }
+
+    public void setPassedMatching(Boolean value) {
+        passedMatching = value != null && value;
+    }
+
+    public Boolean getPassedWriting() {
+        return passedWriting != null && passedWriting;
+    }
+
+    public void setPassedWriting(Boolean value) {
+        passedWriting = value != null && value;
     }
 }

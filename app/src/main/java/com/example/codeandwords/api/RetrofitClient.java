@@ -1,6 +1,5 @@
 package com.example.codeandwords.api;
 
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import java.util.Collections;
@@ -17,8 +16,10 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class RetrofitClient {
 
-    private static final String BASE_URL = "https://jmdolczqymuvpxyvhfgy.supabase.co/rest/v1/";
-    private static final String SUPABASE_ANON_KEY = "sb_publishable_DzqZslXoYvCnq4FOdfqOZQ_r0ZSCcbZ";
+    private static final String BASE_URL =
+            "https://jmdolczqymuvpxyvhfgy.supabase.co/rest/v1/";
+    private static final String SUPABASE_ANON_KEY =
+            "sb_publishable_DzqZslXoYvCnq4FOdfqOZQ_r0ZSCcbZ";
 
     private static Retrofit retrofit;
     private static Retrofit fastRetrofit;
@@ -27,31 +28,48 @@ public class RetrofitClient {
 
     public static synchronized ApiService getApiService() {
         if (retrofit == null) {
-            retrofit = buildRetrofit(30, 60, 60, 90, 64, 20, new RetryInterceptor(1, 1000));
+            retrofit = buildRetrofit(
+                    30,   // connectTimeout
+                    90,   // readTimeout    ✅ увеличен с 60 до 90
+                    60,   // writeTimeout
+                    120,  // callTimeout    ✅ увеличен с 90 до 120
+                    64,
+                    20,
+                    new RetryInterceptor(3, 2000) // ✅ 3 попытки вместо 1, пауза 2с
+            );
         }
         return retrofit.create(ApiService.class);
     }
 
     public static synchronized ApiService getFastApiService() {
         if (fastRetrofit == null) {
-            fastRetrofit = buildRetrofit(15, 30, 30, 45, 64, 20, new RetryInterceptor(1, 1000));
+            fastRetrofit = buildRetrofit(
+                    15,   // connectTimeout
+                    45,   // readTimeout    ✅ увеличен с 30 до 45
+                    30,   // writeTimeout
+                    60,   // callTimeout    ✅ увеличен с 45 до 60
+                    64,
+                    20,
+                    new RetryInterceptor(2, 1500) // ✅ 2 попытки вместо 1
+            );
         }
         return fastRetrofit.create(ApiService.class);
     }
 
-    private static Retrofit buildRetrofit(int connectTimeout, int readTimeout, int writeTimeout,
-                                          int callTimeout, int maxRequests, int maxRequestsPerHost,
-                                          RetryInterceptor retryInterceptor) {
+    private static Retrofit buildRetrofit(
+            int connectTimeout, int readTimeout, int writeTimeout,
+            int callTimeout, int maxRequests, int maxRequestsPerHost,
+            RetryInterceptor retryInterceptor) {
 
-        // ✅ 1. Dispatcher с фиксированным пулом потоков
         Dispatcher dispatcher = new Dispatcher(Executors.newFixedThreadPool(4));
         dispatcher.setMaxRequests(maxRequests);
         dispatcher.setMaxRequestsPerHost(maxRequestsPerHost);
 
-        // ✅ 2. Агрессивный пул соединений: 30 секунд вместо 5 минут
-        // Если соединение простаивает 30 секунд, оно закрывается.
-        // Это предотвращает "зависшие" сокеты.
-        ConnectionPool connectionPool = new ConnectionPool(5, 30, TimeUnit.SECONDS);
+        // ✅ Увеличено время жизни соединения с 30 до 60 секунд
+        // Это уменьшает вероятность "Socket closed" при медленном сервере
+        ConnectionPool connectionPool = new ConnectionPool(
+                5, 60, TimeUnit.SECONDS
+        );
 
         OkHttpClient client = new OkHttpClient.Builder()
                 .dispatcher(dispatcher)
@@ -64,12 +82,16 @@ public class RetrofitClient {
                 .protocols(Collections.singletonList(Protocol.HTTP_1_1))
                 .addInterceptor(retryInterceptor)
                 .addInterceptor(chain -> {
-                    Request request = chain.request().newBuilder()
+                    Request original = chain.request();
+
+                    // ✅ Добавляем Keep-Alive чтобы соединение не закрывалось
+                    Request request = original.newBuilder()
                             .header("apikey", SUPABASE_ANON_KEY)
                             .header("Authorization", "Bearer " + SUPABASE_ANON_KEY)
                             .header("Accept", "application/json")
                             .header("Content-Type", "application/json")
                             .header("Prefer", "return=representation")
+                            .header("Connection", "keep-alive") // ✅ НОВОЕ
                             .build();
                     return chain.proceed(request);
                 })
@@ -78,7 +100,8 @@ public class RetrofitClient {
         return new Retrofit.Builder()
                 .baseUrl(BASE_URL)
                 .client(client)
-                .addConverterFactory(GsonConverterFactory.create(new GsonBuilder().setLenient().create()))
+                .addConverterFactory(GsonConverterFactory.create(
+                        new GsonBuilder().setLenient().create()))
                 .build();
     }
 }

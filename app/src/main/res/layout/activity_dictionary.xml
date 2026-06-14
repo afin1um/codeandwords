@@ -1,47 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:fitsSystemWindows="true"
     android:background="@color/app_card_bg">
 
-    <!-- TOP BAR -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingStart="8dp"
+        android:paddingStart="4dp"
         android:paddingEnd="12dp"
         android:paddingTop="8dp"
         android:paddingBottom="8dp">
 
-        <!-- BACK BUTTON (исправлено позиционирование) -->
-        <ImageView
+        <!-- ✅ Единая стрелочка -->
+        <include
             android:id="@+id/btnBackDict"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:padding="8dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_revert"
-            android:contentDescription="Назад" />
+            layout="@layout/view_back_button"
+            android:layout_width="42dp"
+            android:layout_height="42dp" />
 
-        <!-- TITLE -->
         <TextView
             android:id="@+id/tvDictTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="8dp"
             android:text="Словарь"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="@color/app_text_primary"/>
-
+            android:textColor="@color/app_text_primary" />
     </LinearLayout>
 
-    <!-- LOADING -->
     <ProgressBar
         android:id="@+id/pbDictionary"
         android:layout_width="48dp"
@@ -49,11 +42,10 @@
         android:layout_gravity="center"
         android:visibility="gone" />
 
-    <!-- LIST -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvDictionary"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingBottom="12dp"/>
+        android:paddingBottom="12dp" />
 
 </LinearLayout>

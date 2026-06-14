@@ -7,11 +7,10 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
 import com.example.codeandwords.model.Word;
+import com.example.codeandwords.ui.base.BaseBackActivity;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
@@ -19,18 +18,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class ListeningGameActivity extends AppCompatActivity {
+public class ListeningGameActivity extends BaseBackActivity {
 
     private static final int OPTIONS_COUNT = 5;
     private static final int POINTS_PER_CORRECT = 10;
-
-    private View btnClose;
     private ProgressBar progressListening;
     private ProgressBar pbListening;
     private TextView tvListeningCounter;
     private MaterialButton btnPlayListening;
 
-    // ✅ Карточка словаря
     private MaterialCardView cardListeningDictionaryState;
     private TextView tvListeningDictionaryIcon;
     private TextView tvListeningDictionaryText;
@@ -64,14 +60,17 @@ public class ListeningGameActivity extends AppCompatActivity {
         loadLearnedWords();
     }
 
+    @Override
+    public void onBackPressed() {
+        goToTraining();
+    }
+
     private void initViews() {
-        btnClose = findViewById(R.id.btnCloseListening);
         progressListening = findViewById(R.id.progressListening);
         pbListening = findViewById(R.id.pbListening);
         tvListeningCounter = findViewById(R.id.tvListeningCounter);
         btnPlayListening = findViewById(R.id.btnPlayListening);
 
-        // ✅ Теперь элемент есть в XML — ошибки нет
         cardListeningDictionaryState = findViewById(R.id.cardListeningDictionaryState);
         tvListeningDictionaryIcon = findViewById(R.id.tvListeningDictionaryIcon);
         tvListeningDictionaryText = findViewById(R.id.tvListeningDictionaryText);
@@ -80,7 +79,8 @@ public class ListeningGameActivity extends AppCompatActivity {
     }
 
     private void setupClicks() {
-        btnClose.setOnClickListener(v -> finish());
+        // ✅ Крестик → TrainingFragment
+        setupCloseToTrainingButton(R.id.btnUniClose);
 
         btnPlayListening.setOnClickListener(v -> {
             if (currentWord != null) {
@@ -137,14 +137,12 @@ public class ListeningGameActivity extends AppCompatActivity {
         answeredCurrentQuestion = false;
         currentWordAlreadyInDictionary = false;
 
-        // ✅ Сбрасываем состояние карточки словаря
         tvListeningDictionaryIcon.setText("📖");
         tvListeningDictionaryText.setText("Добавить в словарь");
         cardListeningDictionaryState.setAlpha(1.0f);
 
         tvListeningCounter.setText((currentIndex + 1) + " / " + learnedWords.size());
 
-        // ✅ Обновляем прогресс бар
         if (progressListening != null) {
             int progress = (int) (((float) currentIndex / learnedWords.size()) * 100);
             progressListening.setProgress(progress);
@@ -160,7 +158,6 @@ public class ListeningGameActivity extends AppCompatActivity {
         List<String> options = new ArrayList<>();
         options.add(currentWord.getTranslation());
 
-        // ✅ Перемешиваем список для случайных вариантов
         List<Word> shuffled = new ArrayList<>(learnedWords);
         Collections.shuffle(shuffled);
 
@@ -193,7 +190,6 @@ public class ListeningGameActivity extends AppCompatActivity {
                 answeredCurrentQuestion = true;
 
                 if (selectedOption.equals(currentWord.getTranslation())) {
-                    // ✅ Правильный ответ
                     score += POINTS_PER_CORRECT;
                     btn.setBackgroundTintList(
                             androidx.core.content.res.ResourcesCompat
@@ -206,7 +202,6 @@ public class ListeningGameActivity extends AppCompatActivity {
                     }, 700);
 
                 } else {
-                    // ✅ Неправильный ответ
                     mistakesCount++;
                     btn.setBackgroundTintList(
                             androidx.core.content.res.ResourcesCompat
@@ -237,7 +232,6 @@ public class ListeningGameActivity extends AppCompatActivity {
                 dictionaryStateLoading = false;
                 currentWordAlreadyInDictionary = true;
 
-                // ✅ Обновляем UI карточки
                 tvListeningDictionaryIcon.setText("✅");
                 tvListeningDictionaryText.setText("Добавлено в словарь");
                 cardListeningDictionaryState.setAlpha(0.5f);
@@ -265,9 +259,5 @@ public class ListeningGameActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Это важно! Иначе TTS и SoundPool остаются в памяти
-        if (repository != null) {
-            repository.onDestroy();
-        }
     }
 }

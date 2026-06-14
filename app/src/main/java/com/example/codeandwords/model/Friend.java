@@ -2,16 +2,27 @@ package com.example.codeandwords.model;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
-import androidx.room.PrimaryKey;
+import androidx.room.Index;
 
 import com.google.gson.annotations.SerializedName;
 
-@Entity(tableName = "friends")
+/**
+ * ✅ ИСПРАВЛЕНО: композитный первичный ключ (user_id, friend_id)
+ * вместо autoGenerate id.
+ *
+ * Проблема была в том, что autoGenerate генерировал id=0 для каждой
+ * новой записи, и Room с OnConflictStrategy.REPLACE перезаписывал
+ * предыдущую запись.
+ */
+@Entity(
+        tableName = "friends",
+        primaryKeys = {"user_id", "friend_id"},
+        indices = {
+                @Index(value = "user_id"),
+                @Index(value = "friend_id")
+        }
+)
 public class Friend {
-
-    @PrimaryKey(autoGenerate = true)
-    @SerializedName("id")
-    public int id;
 
     @ColumnInfo(name = "user_id")
     @SerializedName("user_id")

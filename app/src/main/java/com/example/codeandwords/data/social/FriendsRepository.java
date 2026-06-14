@@ -131,11 +131,14 @@ public class FriendsRepository {
 
     // ===== ДОБАВЛЕНИЕ ДРУГА =====
 
-    /**
-     * ✅ ОПТИМИЗИРОВАНО: сначала локально (мгновенный отклик), потом сервер.
-     * Если сервер не примет — откатываем локальную запись.
-     */
     public void addFriend(int friendId,
+                          User currentUser,
+                          DataCallback<Void> callback) {
+        addFriend(friendId, null, currentUser, callback);
+    }
+
+    public void addFriend(int friendId,
+                          User friendUser,
                           User currentUser,
                           DataCallback<Void> callback) {
         if (currentUser == null || currentUser.getId() == null) {
@@ -152,14 +155,34 @@ public class FriendsRepository {
 
         JsonObject payload = buildFriendPayload(currentUserId, friendId);
 
-        apiService.upsertFriendRaw("user_id,friend_id", payload)
+        fastApiService.upsertFriendRaw("user_id,friend_id", payload)
                 .enqueue(new Callback<List<JsonObject>>() {
                     @Override
                     public void onResponse(Call<List<JsonObject>> call,
                                            Response<List<JsonObject>> response) {
-                        if (response.isSuccessful()) {
+                        boolean isSuccess = response.isSuccessful();
+                        boolean isAlreadyFriends = false;
+
+                        if (!isSuccess && response.code() == 409) {
+                            String errorBody = getErrorBody(response);
+                            if (errorBody != null
+                                    && (errorBody.contains("already exists")
+                                    || errorBody.contains("duplicate")
+                                    || errorBody.contains("23505"))) {
+                                isAlreadyFriends = true;
+                                Log.d(TAG, "Пользователи уже друзья (409) — считаем успехом");
+                            }
+                        }
+
+                        if (isSuccess || isAlreadyFriends) {
                             executor.execute(() -> {
                                 try {
+                                    if (friendUser != null && friendUser.getId() != null) {
+                                        userDao.insertUser(friendUser);
+                                        Log.d(TAG, "Пользователь " + friendUser.getId()
+                                                + " сохранён в локальной БД");
+                                    }
+
                                     friendDao.insert(new Friend(currentUserId, friendId));
                                 } catch (Exception e) {
                                     Log.e(TAG,
@@ -188,10 +211,13 @@ public class FriendsRepository {
     // ===== ЗАГРУЗКА ДРУЗЕЙ: CACHE-FIRST =====
 
     /**
-     * ✅ ОПТИМИЗИРОВАНО:
-     * 1. Cache-first — сразу показываем локальных друзей
-     * 2. Защита от параллельных запросов через флаг
-     * 3. Все операции с БД в ОДНОЙ транзакции (вместо 2N операций)
+     * ✅ ИСПРАВЛЕНО:
+     * 1. ВСЕГДА вызываем callback — даже если кэш пуст (пустой список).
+     *    Раньше при пустом кэше callback не вызывался, и если одновременно
+     *    isFetchingFriends == true, UI оставался пустым навсегда.
+     * 2. ВСЕГДА запускаем обновление с сервера (убрали внешнюю проверку
+     *    isFetchingFriends — она осталась только внутри refreshFriendsFromServer
+     *    для защиты от дублирующих сетевых запросов).
      */
     public void getFriends(User currentUser,
                            DataCallback<List<User>> callback) {
@@ -202,33 +228,35 @@ public class FriendsRepository {
 
         int currentUserId = currentUser.getId();
 
-        // 1. СНАЧАЛА показываем кэш моментально
+        // 1. СРАЗУ показываем кэш (даже если пустой — чтобы UI не зависал)
         executor.execute(() -> {
+            List<User> localFriends = null;
             try {
-                List<User> localFriends = friendDao.getFriends(currentUserId);
-
-                if (localFriends != null && !localFriends.isEmpty()) {
-                    mainHandler.post(() -> callback.onSuccess(localFriends));
-                }
-
-                // 2. ПОТОМ обновляем с сервера (если не идёт уже запрос)
-                if (!isFetchingFriends) {
-                    refreshFriendsFromServer(currentUserId,
-                            localFriends != null && !localFriends.isEmpty(),
-                            callback);
-                }
+                localFriends = friendDao.getFriends(currentUserId);
             } catch (Exception e) {
                 Log.e(TAG, "Ошибка локальной загрузки друзей: " + e.getMessage(), e);
-                refreshFriendsFromServer(currentUserId, false, callback);
             }
+
+            // ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: вызываем callback ВСЕГДА
+            final List<User> cached =
+                    localFriends != null ? localFriends : new ArrayList<>();
+            mainHandler.post(() -> callback.onSuccess(cached));
         });
+
+        // 2. ВСЕГДА обновляем с сервера (независимо от кэша)
+        refreshFriendsFromServer(currentUserId, callback);
     }
 
+    /**
+     * ✅ ИСПРАВЛЕНО:
+     * - Убран параметр hasCachedData — кэш УЖЕ показан в getFriends,
+     *   поэтому при ошибке сервера просто логируем и не трогаем UI.
+     * - При успехе ВСЕГДА вызываем callback.onSuccess с актуальным списком.
+     */
     private void refreshFriendsFromServer(int currentUserId,
-                                          boolean hasCachedData,
                                           DataCallback<List<User>> callback) {
         if (isFetchingFriends) {
-            Log.d(TAG, "Запрос друзей уже выполняется — пропускаем");
+            Log.d(TAG, "Запрос друзей уже выполняется — пропускаем дублирующий");
             return;
         }
 
@@ -254,26 +282,23 @@ public class FriendsRepository {
                 isFetchingFriends = false;
 
                 if (response.isSuccessful() && response.body() != null) {
-                    // Парсим ответ в основном потоке executor
                     executor.execute(() -> {
                         try {
                             List<User> friends = parseAndSaveFriends(
                                     currentUserId, response.body());
 
+                            // ✅ Обновляем UI актуальным списком с сервера
                             mainHandler.post(() -> callback.onSuccess(friends));
                         } catch (Exception e) {
                             Log.e(TAG, "Ошибка обработки друзей: "
                                     + e.getMessage(), e);
-                            if (!hasCachedData) {
-                                mainHandler.post(() -> callback.onError(
-                                        "Не удалось обработать список друзей"));
-                            }
+                            // Кэш уже показан — не ломаем UI
                         }
                     });
                 } else {
                     Log.e(TAG, "Ошибка загрузки друзей: "
                             + response.code() + " | " + getErrorBody(response));
-                    fallbackToLocalFriends(currentUserId, hasCachedData, callback);
+                    // Кэш уже показан — не ломаем UI
                 }
             }
 
@@ -281,20 +306,13 @@ public class FriendsRepository {
             public void onFailure(Call<List<JsonObject>> call, Throwable t) {
                 isFetchingFriends = false;
                 Log.e(TAG, "Ошибка сети getFriends: " + t.getMessage(), t);
-                fallbackToLocalFriends(currentUserId, hasCachedData, callback);
+                // Кэш уже показан — не ломаем UI
             }
         });
     }
 
-    /**
-     * ✅ ОПТИМИЗИРОВАНО:
-     * 1. Сначала собираем все данные в памяти
-     * 2. Потом ОДНОЙ транзакцией удаляем старое и вставляем новое
-     * 3. Работает в 5-10 раз быстрее при многих друзьях
-     */
     private List<User> parseAndSaveFriends(int currentUserId,
                                            List<JsonObject> jsonList) {
-        // Сбор данных в памяти
         List<User> friends = new ArrayList<>();
         Set<Integer> addedIds = new HashSet<>();
 
@@ -335,7 +353,6 @@ public class FriendsRepository {
             friends.add(friendUser);
         }
 
-        // Запись в БД ОДНОЙ транзакцией
         try {
             database.runInTransaction(() -> {
                 friendDao.deleteFriendsByUser(currentUserId);
@@ -353,40 +370,8 @@ public class FriendsRepository {
         return friends;
     }
 
-    private void fallbackToLocalFriends(int currentUserId,
-                                        boolean hasCachedData,
-                                        DataCallback<List<User>> callback) {
-        executor.execute(() -> {
-            try {
-                List<User> localFriends = friendDao.getFriends(currentUserId);
-
-                if (localFriends != null && !localFriends.isEmpty()) {
-                    // Если уже отдавали кэш — не нужно дублировать
-                    if (!hasCachedData) {
-                        mainHandler.post(() -> callback.onSuccess(localFriends));
-                    }
-                } else if (!hasCachedData) {
-                    mainHandler.post(() -> callback.onError(
-                            "Не удалось загрузить друзей"));
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Ошибка fallback друзей: " + e.getMessage(), e);
-                if (!hasCachedData) {
-                    mainHandler.post(() -> callback.onError(
-                            "Ошибка загрузки друзей"));
-                }
-            }
-        });
-    }
-
     // ===== ПОИСК ПОЛЬЗОВАТЕЛЯ =====
 
-    /**
-     * ✅ ОПТИМИЗИРОВАНО:
-     * 1. Сначала проверяем локальный кэш — мгновенный результат
-     * 2. Параллельно идём на сервер за актуальными данными
-     * 3. При офлайне работает только с кэшем
-     */
     public void findUserByUsername(String username,
                                    DataCallback<User> callback) {
         if (username == null || username.trim().isEmpty()) {
@@ -396,7 +381,6 @@ public class FriendsRepository {
 
         String cleanUsername = username.trim();
 
-        // 1. Сначала пробуем найти локально в кэше
         executor.execute(() -> {
             try {
                 User cachedUser = userDao.getUserByUsername(cleanUsername);
@@ -408,7 +392,6 @@ public class FriendsRepository {
             }
         });
 
-        // 2. Запрос на сервер за актуальными данными
         fastApiService.findUserByUsername(
                 "eq." + cleanUsername,
                 "id,username,email,current_level,total_xp,role,created_at,avatar_config,gender",
@@ -434,7 +417,6 @@ public class FriendsRepository {
                     });
 
                 } else if (response.isSuccessful()) {
-                    // Запрос прошёл успешно, но пользователь не найден
                     mainHandler.post(() -> callback.onError(
                             "Пользователь с таким ником не найден"));
 
@@ -451,7 +433,6 @@ public class FriendsRepository {
             public void onFailure(Call<List<JsonObject>> call, Throwable t) {
                 Log.e(TAG, "Ошибка поиска пользователя: " + t.getMessage(), t);
 
-                // Fallback из кэша
                 executor.execute(() -> {
                     try {
                         User cachedUser = userDao.getUserByUsername(cleanUsername);
@@ -468,5 +449,49 @@ public class FriendsRepository {
                 });
             }
         });
+    }
+
+    public void isAlreadyFriend(int friendId,
+                                User currentUser,
+                                DataCallback<Boolean> callback) {
+        if (currentUser == null || currentUser.getId() == null) {
+            callback.onError("Пользователь не авторизован");
+            return;
+        }
+
+        int currentUserId = currentUser.getId();
+
+        if (currentUserId == friendId) {
+            callback.onSuccess(false);
+            return;
+        }
+
+        executor.execute(() -> {
+            try {
+                List<User> localFriends = friendDao.getFriends(currentUserId);
+                boolean foundLocally = false;
+
+                if (localFriends != null) {
+                    for (User f : localFriends) {
+                        if (f != null && f.getId() != null && f.getId() == friendId) {
+                            foundLocally = true;
+                            break;
+                        }
+                    }
+                }
+
+                final boolean foundLocallyFinal = foundLocally;
+                mainHandler.post(() -> callback.onSuccess(foundLocallyFinal));
+
+            } catch (Exception e) {
+                Log.e(TAG, "Ошибка проверки локального друга: " + e.getMessage(), e);
+                mainHandler.post(() -> callback.onSuccess(false));
+            }
+        });
+    }
+
+    public void resetState() {
+        isFetchingFriends = false;
+        Log.d(TAG, "resetState: флаги FriendsRepository сброшены");
     }
 }

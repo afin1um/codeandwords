@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
+import com.example.codeandwords.model.User;
 import com.google.android.material.button.MaterialButton;
 
 import java.util.Locale;
@@ -29,6 +30,7 @@ public class FriendProfileActivity extends AppCompatActivity {
 
     private Repository repository;
     private int userId = -1;
+    private boolean canAddFriend = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,10 +94,58 @@ public class FriendProfileActivity extends AppCompatActivity {
 
         if (showAddFriendButton && userId > 0) {
             btnAddFriend.setVisibility(View.VISIBLE);
-            btnAddFriend.setOnClickListener(v -> addFriend());
+            setupFriendButton();
         } else {
             btnAddFriend.setVisibility(View.GONE);
         }
+    }
+
+    /**
+     * ✅ Проверяем статус дружбы и настраиваем кнопку
+     */
+    private void setupFriendButton() {
+        // Сначала показываем "Проверяем..." пока идёт запрос
+        btnAddFriend.setEnabled(false);
+        btnAddFriend.setText("ПРОВЕРКА...");
+
+        repository.isAlreadyFriend(userId, new Repository.DataCallback<Boolean>() {
+            @Override
+            public void onSuccess(Boolean isFriend) {
+                if (Boolean.TRUE.equals(isFriend)) {
+                    // ✅ Уже в друзьях — показываем неактивную кнопку
+                    showAlreadyFriendState();
+                } else {
+                    // Можно добавить — активная кнопка
+                    showCanAddState();
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                // При ошибке считаем что можно добавить
+                showCanAddState();
+            }
+        });
+    }
+
+    /**
+     * Кнопка "В ДРУЗЬЯХ" — неактивная (уже друзья)
+     */
+    private void showAlreadyFriendState() {
+        canAddFriend = false;
+        btnAddFriend.setEnabled(false);
+        btnAddFriend.setText("✓ В ДРУЗЬЯХ");
+        btnAddFriend.setOnClickListener(null);
+    }
+
+    /**
+     * Кнопка "ДОБАВИТЬ В ДРУЗЬЯ" — активная
+     */
+    private void showCanAddState() {
+        canAddFriend = true;
+        btnAddFriend.setEnabled(true);
+        btnAddFriend.setText("ДОБАВИТЬ В ДРУЗЬЯ");
+        btnAddFriend.setOnClickListener(v -> addFriend());
     }
 
     private void addFriend() {
@@ -104,24 +154,38 @@ public class FriendProfileActivity extends AppCompatActivity {
             return;
         }
 
-        btnAddFriend.setEnabled(false);
-        btnAddFriend.setText("ДОБАВЛЕНИЕ...");
+        if (!canAddFriend) {
+            return;
+        }
 
-        repository.addFriend(userId, new Repository.DataCallback<Void>() {
+        // ✅ МГНОВЕННО показываем успех
+        showAlreadyFriendState();
+        Toast.makeText(this, "Друг добавлен!", Toast.LENGTH_SHORT).show();
+
+        // ✅ Собираем объект User из данных, которые у нас уже есть (из Intent)
+        User friendUser = new User();
+        friendUser.setId(userId);
+        friendUser.setUsername(getIntent().getStringExtra("username"));
+        friendUser.setEmail(getIntent().getStringExtra("email"));
+        friendUser.setAvatarConfig(getIntent().getStringExtra("avatar_config"));
+        friendUser.setTotalXp(getIntent().getIntExtra("total_xp", 0));
+        friendUser.setCurrentLevel(getIntent().getIntExtra("current_level", 1));
+
+        // ✅ Передаём User в addFriend для сохранения в локальной БД
+        repository.addFriend(userId, friendUser, new Repository.DataCallback<Void>() {
             @Override
             public void onSuccess(Void data) {
-                Toast.makeText(FriendProfileActivity.this, "Друг добавлен!", Toast.LENGTH_SHORT).show();
-                btnAddFriend.setText("✓ В ДРУЗЬЯХ");
-                btnAddFriend.setEnabled(false);
+                // UI уже обновлён
             }
 
             @Override
             public void onError(String error) {
-                btnAddFriend.setEnabled(true);
-                btnAddFriend.setText("ДОБАВИТЬ В ДРУЗЬЯ");
+                showCanAddState();
                 Toast.makeText(
                         FriendProfileActivity.this,
-                        error != null ? error : "Не удалось добавить друга",
+                        error != null
+                                ? "Не удалось добавить: " + error
+                                : "Не удалось добавить друга",
                         Toast.LENGTH_SHORT
                 ).show();
             }

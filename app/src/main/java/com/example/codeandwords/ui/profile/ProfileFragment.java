@@ -56,7 +56,7 @@ public class ProfileFragment extends Fragment {
                               @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        repository = new Repository(requireContext());
+        repository = Repository.getInstance(requireContext());
 
         setupUi();
         loadUserData();

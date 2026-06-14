@@ -23,13 +23,25 @@ public class SelectableFriendAdapter extends RecyclerView.Adapter<SelectableFrie
     private final List<User> items = new ArrayList<>();
     private final Set<Integer> selectedUserIds = new HashSet<>();
 
+    /**
+     * ✅ ИСПРАВЛЕНО: при обновлении списка СОХРАНЯЕМ выбор пользователя.
+     * Сбрасываем только тех, кого больше нет в списке.
+     */
     public void setItems(List<User> users) {
         items.clear();
-        selectedUserIds.clear();
 
         if (users != null) {
             items.addAll(users);
         }
+
+        // ✅ Удаляем из выбора тех, кого больше нет в списке
+        Set<Integer> validIds = new HashSet<>();
+        for (User user : items) {
+            if (user != null && user.getId() != null) {
+                validIds.add(user.getId());
+            }
+        }
+        selectedUserIds.retainAll(validIds);
 
         notifyDataSetChanged();
     }

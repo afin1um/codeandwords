@@ -1,14 +1,12 @@
 package com.example.codeandwords.ui.game;
 
+import android.content.Intent;
 import android.os.Bundle;
-import android.speech.tts.TextToSpeech;
-import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -17,26 +15,20 @@ import com.example.codeandwords.data.Repository;
 import com.example.codeandwords.model.UserWord;
 import com.example.codeandwords.model.Word;
 import com.example.codeandwords.ui.adapters.WordListAdapter;
+import com.example.codeandwords.ui.base.BaseBackActivity;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
-public class DictionaryActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
+public class DictionaryActivity extends BaseBackActivity {
 
     private RecyclerView recyclerView;
     private ProgressBar progressBar;
     private TextView tvTitle;
-    private View btnBack;
-
     private Repository repository;
     private WordListAdapter adapter;
-    private TextToSpeech tts;
-    private boolean isTtsReady = false;
 
     private Long themeId;
     private String themeTitle;
@@ -48,14 +40,12 @@ public class DictionaryActivity extends AppCompatActivity implements TextToSpeec
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dictionary);
 
-        tts = new TextToSpeech(this, this);
-
-        initViews();
-
         repository = Repository.getInstance(getApplicationContext());
 
         themeId = getIntent().getLongExtra("THEME_ID", -1);
         themeTitle = getIntent().getStringExtra("THEME_TITLE");
+
+        initViews();
 
         tvTitle.setText(themeTitle != null ? themeTitle : "Словарь");
 
@@ -77,13 +67,29 @@ public class DictionaryActivity extends AppCompatActivity implements TextToSpeec
         recyclerView = findViewById(R.id.rvDictionary);
         progressBar = findViewById(R.id.pbDictionary);
         tvTitle = findViewById(R.id.tvDictTitle);
-        btnBack = findViewById(R.id.btnBackDict);
 
+        // ✅ Кнопка назад → возврат в GameSelectionActivity текущей темы
+        View btnBack = findViewById(R.id.btnBackDict);
         if (btnBack != null) {
-            btnBack.setOnClickListener(v -> finish());
-        } else {
-            Log.e("DictionaryActivity", "btnBackDict is null!");
+            btnBack.setOnClickListener(v -> goBackToGameSelection());
         }
+    }
+
+    @Override
+    public void onBackPressed() {
+        goBackToGameSelection();
+    }
+
+    /**
+     * ✅ Возврат в GameSelectionActivity текущей темы.
+     */
+    private void goBackToGameSelection() {
+        Intent intent = new Intent(this, GameSelectionActivity.class);
+        intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
+        intent.putExtra("THEME_TITLE", themeTitle);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish();
     }
 
     private void setupRecyclerView() {
@@ -180,13 +186,26 @@ public class DictionaryActivity extends AppCompatActivity implements TextToSpeec
         if (userWord == null) return "";
 
         try {
-            Method m = userWord.getClass().getMethod("getTerm");
+            java.lang.reflect.Method m = userWord.getClass().getMethod("getWord");
             Object val = m.invoke(userWord);
             if (val != null) return val.toString();
         } catch (Exception ignored) {}
 
         try {
-            Field f = userWord.getClass().getDeclaredField("term");
+            java.lang.reflect.Field f = userWord.getClass().getDeclaredField("word");
+            f.setAccessible(true);
+            Object val = f.get(userWord);
+            if (val != null) return val.toString();
+        } catch (Exception ignored) {}
+
+        try {
+            java.lang.reflect.Method m = userWord.getClass().getMethod("getTerm");
+            Object val = m.invoke(userWord);
+            if (val != null) return val.toString();
+        } catch (Exception ignored) {}
+
+        try {
+            java.lang.reflect.Field f = userWord.getClass().getDeclaredField("term");
             f.setAccessible(true);
             Object val = f.get(userWord);
             if (val != null) return val.toString();
@@ -216,32 +235,23 @@ public class DictionaryActivity extends AppCompatActivity implements TextToSpeec
         return result;
     }
 
-    @Override
-    public void onInit(int status) {
-        if (status == TextToSpeech.SUCCESS) {
-            int result = tts.setLanguage(Locale.US);
-            isTtsReady = result != TextToSpeech.LANG_MISSING_DATA
-                    && result != TextToSpeech.LANG_NOT_SUPPORTED;
-        }
-    }
-
+    /**
+     * ✅ ИСПРАВЛЕНО: Используем TtsManager из Repository.
+     */
     private void speakWord(String text, boolean isSlow) {
-        if (!isTtsReady || text == null) return;
+        if (text == null || text.trim().isEmpty()) return;
 
-        tts.setSpeechRate(isSlow ? 0.4f : 1.0f);
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
+        if (!repository.isTtsReady()) {
+            Toast.makeText(this, "Ожидание загрузки голосового движка...", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        repository.speak(text, isSlow);
     }
 
     @Override
     protected void onDestroy() {
-        if (tts != null) {
-            tts.stop();
-            tts.shutdown();
-        }
         super.onDestroy();
-        // Это важно! Иначе TTS и SoundPool остаются в памяти
-        if (repository != null) {
-            repository.onDestroy();
-        }
+        // НЕ уничтожаем TTS здесь — он управляется Repository
     }
 }

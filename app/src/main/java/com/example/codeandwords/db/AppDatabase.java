@@ -49,10 +49,12 @@ import java.util.concurrent.Executors;
                 TeamChallenge.class,
                 TeamChallengeProgress.class
         },
-        version = 21,
+        version = 24,  // ✅ ПОДНЯЛИ ВЕРСИЮ ДО 24
         exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {
+
+    private static final String TAG = "AppDatabase";
 
     // ===== Все DAO =====
     public abstract UserDao userDao();
@@ -151,19 +153,50 @@ public abstract class AppDatabase extends RoomDatabase {
     private static final Migration MIGRATION_20_21 = new Migration(20, 21) {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
-            // Уникальный индекс на email
             database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_email ON users(email)");
-            // Индекс на total_xp для лидерборда
             database.execSQL("CREATE INDEX IF NOT EXISTS idx_user_total_xp ON users(total_xp)");
-            // Индексы на lesson_history
             database.execSQL("CREATE INDEX IF NOT EXISTS idx_lesson_finished_at ON lesson_history(finished_at)");
             database.execSQL("CREATE INDEX IF NOT EXISTS idx_user_finished_at ON lesson_history(user_id, finished_at)");
-            // Индекс на study_schedule
             database.execSQL("CREATE INDEX IF NOT EXISTS idx_schedule_user_date_time ON study_schedule(userId, scheduleDate, startTime)");
-            // Индексы на user_personal_words
             database.execSQL("CREATE INDEX IF NOT EXISTS idx_userword_userid ON user_personal_words(userId)");
             database.execSQL("CREATE INDEX IF NOT EXISTS idx_userword_user_theme ON user_personal_words(userId, themeId)");
             database.execSQL("CREATE INDEX IF NOT EXISTS idx_userword_user_date ON user_personal_words(userId, dateAdded)");
+        }
+    };
+
+    private static final Migration MIGRATION_21_22 = new Migration(21, 22) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("DROP TABLE IF EXISTS friends");
+            database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS friends (" +
+                            "user_id INTEGER NOT NULL, " +
+                            "friend_id INTEGER NOT NULL, " +
+                            "PRIMARY KEY(user_id, friend_id))"
+            );
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_friends_user_id ON friends(user_id)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_friends_friend_id ON friends(friend_id)");
+        }
+    };
+
+    /**
+     * ✅ НОВЫЕ МИГРАЦИИ (22->24 и 23->24)
+     * Добавляют поле username в таблицу прогресса.
+     * Созданы две, на случай если у тебя БД версии 22 или 23.
+     */
+    private static final Migration MIGRATION_22_24 = new Migration(22, 24) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE team_challenge_progress ADD COLUMN username TEXT");
+            Log.d(TAG, "Migration 22->24: добавлен столбец username");
+        }
+    };
+
+    private static final Migration MIGRATION_23_24 = new Migration(23, 24) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE team_challenge_progress ADD COLUMN username TEXT");
+            Log.d(TAG, "Migration 23->24: добавлен столбец username");
         }
     };
 
@@ -181,8 +214,13 @@ public abstract class AppDatabase extends RoomDatabase {
                                     MIGRATION_17_18,
                                     MIGRATION_18_19,
                                     MIGRATION_19_20,
-                                    MIGRATION_20_21
+                                    MIGRATION_20_21,
+                                    MIGRATION_21_22,
+                                    MIGRATION_22_24, // ✅ Добавлено
+                                    MIGRATION_23_24  // ✅ Добавлено
                             )
+                            .fallbackToDestructiveMigration()
+                            .fallbackToDestructiveMigrationOnDowngrade()
                             .build();
 
                     databaseWriteExecutor.execute(() -> forceInitDatabase(INSTANCE));
@@ -205,7 +243,6 @@ public abstract class AppDatabase extends RoomDatabase {
 
             List<Theme> themesInDb = themeDao.getAllThemes();
 
-            // Быстрая проверка — если темы уже есть и у них всех есть theoryText, выходим
             if (themesInDb != null && !themesInDb.isEmpty()) {
                 boolean allHaveTheory = true;
                 for (Theme t : themesInDb) {
@@ -214,10 +251,14 @@ public abstract class AppDatabase extends RoomDatabase {
                         break;
                     }
                 }
-                if (allHaveTheory) return;
+                if (allHaveTheory) {
+                    Log.d(TAG, "БД уже инициализирована, " + themesInDb.size() + " тем");
+                    return;
+                }
             }
 
-            // Заполняем БД начальными данными — всё в одной транзакции
+            Log.d(TAG, "Инициализация БД начальным контентом...");
+
             db.runInTransaction(() -> {
                 themeDao.deleteAll();
                 wordDao.deleteAll();
@@ -281,8 +322,10 @@ public abstract class AppDatabase extends RoomDatabase {
                 achievementDao.insertAll(achievements);
             });
 
+            Log.d(TAG, "БД успешно инициализирована");
+
         } catch (Exception e) {
-            Log.e("AppDatabase", "Ошибка инициализации БД", e);
+            Log.e(TAG, "Ошибка инициализации БД", e);
         }
     }
 }

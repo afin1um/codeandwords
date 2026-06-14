@@ -26,7 +26,13 @@ import java.util.Locale;
 public class RecentLessonsAdapter extends RecyclerView.Adapter<RecentLessonsAdapter.RecentLessonViewHolder> {
 
     private final List<LessonHistory> items = new ArrayList<>();
-    private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM • HH:mm", Locale.getDefault());
+    private final SimpleDateFormat dateFormat;
+
+    {
+        dateFormat = new SimpleDateFormat("dd.MM • HH:mm", Locale.getDefault());
+        // ✅ Явно указываем локальный часовой пояс устройства (для России — GMT+3)
+        dateFormat.setTimeZone(java.util.TimeZone.getDefault());
+    }
 
     public void setItems(List<LessonHistory> data) {
         items.clear();

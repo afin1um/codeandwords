@@ -1,6 +1,10 @@
 package com.example.codeandwords.ui.profile;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
@@ -21,6 +25,11 @@ import java.util.List;
 
 public class TeamDetailActivity extends AppCompatActivity {
 
+    private static final String TAG = "TeamDetailActivity";
+
+    // Автообновление каждые 5 секунд
+    private static final long AUTO_REFRESH_INTERVAL_MS = 5000L;
+
     private Repository repository;
 
     private TextView tvTeamName;
@@ -40,6 +49,19 @@ public class TeamDetailActivity extends AppCompatActivity {
     private String teamName;
 
     private boolean isLoading = false;
+    private TeamChallenge currentChallenge;
+
+    private final Handler refreshHandler = new Handler(Looper.getMainLooper());
+    private final Runnable autoRefreshRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isFinishing() && !isDestroyed() && currentChallenge != null) {
+                // Тихо запрашиваем прогресс (кэш + сервер)
+                requestProgress(currentChallenge, true);
+                refreshHandler.postDelayed(this, AUTO_REFRESH_INTERVAL_MS);
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,13 +81,29 @@ public class TeamDetailActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Не перезагружаем при каждом onResume — это вызывало повторные таймауты
-        // loadChallenge() будет вызываться только при первом открытии и по кнопке "Повторить"
+        if (currentChallenge != null) {
+            // При возврате обновляем данные и запускаем таймер
+            requestProgress(currentChallenge, true);
+            startAutoRefresh();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopAutoRefresh();
+    }
+
+    @Override
+    protected void onDestroy() {
+        stopAutoRefresh();
+        super.onDestroy();
     }
 
     private void initViews() {
         ImageButton btnBack = findViewById(R.id.btnBackTeamDetail);
-        btnBack.setOnClickListener(v -> finish());
+        // ✅ Переход в TeamActivity
+        btnBack.setOnClickListener(v -> goToTeamActivity());
 
         tvTeamName = findViewById(R.id.tvTeamDetailName);
         tvChallengeTitle = findViewById(R.id.tvTeamChallengeTitle);
@@ -91,23 +129,19 @@ public class TeamDetailActivity extends AppCompatActivity {
     }
 
     private void showLoading() {
-        if (loadingContainer != null) loadingContainer.setVisibility(View.VISIBLE);
-        if (errorContainer != null) errorContainer.setVisibility(View.GONE);
+        loadingContainer.setVisibility(View.VISIBLE);
+        errorContainer.setVisibility(View.GONE);
     }
 
     private void showContent() {
-        if (loadingContainer != null) loadingContainer.setVisibility(View.GONE);
-        if (errorContainer != null) errorContainer.setVisibility(View.GONE);
+        loadingContainer.setVisibility(View.GONE);
+        errorContainer.setVisibility(View.GONE);
     }
 
     private void showError(String message) {
-        if (loadingContainer != null) loadingContainer.setVisibility(View.GONE);
-        if (errorContainer != null) errorContainer.setVisibility(View.VISIBLE);
-        if (tvErrorMessage != null) {
-            tvErrorMessage.setText(message != null
-                    ? "Не удалось загрузить задание команды.\n" + message
-                    : "Не удалось загрузить задание команды");
-        }
+        loadingContainer.setVisibility(View.GONE);
+        errorContainer.setVisibility(View.VISIBLE);
+        tvErrorMessage.setText(message != null ? "Ошибка: " + message : "Не удалось загрузить данные");
     }
 
     private void loadChallenge() {
@@ -118,69 +152,102 @@ public class TeamDetailActivity extends AppCompatActivity {
         }
 
         if (isLoading) return;
-
         isLoading = true;
         showLoading();
 
         repository.getTeamChallenge(teamId, new Repository.DataCallback<TeamChallenge>() {
             @Override
             public void onSuccess(TeamChallenge challenge) {
+                if (isFinishing() || isDestroyed()) return;
+
                 if (challenge == null) {
                     isLoading = false;
                     showError("Задание команды ещё не создано");
                     return;
                 }
 
-                tvChallengeTitle.setText(challenge.title != null
-                        ? challenge.title
-                        : "Задание команды");
+                currentChallenge = challenge;
+                tvChallengeTitle.setText(challenge.title != null ? challenge.title : "Задание команды");
 
-                String unit = "LESSONS".equals(challenge.conditionType)
-                        ? " уроков" : " XP";
+                String unit = "LESSONS".equals(challenge.conditionType) ? " уроков" : " XP";
                 tvChallengeTarget.setText("Цель: " + challenge.targetValue + unit);
-
                 progressTeam.setMax(Math.max(challenge.targetValue, 1));
 
-                loadProgress(challenge);
+                // Первичный запрос прогресса (с показом лоадера)
+                requestProgress(challenge, false);
             }
 
             @Override
             public void onError(String error) {
+                if (isFinishing() || isDestroyed()) return;
                 isLoading = false;
                 showError(error);
             }
         });
     }
 
-    private void loadProgress(TeamChallenge challenge) {
-        repository.getTeamProgress(challenge.id,
-                new Repository.DataCallback<List<TeamChallengeProgress>>() {
-                    @Override
-                    public void onSuccess(List<TeamChallengeProgress> data) {
-                        isLoading = false;
-                        showContent();
+    private void requestProgress(TeamChallenge challenge, boolean isSilent) {
+        repository.getTeamProgress(challenge.id, new Repository.DataCallback<List<TeamChallengeProgress>>() {
+            @Override
+            public void onSuccess(List<TeamChallengeProgress> data) {
+                if (isFinishing() || isDestroyed()) return;
 
-                        int maxProgress = 0;
+                isLoading = false;
+                showContent();
 
-                        if (data != null) {
-                            for (TeamChallengeProgress p : data) {
-                                if (p != null && p.progress > maxProgress) {
-                                    maxProgress = p.progress;
-                                }
-                            }
+                int maxProgress = 0;
+                if (data != null) {
+                    for (TeamChallengeProgress p : data) {
+                        if (p != null && p.progress > maxProgress) {
+                            maxProgress = p.progress;
                         }
-
-                        progressTeam.setProgress(
-                                Math.min(maxProgress, challenge.targetValue));
-
-                        adapter.setItems(data, challenge.targetValue);
                     }
+                }
 
-                    @Override
-                    public void onError(String error) {
-                        isLoading = false;
-                        showError(error);
-                    }
-                });
+                progressTeam.setProgress(Math.min(maxProgress, Math.max(challenge.targetValue, 1)));
+                adapter.setItems(data, challenge.targetValue);
+
+                if (!isSilent) {
+                    startAutoRefresh();
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                if (isFinishing() || isDestroyed()) return;
+
+                if (!isSilent) {
+                    isLoading = false;
+                    showError(error);
+                } else {
+                    Log.w(TAG, "Ошибка тихого обновления: " + error);
+                }
+            }
+        });
+    }
+
+    private void startAutoRefresh() {
+        stopAutoRefresh();
+        if (currentChallenge != null) {
+            refreshHandler.postDelayed(autoRefreshRunnable, AUTO_REFRESH_INTERVAL_MS);
+        }
+    }
+
+    private void stopAutoRefresh() {
+        refreshHandler.removeCallbacks(autoRefreshRunnable);
+    }
+
+    // ✅ Перехват системной кнопки "назад"
+    @Override
+    public void onBackPressed() {
+        goToTeamActivity();
+    }
+
+    // ✅ Метод явного возврата в TeamActivity
+    private void goToTeamActivity() {
+        Intent intent = new Intent(this, TeamActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish();
     }
 }

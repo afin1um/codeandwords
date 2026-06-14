@@ -118,7 +118,6 @@ public class Repository {
     private final TeamChallengeDao teamChallengeDao;
     private final TeamChallengeProgressDao teamChallengeProgressDao;
     private final TtsManager ttsManager;
-    private static User currentUser;
     private final FriendDao friendDao;
     private final TeamDao teamDao;
     private final TeamMemberDao teamMemberDao;
@@ -135,6 +134,12 @@ public class Repository {
     private final AchievementRepository achievementRepository;
     private final WordProgressRepository wordProgressRepository;
     private final AdminRepository adminRepository;
+
+    private static User currentUser;
+    private volatile int authSessionVersion = 0;
+    public boolean isTtsReady() {
+        return ttsManager.isReady();
+    }
 
     public interface DataCallback<T> {
         void onSuccess(T data);
@@ -404,6 +409,7 @@ public class Repository {
                 Repository.this.restoreCurrentUserFromPrefs();
             }
         });
+
         restoreCurrentUserFromPrefs();
     }
 
@@ -419,17 +425,24 @@ public class Repository {
     }
 
     private void restoreCurrentUserFromPrefs() {
+        authRepository.setCurrentUser(null);
         authRepository.restoreCurrentUserFromPrefs();
         currentUser = authRepository.getCurrentUserSync();
     }
 
     private void saveCurrentUserToPrefs(User user) {
+        if (user == null || user.getId() == null) {
+            return;
+        }
+
         authRepository.saveCurrentUserToPrefs(user);
-        currentUser = authRepository.getCurrentUserSync();
+        authRepository.setCurrentUser(user);
+        currentUser = user;
     }
 
     private void clearCurrentUserPrefs() {
         authRepository.clearCurrentUserPrefs();
+        authRepository.setCurrentUser(null);
         currentUser = null;
     }
 
@@ -470,32 +483,94 @@ public class Repository {
         return "empty error body";
     }
 
+    /**
+     * Полный сброс кэшей и флагов загрузки при смене аккаунта.
+     *
+     * Это важно, потому что Repository — singleton, а вложенные репозитории
+     * могут хранить:
+     * - кэши старого пользователя;
+     * - флаги isFetching...;
+     * - списки достижений/слов старого аккаунта.
+     */
+    private void resetAllRepositoryStates() {
+        try {
+            wordProgressRepository.clearLearnedIdsCache();
+        } catch (Exception e) {
+            Log.e("Repository", "Ошибка сброса wordProgressRepository: " + e.getMessage(), e);
+        }
+
+        try {
+            statsRepository.resetState();
+        } catch (Exception e) {
+            Log.e("Repository", "Ошибка сброса statsRepository: " + e.getMessage(), e);
+        }
+
+        try {
+            achievementRepository.resetState();
+        } catch (Exception e) {
+            Log.e("Repository", "Ошибка сброса achievementRepository: " + e.getMessage(), e);
+        }
+
+        try {
+            friendsRepository.resetState();
+        } catch (Exception e) {
+            Log.e("Repository", "Ошибка сброса friendsRepository: " + e.getMessage(), e);
+        }
+
+        try {
+            teamsRepository.resetState();
+        } catch (Exception e) {
+            Log.e("Repository", "Ошибка сброса teamsRepository: " + e.getMessage(), e);
+        }
+
+        Log.d("Repository", "Все кэши и флаги репозиториев сброшены");
+    }
+
     public void logout(Runnable callback) {
+        authSessionVersion++;
+
+        // Сначала сбрасываем кэши и флаги вложенных репозиториев
+        resetAllRepositoryStates();
+
+        // Потом очищаем пользователя
         authRepository.logout(() -> {
             currentUser = null;
-            callback.run();
+            authRepository.setCurrentUser(null);
+
+            if (callback != null) {
+                callback.run();
+            }
         });
     }
 
     public void getCurrentUser(DataCallback<User> callback) {
-        authRepository.getCurrentUser(new AuthRepository.DataCallback<User>() {
-            @Override
-            public void onSuccess(User data) {
-                currentUser = data;
-                callback.onSuccess(data);
-            }
-            @Override
-            public void onError(String error) {
-                callback.onError(error);
-            }
-        });
+        if (currentUser != null && currentUser.getId() != null) {
+            callback.onSuccess(currentUser);
+            return;
+        }
+
+        restoreCurrentUserFromPrefs();
+
+        if (currentUser != null && currentUser.getId() != null) {
+            callback.onSuccess(currentUser);
+        } else {
+            callback.onError("Ошибка авторизации");
+        }
     }
 
     public void getCurrentUserId(OnUserIdRetrieved callback) {
-        authRepository.getCurrentUserId(userId -> {
-            currentUser = authRepository.getCurrentUserSync();
-            callback.onRetrieved(userId);
-        });
+        if (currentUser != null && currentUser.getId() != null) {
+            callback.onRetrieved(currentUser.getId());
+            return;
+        }
+
+        restoreCurrentUserFromPrefs();
+
+        if (currentUser != null && currentUser.getId() != null) {
+            callback.onRetrieved(currentUser.getId());
+        } else {
+            callback.onRetrieved(-1);
+        }
     }
 
     public void deleteUserWord(UserWord word, Runnable onDone) {
@@ -648,10 +723,13 @@ public class Repository {
                 });
     }
 
-    public void addFriend(int friendId, DataCallback<Void> callback) {
+    /**
+     * ✅ Новая версия — с передачей данных пользователя
+     */
+    public void addFriend(int friendId, User friendUser, DataCallback<Void> callback) {
         if (currentUser == null) restoreCurrentUserFromPrefs();
 
-        friendsRepository.addFriend(friendId, currentUser,
+        friendsRepository.addFriend(friendId, friendUser, currentUser,
                 new FriendsRepository.DataCallback<Void>() {
                     @Override
                     public void onSuccess(Void data) { callback.onSuccess(data); }
@@ -659,6 +737,7 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
 
     public void getFriends(DataCallback<List<User>> callback) {
         if (currentUser == null) restoreCurrentUserFromPrefs();
@@ -2005,67 +2084,257 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
-
     public void login(User user, DataCallback<User> callback) {
         if (user == null) {
             callback.onError("Введите данные для входа");
             return;
         }
 
-        String cleanEmail = user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase();
-        String rawPassword = user.getPasswordHash() == null ? "" : user.getPasswordHash().trim();
+        String cleanEmail = user.getEmail() == null
+                ? ""
+                : user.getEmail().trim().toLowerCase();
+
+        String rawPassword = user.getPasswordHash() == null
+                ? ""
+                : user.getPasswordHash().trim();
 
         if (cleanEmail.isEmpty() || rawPassword.isEmpty()) {
             callback.onError("Введите email и пароль");
             return;
         }
 
-        String hashedPassword = rawPassword.length() == 64 ? rawPassword : hashPassword(rawPassword);
+        String hashedPassword = rawPassword.length() == 64
+                ? rawPassword
+                : hashPassword(rawPassword);
 
-        apiService.loginByEmail("eq." + cleanEmail).enqueue(new Callback<List<JsonObject>>() {
+        /*
+         * ВАЖНО:
+         * Перед входом сбрасываем состояние старого аккаунта.
+         * Это защищает от ситуации:
+         * - вышли из аккаунта A;
+         * - старые запросы/кэши ещё живы;
+         * - вошли в аккаунт B;
+         * - профиль B получает часть данных A или зависает на старых флагах.
+         */
+        resetAllRepositoryStates();
+
+        final int loginSession = ++authSessionVersion;
+
+        apiService.loginByEmail("eq." + cleanEmail)
+                .enqueue(new Callback<List<JsonObject>>() {
+                    @Override
+                    public void onResponse(Call<List<JsonObject>> call,
+                                           Response<List<JsonObject>> response) {
+                        /*
+                         * Если за время запроса пользователь успел выйти
+                         * или начать другой логин — игнорируем старый ответ.
+                         */
+                        if (loginSession != authSessionVersion) {
+                            Log.w("RepositoryLogin", "Игнорируем устаревший ответ login");
+                            return;
+                        }
+
+                        if (!response.isSuccessful()
+                                || response.body() == null
+                                || response.body().isEmpty()) {
+                            mainHandler.post(() ->
+                                    callback.onError("Пользователь с таким email не найден"));
+                            return;
+                        }
+
+                        User serverUser = parseUserFromJson(response.body().get(0));
+
+                        String serverPassword = serverUser.getPasswordHash() == null
+                                ? ""
+                                : serverUser.getPasswordHash().trim();
+
+                        boolean passwordMatches =
+                                hashedPassword.equals(serverPassword)
+                                        || rawPassword.equals(serverPassword);
+
+                        if (!passwordMatches) {
+                            Log.e("RepositoryLogin",
+                                    "Пароль не совпал. serverPassword=" + serverPassword);
+                            mainHandler.post(() -> callback.onError("Неверный пароль"));
+                            return;
+                        }
+
+                        if (serverUser.getId() == null) {
+                            mainHandler.post(() -> callback.onError("Некорректные данные пользователя"));
+                            return;
+                        }
+
+                        /*
+                         * Новый пользователь становится текущим.
+                         */
+                        currentUser = serverUser;
+                        authRepository.setCurrentUser(serverUser);
+                        saveCurrentUserToPrefs(serverUser);
+                        cacheUserSafely(serverUser);
+
+                        /*
+                         * Аватар нового пользователя.
+                         */
+                        if (serverUser.getAvatarConfig() != null
+                                && !serverUser.getAvatarConfig().trim().isEmpty()
+                                && !"null".equals(serverUser.getAvatarConfig().trim())) {
+                            try {
+                                AvatarConfig serverAvatar =
+                                        AvatarConfig.fromJson(serverUser.getAvatarConfig());
+                                AvatarPrefs.save(appContext, serverAvatar);
+                            } catch (Exception e) {
+                                Log.e("RepositoryLogin",
+                                        "Ошибка применения avatar_config: " + e.getMessage(), e);
+                            }
+                        }
+
+                        Integer uid = serverUser.getId();
+
+                        /*
+                         * UI отпускаем сразу.
+                         * Профиль откроется быстро, а данные подтянутся в фоне.
+                         */
+                        mainHandler.post(() -> callback.onSuccess(serverUser));
+
+                        /*
+                         * Фоновая синхронизация нового аккаунта.
+                         * Запускаем после callback, чтобы вход не казался зависшим.
+                         */
+                        syncAllDataFromServerForUser(uid, loginSession);
+
+                        /*
+                         * Записываем событие входа уже после установки currentUser.
+                         */
+                        recordLoginEvent();
+                    }
+
+                    @Override
+                    public void onFailure(Call<List<JsonObject>> call, Throwable t) {
+                        if (loginSession != authSessionVersion) {
+                            Log.w("RepositoryLogin", "Игнорируем устаревшую ошибку login");
+                            return;
+                        }
+
+                        Log.e("RepositoryLogin", "Ошибка сети login: " + t.getMessage(), t);
+                        mainHandler.post(() ->
+                                callback.onError("Ошибка сети: " + t.getMessage()));
+                    }
+                });
+    }
+
+    /**
+     * Синхронизация строго для конкретного userId и конкретной версии сессии.
+     * Это защищает от старых запросов, которые могли вернуться после смены аккаунта.
+     */
+    private void syncAllDataFromServerForUser(Integer uid, int sessionVersion) {
+        if (uid == null || uid <= 0) {
+            Log.d("RepositorySync", "syncAllDataFromServerForUser: некорректный uid");
+            return;
+        }
+
+        if (sessionVersion != authSessionVersion) {
+            Log.w("RepositorySync", "syncAllDataFromServerForUser: устаревшая сессия");
+            return;
+        }
+
+        User userSnapshot = currentUser;
+
+        if (userSnapshot == null
+                || userSnapshot.getId() == null
+                || !uid.equals(userSnapshot.getId())) {
+            Log.w("RepositorySync", "syncAllDataFromServerForUser: currentUser уже другой");
+            return;
+        }
+
+        Log.d("RepositorySync", "Запуск синхронизации для userId=" + uid);
+
+        // 1. Кэш выученных слов
+        try {
+            wordProgressRepository.warmupLearnedIdsCache(uid);
+        } catch (Exception e) {
+            Log.e("RepositorySync", "warmupLearnedIdsCache: " + e.getMessage(), e);
+        }
+
+        // 2. Личный словарь
+        syncPersonalWords(uid, new DataCallback<Void>() {
             @Override
-            public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
-                if (!response.isSuccessful() || response.body() == null || response.body().isEmpty()) {
-                    mainHandler.post(() -> callback.onError("Пользователь с таким email не найден"));
-                    return;
-                }
-
-                User serverUser = parseUserFromJson(response.body().get(0));
-
-                String serverPassword = serverUser.getPasswordHash() == null ? "" : serverUser.getPasswordHash().trim();
-
-                boolean passwordMatches = hashedPassword.equals(serverPassword) || rawPassword.equals(serverPassword);
-
-                if (!passwordMatches) {
-                    Log.e("RepositoryLogin", "Пароль не совпал. serverPassword=" + serverPassword);
-                    mainHandler.post(() -> callback.onError("Неверный пароль"));
-                    return;
-                }
-
-                currentUser = serverUser;
-
-                if (currentUser.getAvatarConfig() != null
-                        && !currentUser.getAvatarConfig().trim().isEmpty()
-                        && !currentUser.getAvatarConfig().equals("null")) {
-                    AvatarConfig serverAvatar = AvatarConfig.fromJson(currentUser.getAvatarConfig());
-                    AvatarPrefs.save(appContext, serverAvatar);
-                }
-
-                saveCurrentUserToPrefs(currentUser);
-                mainHandler.post(() -> callback.onSuccess(currentUser));
-
-                cacheUserSafely(currentUser);
-                recordLoginEvent();
+            public void onSuccess(Void data) {
+                if (sessionVersion != authSessionVersion) return;
+                Log.d("RepositorySync", "Личный словарь синхронизирован");
             }
 
             @Override
-            public void onFailure(Call<List<JsonObject>> call, Throwable t) {
-                Log.e("RepositoryLogin", "Ошибка сети login: " + t.getMessage(), t);
-                mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
+            public void onError(String error) {
+                if (sessionVersion != authSessionVersion) return;
+                Log.e("RepositorySync", "Личный словарь: " + error);
+            }
+        });
+
+        // 3. Статистика пользователя
+        statsRepository.syncStatsFromServer(uid, new StatsRepository.DataCallback<Void>() {
+            @Override
+            public void onSuccess(Void data) {
+                if (sessionVersion != authSessionVersion) return;
+                Log.d("RepositorySync", "user_stats синхронизированы");
+            }
+
+            @Override
+            public void onError(String error) {
+                if (sessionVersion != authSessionVersion) return;
+                Log.e("RepositorySync", "user_stats: " + error);
+            }
+        });
+
+        // 4. Достижения
+        achievementRepository.syncAchievementsFromServer(
+                uid,
+                new AchievementRepository.DataCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void data) {
+                        if (sessionVersion != authSessionVersion) return;
+                        Log.d("RepositorySync", "Ачивки синхронизированы");
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        if (sessionVersion != authSessionVersion) return;
+                        Log.e("RepositorySync", "Ачивки: " + error);
+                    }
+                }
+        );
+
+        // 5. Друзья
+        friendsRepository.getFriends(userSnapshot, new FriendsRepository.DataCallback<List<User>>() {
+            @Override
+            public void onSuccess(List<User> data) {
+                if (sessionVersion != authSessionVersion) return;
+                Log.d("RepositorySync",
+                        "Друзья прогреты: " + (data != null ? data.size() : 0));
+            }
+
+            @Override
+            public void onError(String error) {
+                if (sessionVersion != authSessionVersion) return;
+                Log.e("RepositorySync", "Друзья: " + error);
+            }
+        });
+
+        // 6. Команды
+        teamsRepository.getMyTeams(userSnapshot, new TeamsRepository.DataCallback<List<Team>>() {
+            @Override
+            public void onSuccess(List<Team> data) {
+                if (sessionVersion != authSessionVersion) return;
+                Log.d("RepositorySync",
+                        "Команды прогреты: " + (data != null ? data.size() : 0));
+            }
+
+            @Override
+            public void onError(String error) {
+                if (sessionVersion != authSessionVersion) return;
+                Log.e("RepositorySync", "Команды: " + error);
             }
         });
     }
-
     public void register(User user, DataCallback<User> callback) {
         if (user == null) {
             callback.onError("Введите данные для регистрации");
@@ -2152,20 +2421,35 @@ public class Repository {
     }
 
     private void completeRegistrationSuccess(User regUser, DataCallback<User> callback) {
-        currentUser = regUser;
+        if (regUser == null || regUser.getId() == null) {
+            mainHandler.post(() -> callback.onError("Не удалось завершить регистрацию"));
+            return;
+        }
 
+        resetAllRepositoryStates();
+
+        final int session = ++authSessionVersion;
+
+        currentUser = regUser;
+        authRepository.setCurrentUser(regUser);
         saveCurrentUserToPrefs(regUser);
+        cacheUserSafely(regUser);
 
         if (regUser.getAvatarConfig() != null
                 && !regUser.getAvatarConfig().trim().isEmpty()
-                && !regUser.getAvatarConfig().equals("null")) {
-            AvatarConfig serverAvatar = AvatarConfig.fromJson(regUser.getAvatarConfig());
-            AvatarPrefs.save(appContext, serverAvatar);
+                && !"null".equals(regUser.getAvatarConfig().trim())) {
+            try {
+                AvatarConfig serverAvatar = AvatarConfig.fromJson(regUser.getAvatarConfig());
+                AvatarPrefs.save(appContext, serverAvatar);
+            } catch (Exception e) {
+                Log.e("Repository", "Ошибка применения avatar_config после регистрации: "
+                        + e.getMessage(), e);
+            }
         }
 
         mainHandler.post(() -> callback.onSuccess(regUser));
 
-        cacheUserSafely(regUser);
+        syncAllDataFromServerForUser(regUser.getId(), session);
         recordLoginEvent();
     }
 
@@ -2234,5 +2518,121 @@ public class Repository {
             user.setGender(userJson.get("gender").getAsString());
 
         return user;
+    }
+    /**
+     *  Полная фоновая синхронизация всех данных с сервера.
+     * Вызывается при каждом запуске приложения, чтобы подтянуть
+     * изменения с других устройств.
+     */
+    public void syncAllDataFromServer() {
+        if (currentUser == null || currentUser.getId() == null) {
+            restoreCurrentUserFromPrefs();
+        }
+
+        if (currentUser == null || currentUser.getId() == null) {
+            Log.d("RepositorySync",
+                    "syncAllDataFromServer: пользователь не авторизован, пропускаем");
+            return;
+        }
+
+        Integer uid = currentUser.getId();
+        int session = authSessionVersion;
+
+        syncAllDataFromServerForUser(uid, session);
+
+        // ✅ Прогрев кэша выученных слов
+        wordProgressRepository.warmupLearnedIdsCache(uid);
+        Log.d("RepositorySync", "🔄 Запуск полной синхронизации для userId=" + uid);
+
+        // 1. Личный словарь
+        syncPersonalWords(uid, new DataCallback<Void>() {
+            @Override
+            public void onSuccess(Void data) {
+                Log.d("RepositorySync", "✅ Личный словарь синхронизирован");
+            }
+            @Override
+            public void onError(String error) {
+                Log.e("RepositorySync", "Личный словарь: " + error);
+            }
+        });
+
+        // 2. Статистика пользователя
+        statsRepository.syncStatsFromServer(uid, new StatsRepository.DataCallback<Void>() {
+            @Override
+            public void onSuccess(Void data) {
+                Log.d("RepositorySync", "✅ user_stats синхронизированы");
+            }
+            @Override
+            public void onError(String error) {
+                Log.e("RepositorySync", "user_stats: " + error);
+            }
+        });
+
+        // 3. Ачивки и их прогресс
+        achievementRepository.syncAchievementsFromServer(uid, new AchievementRepository.DataCallback<Void>() {
+            @Override
+            public void onSuccess(Void data) {
+                Log.d("RepositorySync", "✅ Ачивки синхронизированы");
+            }
+            @Override
+            public void onError(String error) {
+                Log.e("RepositorySync", "Ачивки: " + error);
+            }
+        });
+
+        // 4. Прогрев друзей
+        friendsRepository.getFriends(currentUser, new FriendsRepository.DataCallback<List<User>>() {
+            @Override
+            public void onSuccess(List<User> data) {
+                Log.d("RepositorySync", "✅ Друзья прогреты: " + (data != null ? data.size() : 0));
+            }
+            @Override
+            public void onError(String error) {
+                Log.e("RepositorySync", "Друзья: " + error);
+            }
+        });
+
+        // 5. Прогрев команд
+        teamsRepository.getMyTeams(currentUser, new TeamsRepository.DataCallback<List<Team>>() {
+            @Override
+            public void onSuccess(List<Team> data) {
+                Log.d("RepositorySync", "✅ Команды прогреты: " + (data != null ? data.size() : 0));
+            }
+            @Override
+            public void onError(String error) {
+                Log.e("RepositorySync", "Команды: " + error);
+            }
+        });
+
+
+    }
+    public void markSprintPassed(Integer userId, Long wordId) {
+        wordProgressRepository.markSprintPassed(userId, wordId);
+    }
+
+    public void markMatchingPassed(Integer userId, Long wordId) {
+        wordProgressRepository.markMatchingPassed(userId, wordId);
+    }
+
+    public void markWritingPassed(Integer userId, Long wordId) {
+        wordProgressRepository.markWritingPassed(userId, wordId);
+    }
+    public void warmupLearnedIdsCache(Integer userId) {
+        wordProgressRepository.warmupLearnedIdsCache(userId);
+    }
+
+    public void clearLearnedIdsCache() {
+        wordProgressRepository.clearLearnedIdsCache();
+    }
+    public void isAlreadyFriend(int friendId, DataCallback<Boolean> callback) {
+        if (currentUser == null) restoreCurrentUserFromPrefs();
+
+        friendsRepository.isAlreadyFriend(friendId, currentUser,
+                new FriendsRepository.DataCallback<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean data) { callback.onSuccess(data); }
+                    @Override
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
 }

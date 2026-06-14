@@ -96,10 +96,16 @@ public class AuthRepository {
     }
 
     public void restoreCurrentUserFromPrefs() {
-        if (currentUser != null) return;
+        restoreCurrentUserFromPrefs(false);
+    }
+    public void restoreCurrentUserFromPrefs(boolean force) {
+        if (!force && currentUser != null) return;
 
         int savedUserId = prefs.getInt(KEY_USER_ID, -1);
-        if (savedUserId == -1) return;
+        if (savedUserId == -1) {
+            currentUser = null;
+            return;
+        }
 
         User restoredUser = new User();
         restoredUser.setId(savedUserId);

@@ -12,21 +12,34 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="24dp">
+        android:paddingStart="24dp"
+        android:paddingTop="24dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="32dp">
+
+        <!-- ✅ Единая стрелочка назад -->
+        <include
+            android:id="@+id/btnUniBack"
+            layout="@layout/view_back_button"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginTop="4dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <TextView
             android:id="@+id/tvRegTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
+            android:layout_marginTop="26dp"
             android:text="Создать аккаунт"
             android:textColor="@color/app_text_primary"
             android:textSize="28sp"
             android:textStyle="bold"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toBottomOf="@id/btnUniBack" />
 
-        <!-- ✅ USERNAME -->
+        <!-- USERNAME -->
         <TextView
             android:id="@+id/tvUsernameLabel"
             android:layout_width="wrap_content"
@@ -62,7 +75,7 @@
                 android:textSize="15sp" />
         </FrameLayout>
 
-        <!-- ✅ EMAIL -->
+        <!-- EMAIL -->
         <TextView
             android:id="@+id/tvRegEmailLabel"
             android:layout_width="wrap_content"
@@ -98,7 +111,7 @@
                 android:textSize="15sp" />
         </FrameLayout>
 
-        <!-- ✅ PASSWORD -->
+        <!-- PASSWORD -->
         <TextView
             android:id="@+id/tvRegPasswordLabel"
             android:layout_width="wrap_content"
@@ -134,7 +147,7 @@
                 android:textSize="15sp" />
         </FrameLayout>
 
-        <!-- ✅ GENDER -->
+        <!-- GENDER -->
         <TextView
             android:id="@+id/tvGenderTitle"
             android:layout_width="wrap_content"
@@ -202,6 +215,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/genderButtonsContainer" />
 
+        <!-- Оставляем, как ты выбрала: стрелочка сверху + кнопка снизу -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnBackToLogin"
             style="@style/Widget.MaterialComponents.Button.TextButton"

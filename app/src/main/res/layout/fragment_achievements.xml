@@ -18,14 +18,32 @@
         android:paddingEnd="20dp"
         android:paddingBottom="28dp">
 
-        <TextView
-            android:id="@+id/tvAchievementsTitle"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Достижения"
-            android:textColor="@color/app_text_primary"
-            android:textSize="28sp"
-            android:textStyle="bold" />
+            android:layout_height="52dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvAchievementsTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Достижения"
+                android:textColor="@color/app_text_primary"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btnCloseAchievements"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Закрыть"
+                android:padding="8dp"
+                android:src="@drawable/ic_close_custom"
+                app:tint="@color/app_text_secondary" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/tvAchievementsSubtitle"

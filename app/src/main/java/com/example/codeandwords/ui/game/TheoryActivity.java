@@ -1,5 +1,6 @@
 package com.example.codeandwords.ui.game;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
 import android.text.SpannableStringBuilder;
@@ -17,12 +18,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
 import com.example.codeandwords.model.Theme;
+import com.example.codeandwords.ui.base.BaseBackActivity;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -30,13 +31,16 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class TheoryActivity extends AppCompatActivity {
+public class TheoryActivity extends BaseBackActivity {
 
     private TextView tvTitle, tvTheoryText;
     private View btnBack;
     private Repository repository;
     private TextToSpeech tts;
     private boolean ttsReady = false;
+
+    private Long themeId;
+    private String themeTitle;
 
     // Словарь терминов: английское слово -> [русский перевод, транскрипция]
     private final Map<String, String[]> termsDictionary = new HashMap<>();
@@ -53,6 +57,14 @@ public class TheoryActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btnBackTheory);
         repository = Repository.getInstance(getApplicationContext());
 
+        themeId = getIntent().getLongExtra("THEME_ID", -1);
+        themeTitle = getIntent().getStringExtra("THEME_TITLE");
+
+        // ✅ Кнопка назад → возврат в GameSelectionActivity текущей темы
+        if (btnBack != null) {
+            btnBack.setOnClickListener(v -> goBackToGameSelection());
+        }
+
         // Инициализация TTS
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
@@ -63,15 +75,29 @@ public class TheoryActivity extends AppCompatActivity {
             }
         });
 
-        btnBack.setOnClickListener(v -> finish());
-
-        long themeId = getIntent().getLongExtra("THEME_ID", -1);
-        if (themeId != -1) {
+        if (themeId != null && themeId != -1) {
             loadTheory(themeId);
         } else {
             Toast.makeText(this, "Ошибка загрузки теории", Toast.LENGTH_SHORT).show();
             finish();
         }
+    }
+
+    @Override
+    public void onBackPressed() {
+        goBackToGameSelection();
+    }
+
+    /**
+     * ✅ Возврат в GameSelectionActivity текущей темы.
+     */
+    private void goBackToGameSelection() {
+        Intent intent = new Intent(this, GameSelectionActivity.class);
+        intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
+        intent.putExtra("THEME_TITLE", themeTitle);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish();
     }
 
     private void initTermsDictionary() {
@@ -114,7 +140,6 @@ public class TheoryActivity extends AppCompatActivity {
                 if (dbText == null || dbText.trim().isEmpty()) {
                     dbText = getHardcodedTheory(themeId);
                 } else {
-                    // ✅ Автоматическая разметка терминов в тексте из БД
                     dbText = autoMarkTerms(dbText);
                 }
 
@@ -132,20 +157,13 @@ public class TheoryActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * Автоматически оборачивает в тексте все английские термины из словаря в формат [[Ru|En]].
-     * Работает для текста, где термины уже выглядят как "Репозиторий (Repository)".
-     */
     private String autoMarkTerms(String text) {
-        // Если текст уже содержит [[...|...]], не трогаем
         if (text.contains("[[")) return text;
 
         for (Map.Entry<String, String[]> entry : termsDictionary.entrySet()) {
             String en = entry.getKey();
             String ru = entry.getValue()[0];
 
-            // Паттерн: "Русское слово (English)" -> "[[Русское слово (English)|English]]"
-            // Используем простую замену слова English на кликабельный маркер
             Pattern p = Pattern.compile("\\b" + Pattern.quote(en) + "\\b");
             Matcher m = p.matcher(text);
             StringBuffer sb = new StringBuffer();
@@ -193,8 +211,8 @@ public class TheoryActivity extends AppCompatActivity {
         while (matcher.find()) {
             builder.append(rawText.substring(lastEnd, matcher.start()));
 
-            final String displayWord = matcher.group(1); // что показываем в тексте
-            final String enWord = matcher.group(2);      // английское слово (для словаря и озвучки)
+            final String displayWord = matcher.group(1);
+            final String enWord = matcher.group(2);
 
             int startSpan = builder.length();
             builder.append(displayWord);
@@ -214,7 +232,6 @@ public class TheoryActivity extends AppCompatActivity {
                     tv.getLocationOnScreen(location);
                     int screenY = location[1] + y;
 
-                    // Получаем перевод из словаря
                     String[] data = termsDictionary.get(enWord);
                     String ruTranslation = data != null ? data[0] : displayWord;
                     String transcription = data != null ? data[1] : "";
@@ -267,12 +284,10 @@ public class TheoryActivity extends AppCompatActivity {
         popupWindow.setElevation(20f);
         popupWindow.setOutsideTouchable(true);
 
-        // ✅ Озвучка
         btnSpeak.setOnClickListener(v -> speak(enWord));
 
         popupWindow.showAtLocation(anchor, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, yCoordinate + 60);
 
-        // Автоматически озвучить при открытии (опционально)
         if (ttsReady) {
             speak(enWord);
         }
@@ -293,9 +308,6 @@ public class TheoryActivity extends AppCompatActivity {
             tts.shutdown();
         }
         super.onDestroy();
-        // Это важно! Иначе TTS и SoundPool остаются в памяти
-        if (repository != null) {
-            repository.onDestroy();
-        }
+        // ❌ Не вызываем repository.onDestroy() — Repository это синглтон!
     }
 }

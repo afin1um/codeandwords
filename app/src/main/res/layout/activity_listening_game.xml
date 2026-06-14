@@ -1,172 +1,172 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/listening_bg"
-    android:padding="16dp">
+    android:fitsSystemWindows="true"
+    android:background="@color/listening_bg">
 
-    <ImageButton
-        android:id="@+id/btnCloseListening"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@android:drawable/ic_menu_close_clear_cancel"
-        app:tint="@color/listening_icon_secondary"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"/>
+    <androidx.constraintlayout.widget.ConstraintLayout
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="16dp">
 
-    <ProgressBar
-        android:id="@+id/progressListening"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="0dp"
-        android:layout_height="10dp"
-        android:max="100"
-        android:progress="0"
-        android:progressTint="@color/listening_green"
-        android:progressBackgroundTint="@color/listening_progress_bg"
-        android:layout_marginStart="12dp"
-        app:layout_constraintStart_toEndOf="@id/btnCloseListening"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/btnCloseListening"
-        app:layout_constraintBottom_toBottomOf="@id/btnCloseListening"/>
+        <include
+            android:id="@+id/btnUniClose"
+            layout="@layout/view_close_button"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-    <TextView
-        android:id="@+id/tvListeningTitle"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="Аудирование"
-        android:textSize="26sp"
-        android:textStyle="bold"
-        android:textColor="@color/listening_text_primary"
-        android:layout_marginTop="28dp"
-        app:layout_constraintTop_toBottomOf="@id/btnCloseListening"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        <ProgressBar
+            android:id="@+id/progressListening"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="10dp"
+            android:max="100"
+            android:progress="0"
+            android:progressTint="@color/listening_green"
+            android:progressBackgroundTint="@color/listening_progress_bg"
+            android:layout_marginStart="12dp"
+            app:layout_constraintStart_toEndOf="@id/btnUniClose"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/btnUniClose"
+            app:layout_constraintBottom_toBottomOf="@id/btnUniClose" />
 
-    <TextView
-        android:id="@+id/tvListeningSubtitle"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="Слушай термин и выбери правильный перевод"
-        android:textSize="15sp"
-        android:textColor="@color/listening_text_secondary"
-        android:layout_marginTop="6dp"
-        app:layout_constraintTop_toBottomOf="@id/tvListeningTitle"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        <TextView
+            android:id="@+id/tvListeningTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Аудирование"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textColor="@color/listening_text_primary"
+            android:layout_marginTop="28dp"
+            app:layout_constraintTop_toBottomOf="@id/btnUniClose"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
-    <TextView
-        android:id="@+id/tvListeningCounter"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="0 / 0"
-        android:textSize="15sp"
-        android:textStyle="bold"
-        android:textColor="@color/listening_text_secondary"
-        android:layout_marginTop="12dp"
-        app:layout_constraintTop_toBottomOf="@id/tvListeningSubtitle"
-        app:layout_constraintStart_toStartOf="parent"/>
+        <TextView
+            android:id="@+id/tvListeningSubtitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Слушай термин и выбери правильный перевод"
+            android:textSize="15sp"
+            android:textColor="@color/listening_text_secondary"
+            android:layout_marginTop="6dp"
+            app:layout_constraintTop_toBottomOf="@id/tvListeningTitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardListeningQuestion"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        app:cardBackgroundColor="@color/listening_card_bg"
-        app:strokeColor="@color/listening_card_stroke"
-        app:cardCornerRadius="22dp"
-        app:cardElevation="0dp"
-        app:strokeWidth="1dp"
-        android:layout_marginTop="28dp"
-        app:layout_constraintTop_toBottomOf="@id/tvListeningCounter"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        <TextView
+            android:id="@+id/tvListeningCounter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0 / 0"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="@color/listening_text_secondary"
+            android:layout_marginTop="12dp"
+            app:layout_constraintTop_toBottomOf="@id/tvListeningSubtitle"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardListeningQuestion"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/listening_card_bg"
+            app:strokeColor="@color/listening_card_stroke"
+            app:cardCornerRadius="22dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            android:layout_marginTop="28dp"
+            app:layout_constraintTop_toBottomOf="@id/tvListeningCounter"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnPlayListening"
+                    android:layout_width="match_parent"
+                    android:layout_height="66dp"
+                    android:text="▶ СЛУШАТЬ"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/listening_button_text"
+                    android:backgroundTint="@color/listening_blue"
+                    app:cornerRadius="18dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardListeningDictionaryState"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/listening_card_bg"
+            app:strokeColor="@color/listening_card_stroke"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="1dp"
+            android:layout_marginTop="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:layout_constraintTop_toBottomOf="@id/cardListeningQuestion"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="14dp">
+
+                <TextView
+                    android:id="@+id/tvListeningDictionaryIcon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📖"
+                    android:textSize="22sp"
+                    android:layout_marginEnd="10dp" />
+
+                <TextView
+                    android:id="@+id/tvListeningDictionaryText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Добавить в словарь"
+                    android:textSize="15sp"
+                    android:textColor="@color/listening_text_primary" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:id="@+id/optionsListeningContainer"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="18dp">
+            android:layout_marginTop="16dp"
+            app:layout_constraintTop_toBottomOf="@id/cardListeningDictionaryState"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnPlayListening"
-                android:layout_width="match_parent"
-                android:layout_height="66dp"
-                android:text="▶ СЛУШАТЬ"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/listening_button_text"
-                android:backgroundTint="@color/listening_blue"
-                app:cornerRadius="18dp"/>
-
-        </LinearLayout>
-
-    </com.google.android.material.card.MaterialCardView>
-
-    <!-- ✅ ДОБАВЛЕНА КАРТОЧКА СЛОВАРЯ -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardListeningDictionaryState"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        app:cardBackgroundColor="@color/listening_card_bg"
-        app:strokeColor="@color/listening_card_stroke"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="0dp"
-        app:strokeWidth="1dp"
-        android:layout_marginTop="16dp"
-        android:clickable="true"
-        android:focusable="true"
-        app:layout_constraintTop_toBottomOf="@id/cardListeningQuestion"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <LinearLayout
-            android:layout_width="match_parent"
+        <ProgressBar
+            android:id="@+id/pbListening"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="14dp">
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
-            <TextView
-                android:id="@+id/tvListeningDictionaryIcon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📖"
-                android:textSize="22sp"
-                android:layout_marginEnd="10dp"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <TextView
-                android:id="@+id/tvListeningDictionaryText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Добавить в словарь"
-                android:textSize="15sp"
-                android:textColor="@color/listening_text_primary"/>
-
-        </LinearLayout>
-
-    </com.google.android.material.card.MaterialCardView>
-
-    <LinearLayout
-        android:id="@+id/optionsListeningContainer"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginTop="16dp"
-        app:layout_constraintTop_toBottomOf="@id/cardListeningDictionaryState"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <ProgressBar
-        android:id="@+id/pbListening"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</FrameLayout>

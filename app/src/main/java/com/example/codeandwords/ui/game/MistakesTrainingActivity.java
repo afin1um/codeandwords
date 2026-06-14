@@ -1,25 +1,19 @@
 package com.example.codeandwords.ui.game;
 
-import android.content.Context;
 import android.content.Intent;
-import android.media.AudioAttributes;
-import android.media.SoundPool;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
-import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
 import com.example.codeandwords.model.Word;
-import com.google.android.material.button.MaterialButton;
+import com.example.codeandwords.ui.base.BaseBackActivity;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -28,18 +22,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class MistakesTrainingActivity extends AppCompatActivity {
+public class MistakesTrainingActivity extends BaseBackActivity {
 
     private static final int POINTS_PER_FIXED_MISTAKE = 5;
+    private static final long LOAD_TIMEOUT_MS = 15_000;
 
-    private ImageButton btnCloseMistakes;
     private ProgressBar progressMistakes;
     private ProgressBar pbMistakes;
     private TextView tvMistakesCounter;
     private TextView tvMistakeTranslation;
     private TextInputLayout tilMistakeAnswer;
     private TextInputEditText etMistakeAnswer;
-    private MaterialButton btnCheckMistake;
+    private com.google.android.material.button.MaterialButton btnCheckMistake;
 
     private MaterialCardView cardMistakeDictionaryState;
     private TextView tvMistakeDictionaryIcon;
@@ -48,7 +42,6 @@ public class MistakesTrainingActivity extends AppCompatActivity {
     private Repository repository;
 
     private final List<Word> mistakeWords = new ArrayList<>();
-
     private Word currentWord;
     private int currentIndex = 0;
     private int score = 0;
@@ -57,8 +50,9 @@ public class MistakesTrainingActivity extends AppCompatActivity {
 
     private boolean currentWordAlreadyInDictionary = false;
     private boolean dictionaryStateLoading = false;
+    private boolean isLoading = false;
 
-    private SoundPool soundPool;
+    private android.media.SoundPool soundPool;
     private int soundSuccess;
     private int soundError;
     private boolean soundsLoaded = false;
@@ -72,6 +66,9 @@ public class MistakesTrainingActivity extends AppCompatActivity {
     private int colorTextSecondary;
     private int colorTextOnPrimary;
 
+    private final Handler timeoutHandler = new Handler();
+    private Runnable timeoutRunnable;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -82,8 +79,16 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         loadThemeColors();
         initSoundPool();
         initViews();
-        setupClicks();
+
+        // ✅ Крестик → TrainingFragment
+        setupCloseToTrainingButton(R.id.btnUniClose);
+
         loadMistakeWords();
+    }
+
+    @Override
+    public void onBackPressed() {
+        goToTraining();
     }
 
     private void loadThemeColors() {
@@ -98,12 +103,12 @@ public class MistakesTrainingActivity extends AppCompatActivity {
     }
 
     private void initSoundPool() {
-        AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_GAME)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        android.media.AudioAttributes audioAttributes = new android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_GAME)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build();
 
-        soundPool = new SoundPool.Builder()
+        soundPool = new android.media.SoundPool.Builder()
                 .setMaxStreams(2)
                 .setAudioAttributes(audioAttributes)
                 .build();
@@ -114,7 +119,6 @@ public class MistakesTrainingActivity extends AppCompatActivity {
     }
 
     private void initViews() {
-        btnCloseMistakes = findViewById(R.id.btnCloseMistakes);
         progressMistakes = findViewById(R.id.progressMistakes);
         pbMistakes = findViewById(R.id.pbMistakes);
         tvMistakesCounter = findViewById(R.id.tvMistakesCounter);
@@ -125,17 +129,13 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         cardMistakeDictionaryState = findViewById(R.id.cardMistakeDictionaryState);
         tvMistakeDictionaryIcon = findViewById(R.id.tvMistakeDictionaryIcon);
         tvMistakeDictionaryText = findViewById(R.id.tvMistakeDictionaryText);
-    }
 
-    private void setupClicks() {
-        btnCloseMistakes.setOnClickListener(v -> finish());
         btnCheckMistake.setOnClickListener(v -> checkAnswer());
 
         cardMistakeDictionaryState.setOnClickListener(v -> {
             if (dictionaryStateLoading) return;
             if (currentWordAlreadyInDictionary) {
-                Toast.makeText(this, "Это слово уже есть в личном словаре",
-                        Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Это слово уже есть в личном словаре", Toast.LENGTH_SHORT).show();
                 return;
             }
             addCurrentWordToDictionary();
@@ -148,51 +148,71 @@ public class MistakesTrainingActivity extends AppCompatActivity {
     }
 
     private void loadMistakeWords() {
+        if (isLoading) return;
+        isLoading = true;
+
         pbMistakes.setVisibility(View.VISIBLE);
         cardMistakeDictionaryState.setVisibility(View.GONE);
+
+        timeoutRunnable = () -> {
+            if (!isFinishing() && isLoading) {
+                isLoading = false;
+                pbMistakes.setVisibility(View.GONE);
+                Toast.makeText(this,
+                        "Загрузка занимает слишком долго. Проверьте соединение.",
+                        Toast.LENGTH_LONG).show();
+                finish();
+            }
+        };
+        timeoutHandler.postDelayed(timeoutRunnable, LOAD_TIMEOUT_MS);
 
         repository.getMistakeWordsForTraining(new Repository.DataCallback<List<Word>>() {
             @Override
             public void onSuccess(List<Word> data) {
+                cancelTimeout();
+                isLoading = false;
                 pbMistakes.setVisibility(View.GONE);
 
                 mistakeWords.clear();
-                if (data != null) {
-                    mistakeWords.addAll(preparePlayableWords(data));
-                }
+                if (data != null) mistakeWords.addAll(preparePlayableWords(data));
 
                 if (mistakeWords.isEmpty()) {
                     Toast.makeText(MistakesTrainingActivity.this,
-                            "Ошибок для повторения пока нет",
-                            Toast.LENGTH_LONG).show();
+                            "Ошибок для повторения пока нет", Toast.LENGTH_LONG).show();
                     finish();
                     return;
                 }
 
                 Collections.shuffle(mistakeWords);
-
                 currentIndex = 0;
                 score = 0;
                 mistakesMade = 0;
                 fixedErrorsCount = 0;
-
                 showNextQuestion();
             }
 
             @Override
             public void onError(String error) {
+                cancelTimeout();
+                isLoading = false;
                 pbMistakes.setVisibility(View.GONE);
-                Toast.makeText(MistakesTrainingActivity.this, error,
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(MistakesTrainingActivity.this,
+                        "Ошибка загрузки: " + error, Toast.LENGTH_LONG).show();
                 finish();
             }
         });
     }
 
+    private void cancelTimeout() {
+        if (timeoutRunnable != null) {
+            timeoutHandler.removeCallbacks(timeoutRunnable);
+            timeoutRunnable = null;
+        }
+    }
+
     private List<Word> preparePlayableWords(List<Word> words) {
         List<Word> result = new ArrayList<>();
         if (words == null) return result;
-
         for (Word word : words) {
             if (word == null) continue;
             String term = word.getTerm() == null ? "" : word.getTerm().trim();
@@ -209,17 +229,14 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         }
 
         currentWord = mistakeWords.get(currentIndex);
-
         tvMistakesCounter.setText((currentIndex + 1) + " / " + mistakeWords.size());
         tvMistakeTranslation.setText(currentWord.getTranslation());
-
         etMistakeAnswer.setText("");
         tilMistakeAnswer.setError(null);
         btnCheckMistake.setEnabled(true);
 
         refreshDictionaryState();
         updateProgress();
-
         etMistakeAnswer.requestFocus();
         showKeyboard();
     }
@@ -232,7 +249,6 @@ public class MistakesTrainingActivity extends AppCompatActivity {
 
         dictionaryStateLoading = true;
         currentWordAlreadyInDictionary = false;
-
         cardMistakeDictionaryState.setVisibility(View.VISIBLE);
         renderDictionaryLoadingState();
 
@@ -242,11 +258,8 @@ public class MistakesTrainingActivity extends AppCompatActivity {
                     public void onSuccess(Boolean isAdded) {
                         dictionaryStateLoading = false;
                         currentWordAlreadyInDictionary = isAdded != null && isAdded;
-                        if (currentWordAlreadyInDictionary) {
-                            renderDictionaryAddedState();
-                        } else {
-                            renderDictionaryCanAddState();
-                        }
+                        if (currentWordAlreadyInDictionary) renderDictionaryAddedState();
+                        else renderDictionaryCanAddState();
                     }
 
                     @Override
@@ -293,36 +306,32 @@ public class MistakesTrainingActivity extends AppCompatActivity {
 
     private void addCurrentWordToDictionary() {
         if (currentWord == null) return;
-
         dictionaryStateLoading = true;
         renderDictionaryLoadingState();
 
-        repository.addWordToPersonalDictionary(currentWord,
-                new Repository.DataCallback<Void>() {
-                    @Override
-                    public void onSuccess(Void data) {
-                        dictionaryStateLoading = false;
-                        currentWordAlreadyInDictionary = true;
-                        renderDictionaryAddedState();
-                        Toast.makeText(MistakesTrainingActivity.this,
-                                "Слово добавлено в личный словарь",
-                                Toast.LENGTH_SHORT).show();
-                    }
+        repository.addWordToPersonalDictionary(currentWord, new Repository.DataCallback<Void>() {
+            @Override
+            public void onSuccess(Void data) {
+                dictionaryStateLoading = false;
+                currentWordAlreadyInDictionary = true;
+                renderDictionaryAddedState();
+                Toast.makeText(MistakesTrainingActivity.this,
+                        "Слово добавлено в личный словарь", Toast.LENGTH_SHORT).show();
+            }
 
-                    @Override
-                    public void onError(String error) {
-                        dictionaryStateLoading = false;
-                        if (error != null && error.toLowerCase().contains("уже есть")) {
-                            currentWordAlreadyInDictionary = true;
-                            renderDictionaryAddedState();
-                        } else {
-                            currentWordAlreadyInDictionary = false;
-                            renderDictionaryCanAddState();
-                        }
-                        Toast.makeText(MistakesTrainingActivity.this, error,
-                                Toast.LENGTH_SHORT).show();
-                    }
-                });
+            @Override
+            public void onError(String error) {
+                dictionaryStateLoading = false;
+                if (error != null && error.toLowerCase().contains("уже есть")) {
+                    currentWordAlreadyInDictionary = true;
+                    renderDictionaryAddedState();
+                } else {
+                    currentWordAlreadyInDictionary = false;
+                    renderDictionaryCanAddState();
+                }
+                Toast.makeText(MistakesTrainingActivity.this, error, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void checkAnswer() {
@@ -346,12 +355,19 @@ public class MistakesTrainingActivity extends AppCompatActivity {
             score += POINTS_PER_FIXED_MISTAKE;
             fixedErrorsCount++;
 
-            // ✅ ИСПРАВЛЕНИЕ ОШИБКИ
-            repository.resolveWordMistake(currentWord,
-                    new Repository.DataCallback<Void>() {
-                        @Override public void onSuccess(Void data) { }
-                        @Override public void onError(String error) { }
-                    });
+            repository.resolveWordMistake(currentWord, new Repository.DataCallback<Void>() {
+                @Override public void onSuccess(Void data) { }
+                @Override public void onError(String error) { }
+            });
+
+            final Word fixedWord = currentWord;
+            repository.getCurrentUserId(userId -> {
+                if (userId != null && userId > 0 && fixedWord != null) {
+                    repository.markSprintPassed(userId, fixedWord.getId());
+                    repository.markMatchingPassed(userId, fixedWord.getId());
+                    repository.markWritingPassed(userId, fixedWord.getId());
+                }
+            });
 
             new Handler().postDelayed(() -> {
                 currentIndex++;
@@ -384,9 +400,8 @@ public class MistakesTrainingActivity extends AppCompatActivity {
         hideKeyboard();
         progressMistakes.setProgress(100);
 
-        repository.recordLessonCompletion(
-                "TRAINING_MISTAKES", null, 0, mistakeWords.size(),
-                mistakesMade, fixedErrorsCount, false);
+        repository.recordLessonCompletion("TRAINING_MISTAKES", null, 0,
+                mistakeWords.size(), mistakesMade, fixedErrorsCount, false);
 
         Intent intent = new Intent(this, GameResultActivity.class);
         intent.putExtra("SCORE", 0);
@@ -405,17 +420,20 @@ public class MistakesTrainingActivity extends AppCompatActivity {
 
     private void showKeyboard() {
         etMistakeAnswer.postDelayed(() -> {
-            InputMethodManager imm = (InputMethodManager)
-                    getSystemService(Context.INPUT_METHOD_SERVICE);
+            android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager)
+                            getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
             if (imm != null) {
-                imm.showSoftInput(etMistakeAnswer, InputMethodManager.SHOW_IMPLICIT);
+                imm.showSoftInput(etMistakeAnswer,
+                        android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
             }
         }, 200);
     }
 
     private void hideKeyboard() {
-        InputMethodManager imm = (InputMethodManager)
-                getSystemService(Context.INPUT_METHOD_SERVICE);
+        android.view.inputmethod.InputMethodManager imm =
+                (android.view.inputmethod.InputMethodManager)
+                        getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
         if (imm != null && getCurrentFocus() != null) {
             imm.hideSoftInputFromWindow(getCurrentFocus().getWindowToken(), 0);
         }
@@ -428,10 +446,10 @@ public class MistakesTrainingActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Это важно! Иначе TTS и SoundPool остаются в памяти
-        if (repository != null) {
-            repository.onDestroy();
+        cancelTimeout();
+        if (soundPool != null) {
+            soundPool.release();
+            soundPool = null;
         }
-        if (soundPool != null) { soundPool.release(); soundPool = null; }
     }
 }

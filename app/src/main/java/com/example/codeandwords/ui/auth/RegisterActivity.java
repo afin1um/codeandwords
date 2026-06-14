@@ -7,19 +7,19 @@ import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
 import com.example.codeandwords.model.User;
+import com.example.codeandwords.ui.base.BaseBackActivity;
 import com.example.codeandwords.ui.profile.AvatarConfig;
 import com.example.codeandwords.ui.profile.AvatarEditorActivity;
 import com.example.codeandwords.ui.profile.AvatarPrefs;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 
-public class RegisterActivity extends AppCompatActivity {
+public class RegisterActivity extends BaseBackActivity {
 
     private TextInputEditText etName;
     private TextInputEditText etEmail;
@@ -30,7 +30,9 @@ public class RegisterActivity extends AppCompatActivity {
     private MaterialButton btnGenderFemale;
     private MaterialButton btnGenderMale;
 
+    private View btnBack;
     private ProgressBar progressBar;
+
     private Repository repository;
 
     private String selectedGender = "female";
@@ -39,6 +41,17 @@ public class RegisterActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
+
+        repository = Repository.getInstance(getApplicationContext());
+
+        initViews();
+        setupBackButton(R.id.btnUniBack);
+        setupListeners();
+        updateGenderButtons();
+    }
+
+    private void initViews() {
+        btnBack = findViewById(R.id.btnUniBack);
 
         etName = findViewById(R.id.etUsername);
         etEmail = findViewById(R.id.etRegEmail);
@@ -50,11 +63,9 @@ public class RegisterActivity extends AppCompatActivity {
         btnGenderMale = findViewById(R.id.btnGenderMale);
 
         progressBar = findViewById(R.id.progressBarReg);
+    }
 
-        repository = Repository.getInstance(getApplicationContext());
-
-        updateGenderButtons();
-
+    private void setupListeners() {
         btnGenderFemale.setOnClickListener(v -> {
             selectedGender = "female";
             updateGenderButtons();
@@ -66,11 +77,26 @@ public class RegisterActivity extends AppCompatActivity {
         });
 
         btnRegister.setOnClickListener(v -> performRegistration());
+
+        // Оставляем вторую точку выхода — как ты выбрала
         btnBackToLogin.setOnClickListener(v -> finish());
     }
 
     /**
-     * ✅ Обновляет визуальное состояние кнопок выбора пола.
+     * Если идёт регистрация — не даём случайно уйти со страницы.
+     */
+    @Override
+    protected void handleBack() {
+        if (isLoading()) {
+            Toast.makeText(this, "Дождитесь завершения регистрации", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        super.handleBack();
+    }
+
+    /**
+     * Обновляет визуальное состояние кнопок выбора пола.
      * Активная — толстая голубая обводка, неактивная — тонкая серая.
      */
     private void updateGenderButtons() {
@@ -79,25 +105,31 @@ public class RegisterActivity extends AppCompatActivity {
         int activeStroke = ContextCompat.getColor(this, R.color.app_blue);
         int inactiveStroke = ContextCompat.getColor(this, R.color.app_card_stroke);
 
-        // Женская кнопка
         btnGenderFemale.setStrokeWidth(isFemale ? dp(4) : dp(1));
-        btnGenderFemale.setStrokeColor(ColorStateList.valueOf(isFemale ? activeStroke : inactiveStroke));
+        btnGenderFemale.setStrokeColor(
+                ColorStateList.valueOf(isFemale ? activeStroke : inactiveStroke)
+        );
         btnGenderFemale.setAlpha(isFemale ? 1f : 0.65f);
 
-        // Мужская кнопка
         btnGenderMale.setStrokeWidth(!isFemale ? dp(4) : dp(1));
-        btnGenderMale.setStrokeColor(ColorStateList.valueOf(!isFemale ? activeStroke : inactiveStroke));
+        btnGenderMale.setStrokeColor(
+                ColorStateList.valueOf(!isFemale ? activeStroke : inactiveStroke)
+        );
         btnGenderMale.setAlpha(!isFemale ? 1f : 0.65f);
     }
 
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
     private void performRegistration() {
-        String name = etName.getText() != null ? etName.getText().toString().trim() : "";
-        String email = etEmail.getText() != null ? etEmail.getText().toString().trim() : "";
-        String password = etPassword.getText() != null ? etPassword.getText().toString().trim() : "";
+        String name = etName.getText() != null
+                ? etName.getText().toString().trim()
+                : "";
+
+        String email = etEmail.getText() != null
+                ? etEmail.getText().toString().trim()
+                : "";
+
+        String password = etPassword.getText() != null
+                ? etPassword.getText().toString().trim()
+                : "";
 
         if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
             Toast.makeText(this, "Пожалуйста, заполните все поля", Toast.LENGTH_SHORT).show();
@@ -109,11 +141,7 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        progressBar.setVisibility(View.VISIBLE);
-        btnRegister.setEnabled(false);
-        btnBackToLogin.setEnabled(false);
-        btnGenderFemale.setEnabled(false);
-        btnGenderMale.setEnabled(false);
+        showLoading(true);
 
         AvatarConfig defaultAvatar = createDefaultAvatar(selectedGender);
         AvatarPrefs.saveDraft(this, defaultAvatar);
@@ -127,7 +155,7 @@ public class RegisterActivity extends AppCompatActivity {
         repository.register(newUser, new Repository.DataCallback<User>() {
             @Override
             public void onSuccess(User user) {
-                progressBar.setVisibility(View.GONE);
+                showLoading(false);
 
                 Toast.makeText(
                         RegisterActivity.this,
@@ -143,14 +171,13 @@ public class RegisterActivity extends AppCompatActivity {
 
             @Override
             public void onError(String error) {
-                progressBar.setVisibility(View.GONE);
+                showLoading(false);
 
-                btnRegister.setEnabled(true);
-                btnBackToLogin.setEnabled(true);
-                btnGenderFemale.setEnabled(true);
-                btnGenderMale.setEnabled(true);
-
-                Toast.makeText(RegisterActivity.this, "Ошибка: " + error, Toast.LENGTH_LONG).show();
+                Toast.makeText(
+                        RegisterActivity.this,
+                        "Ошибка: " + error,
+                        Toast.LENGTH_LONG
+                ).show();
             }
         });
     }
@@ -169,5 +196,27 @@ public class RegisterActivity extends AppCompatActivity {
         }
 
         return config;
+    }
+
+    private void showLoading(boolean isLoading) {
+        progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+
+        btnRegister.setEnabled(!isLoading);
+        btnBackToLogin.setEnabled(!isLoading);
+        btnGenderFemale.setEnabled(!isLoading);
+        btnGenderMale.setEnabled(!isLoading);
+
+        if (btnBack != null) {
+            btnBack.setEnabled(!isLoading);
+            btnBack.setAlpha(isLoading ? 0.4f : 1f);
+        }
+    }
+
+    private boolean isLoading() {
+        return progressBar != null && progressBar.getVisibility() == View.VISIBLE;
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }

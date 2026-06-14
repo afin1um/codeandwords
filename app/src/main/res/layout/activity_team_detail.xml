@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:background="@color/team_bg"
     android:orientation="vertical">
 
@@ -21,9 +22,10 @@
             android:layout_height="48dp"
             android:layout_centerVertical="true"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Назад"
             android:padding="10dp"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:tint="@color/team_toolbar_icon" />
+            android:src="@drawable/ic_back_arrow_custom"
+            app:tint="@color/team_toolbar_icon" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -39,7 +41,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Основной контент -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -109,7 +110,6 @@
                 android:layout_marginTop="14dp" />
         </LinearLayout>
 
-        <!-- Загрузка -->
         <LinearLayout
             android:id="@+id/loadingContainer"
             android:layout_width="match_parent"
@@ -132,7 +132,6 @@
                 android:textSize="15sp" />
         </LinearLayout>
 
-        <!-- Ошибка -->
         <LinearLayout
             android:id="@+id/errorContainer"
             android:layout_width="match_parent"

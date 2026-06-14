@@ -11,10 +11,15 @@ import com.example.codeandwords.model.User;
 import com.example.codeandwords.model.UserAchievement;
 import com.example.codeandwords.model.UserStats;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -29,7 +34,13 @@ public class AchievementRepository {
     private final UserDao userDao;
     private final ApiService apiService;
 
+    // ✅ Единый пул потоков для всех операций с БД
+    private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
+
     private AchievementListener listener;
+
+    private final Set<Long> serverExistingAchievementIds = new HashSet<>();
+    private volatile boolean serverCacheLoaded = false;
 
     public AchievementRepository(AppDatabase database,
                                  AchievementDao achievementDao,
@@ -41,8 +52,6 @@ public class AchievementRepository {
         this.apiService = apiService;
     }
 
-    // ===== ИНТЕРФЕЙС СЛУШАТЕЛЯ =====
-
     public interface AchievementListener {
         int safeInt(Integer value);
         String toSqlTimestamp(long millis);
@@ -51,16 +60,17 @@ public class AchievementRepository {
         User getCurrentUser();
     }
 
+    public interface DataCallback<T> {
+        void onSuccess(T data);
+        void onError(String error);
+    }
+
     public void setListener(AchievementListener listener) {
         this.listener = listener;
     }
 
-    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
-
     private int safeInt(Integer value) {
-        return listener != null
-                ? listener.safeInt(value)
-                : (value != null ? value : 0);
+        return listener != null ? listener.safeInt(value) : (value != null ? value : 0);
     }
 
     private String toSqlTimestamp(long millis) {
@@ -69,14 +79,123 @@ public class AchievementRepository {
 
     private String getErrorBody(Response<?> response) {
         try {
-            if (response.errorBody() != null) {
-                return response.errorBody().string();
-            }
+            if (response.errorBody() != null) return response.errorBody().string();
         } catch (Exception e) {
             Log.e(TAG, "Ошибка чтения errorBody: " + e.getMessage(), e);
         }
         return "Неизвестная ошибка";
     }
+
+    // ====================================================================
+    // ✅ СИНХРОНИЗАЦИЯ С СЕРВЕРА (при логине/старте приложения)
+    // ====================================================================
+
+    public void syncAchievementsFromServer(Integer userId, DataCallback<Void> callback) {
+        if (userId == null || userId <= 0) {
+            if (callback != null) callback.onError("Некорректный userId");
+            return;
+        }
+
+        apiService.getUserAchievementsByUserRaw(
+                "eq." + userId,
+                "achievement_id,current_progress,is_unlocked,is_new,received_at"
+        ).enqueue(new Callback<List<JsonObject>>() {
+            @Override
+            public void onResponse(Call<List<JsonObject>> call,
+                                   Response<List<JsonObject>> response) {
+                if (!response.isSuccessful() || response.body() == null) {
+                    Log.w(TAG, "syncAchievements: пустой ответ " + response.code());
+                    if (callback != null) callback.onSuccess(null);
+                    return;
+                }
+
+                List<JsonObject> items = response.body();
+
+                // ✅ ИСПРАВЛЕНИЕ: переносим всю работу с БД в фоновый поток
+                dbExecutor.execute(() -> {
+                    try {
+                        // Заполняем кэш существующих записей
+                        synchronized (serverExistingAchievementIds) {
+                            serverExistingAchievementIds.clear();
+                            for (JsonObject item : items) {
+                                if (item != null && item.has("achievement_id")
+                                        && !item.get("achievement_id").isJsonNull()) {
+                                    serverExistingAchievementIds.add(
+                                            item.get("achievement_id").getAsLong());
+                                }
+                            }
+                            serverCacheLoaded = true;
+                        }
+
+                        // ✅ Теперь runInTransaction() выполняется в фоновом потоке
+                        database.runInTransaction(() -> {
+                            for (JsonObject item : items) {
+                                if (item == null) continue;
+                                if (!item.has("achievement_id")
+                                        || item.get("achievement_id").isJsonNull()) continue;
+
+                                long achId = item.get("achievement_id").getAsLong();
+                                int progress = getInt(item, "current_progress");
+                                boolean unlocked = getBool(item, "is_unlocked");
+                                boolean isNew = getBool(item, "is_new");
+
+                                UserAchievement existing = achievementDao.getUserAchievement(
+                                        userId, (int) achId);
+
+                                if (existing == null) {
+                                    UserAchievement ua = new UserAchievement(
+                                            userId.longValue(),
+                                            achId,
+                                            unlocked ? System.currentTimeMillis() : 0,
+                                            progress,
+                                            unlocked,
+                                            isNew
+                                    );
+                                    achievementDao.insertUserAchievement(ua);
+                                } else {
+                                    existing.currentProgress = Math.max(
+                                            existing.currentProgress, progress);
+                                    if (unlocked) existing.isUnlocked = true;
+                                    achievementDao.updateUserAchievement(existing);
+                                }
+                            }
+                        });
+
+                        Log.d(TAG, "syncAchievements: загружено " + items.size() + " ачивок");
+                        if (callback != null) callback.onSuccess(null);
+
+                    } catch (Exception e) {
+                        Log.e(TAG, "Ошибка сохранения ачивок: " + e.getMessage(), e);
+                        if (callback != null) callback.onError(e.getMessage());
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(Call<List<JsonObject>> call, Throwable t) {
+                Log.e(TAG, "Сеть syncAchievements: " + t.getMessage(), t);
+                if (callback != null) callback.onError(t.getMessage());
+            }
+        });
+    }
+
+    private int getInt(JsonObject json, String key) {
+        if (json == null || !json.has(key)) return 0;
+        JsonElement e = json.get(key);
+        if (e == null || e.isJsonNull()) return 0;
+        try { return e.getAsInt(); } catch (Exception ex) { return 0; }
+    }
+
+    private boolean getBool(JsonObject json, String key) {
+        if (json == null || !json.has(key)) return false;
+        JsonElement e = json.get(key);
+        if (e == null || e.isJsonNull()) return false;
+        try { return e.getAsBoolean(); } catch (Exception ex) { return false; }
+    }
+
+    // ====================================================================
+    // ОСНОВНОЙ МЕТОД (после каждого урока)
+    // ====================================================================
 
     private int getAchievementProgress(Achievement achievement,
                                        User user,
@@ -98,125 +217,93 @@ public class AchievementRepository {
         }
     }
 
-    private JsonObject buildUpsertPayload(UserAchievement ua) {
+    private JsonObject buildAchievementPayload(UserAchievement ua, boolean includeUserId) {
         JsonObject payload = new JsonObject();
-        payload.addProperty("user_id", ua.userId);
-        payload.addProperty("achievement_id", ua.achievementId);
+        if (includeUserId) {
+            payload.addProperty("user_id", ua.userId);
+            payload.addProperty("achievement_id", ua.achievementId);
+        }
         payload.addProperty("current_progress", safeInt(ua.currentProgress));
         payload.addProperty("is_unlocked", ua.isUnlocked);
         payload.addProperty("is_new", ua.isNew);
 
-        long ts = ua.dateReceived > 0
-                ? ua.dateReceived
-                : System.currentTimeMillis();
-
+        long ts = ua.dateReceived > 0 ? ua.dateReceived : System.currentTimeMillis();
         payload.addProperty("received_at", toSqlTimestamp(ts));
         payload.addProperty("unlocked_at", toSqlTimestamp(ts));
-        payload.addProperty("last_updated_at",
-                toSqlTimestamp(System.currentTimeMillis()));
+        payload.addProperty("last_updated_at", toSqlTimestamp(System.currentTimeMillis()));
 
         return payload;
     }
 
-    /**
-     * ✅ ОПТИМИЗИРОВАНО: батчевый асинхронный upsert.
-     * Раньше: N синхронных запросов = блокировка на 3-10 сек.
-     * Сейчас: 1 асинхронный запрос со всем массивом.
-     */
-    private void batchUpsertAchievementsRemote(List<UserAchievement> achievements) {
-        if (achievements == null || achievements.isEmpty()) return;
+    private void sendChangedAchievementsToServer(List<UserAchievement> changedAchievements) {
+        if (changedAchievements == null || changedAchievements.isEmpty()) return;
 
-        JsonArray batch = new JsonArray();
-        for (UserAchievement ua : achievements) {
-            batch.add(buildUpsertPayload(ua));
+        List<UserAchievement> toInsert = new ArrayList<>();
+        List<UserAchievement> toUpdate = new ArrayList<>();
+
+        synchronized (serverExistingAchievementIds) {
+            for (UserAchievement ua : changedAchievements) {
+                if (serverExistingAchievementIds.contains(ua.achievementId)) {
+                    toUpdate.add(ua);
+                } else {
+                    toInsert.add(ua);
+                }
+            }
         }
 
-        apiService.upsertUserAchievementsBatchRaw("user_id,achievement_id", batch)
-                .enqueue(new Callback<Void>() {
-                    @Override
-                    public void onResponse(Call<Void> call, Response<Void> response) {
-                        if (response.isSuccessful()) {
-                            Log.d(TAG, "Batch upsert OK: "
-                                    + achievements.size() + " ачивок");
-                        } else {
-                            Log.e(TAG, "Batch upsert FAILED: " + response.code()
-                                    + " | " + getErrorBody(response));
-                            // Fallback: пробуем поштучно
-                            fallbackUpsertOneByOne(achievements);
-                        }
+        // PATCH существующих
+        for (UserAchievement ua : toUpdate) {
+            JsonObject payload = buildAchievementPayload(ua, false);
+            apiService.updateUserAchievementRaw(
+                    "eq." + ua.userId,
+                    "eq." + ua.achievementId,
+                    payload
+            ).enqueue(new Callback<Void>() {
+                @Override
+                public void onResponse(Call<Void> call, Response<Void> response) {
+                    if (!response.isSuccessful()) {
+                        Log.e(TAG, "PATCH ачивки FAILED: " + response.code()
+                                + " | achId=" + ua.achievementId);
                     }
+                }
 
-                    @Override
-                    public void onFailure(Call<Void> call, Throwable t) {
-                        Log.e(TAG, "Ошибка сети batchUpsert: " + t.getMessage(), t);
-                        fallbackUpsertOneByOne(achievements);
-                    }
-                });
-    }
+                @Override
+                public void onFailure(Call<Void> call, Throwable t) {
+                    Log.e(TAG, "Сеть PATCH ачивки: " + t.getMessage());
+                }
+            });
+        }
 
-    /**
-     * Резервный механизм — если батчевый запрос не поддерживается,
-     * шлём асинхронно по одному.
-     */
-    private void fallbackUpsertOneByOne(List<UserAchievement> achievements) {
-        for (UserAchievement ua : achievements) {
-            JsonObject payload = buildUpsertPayload(ua);
-            apiService.upsertUserAchievementRaw("user_id,achievement_id", payload)
+        // INSERT новых через batch
+        if (!toInsert.isEmpty()) {
+            JsonArray batch = new JsonArray();
+            for (UserAchievement ua : toInsert) {
+                batch.add(buildAchievementPayload(ua, true));
+            }
+
+            apiService.upsertUserAchievementsBatchRaw("user_id,achievement_id", batch)
                     .enqueue(new Callback<Void>() {
                         @Override
                         public void onResponse(Call<Void> call, Response<Void> response) {
-                            if (!response.isSuccessful()) {
-                                Log.e(TAG, "Single upsert FAILED: "
-                                        + response.code());
+                            if (response.isSuccessful()) {
+                                synchronized (serverExistingAchievementIds) {
+                                    for (UserAchievement ua : toInsert) {
+                                        serverExistingAchievementIds.add(ua.achievementId);
+                                    }
+                                }
+                                Log.d(TAG, "INSERT batch ачивок OK: " + toInsert.size());
+                            } else {
+                                Log.e(TAG, "INSERT batch ачивок FAILED: "
+                                        + response.code() + " | " + getErrorBody(response));
                             }
                         }
 
                         @Override
                         public void onFailure(Call<Void> call, Throwable t) {
-                            Log.e(TAG, "Single upsert error: "
-                                    + t.getMessage(), t);
+                            Log.e(TAG, "Сеть INSERT batch: " + t.getMessage());
                         }
                     });
         }
-    }
-
-    /**
-     * ✅ ОПТИМИЗИРОВАНО: проверка ВСЕХ разблокированных ачивок одним запросом.
-     * Возвращает множество achievementId, которые уже разблокированы на сервере.
-     */
-    private List<Long> getRemotelyUnlockedAchievementIds(long userId) {
-        List<Long> result = new ArrayList<>();
-        try {
-            Response<List<JsonObject>> response = apiService
-                    .getUserAchievementsByUserRaw(
-                            "eq." + userId,
-                            "achievement_id,is_unlocked")
-                    .execute();
-
-            if (!response.isSuccessful() || response.body() == null) {
-                return result;
-            }
-
-            for (JsonObject item : response.body()) {
-                if (item == null) continue;
-
-                boolean isUnlocked = item.has("is_unlocked")
-                        && !item.get("is_unlocked").isJsonNull()
-                        && item.get("is_unlocked").getAsBoolean();
-
-                if (!isUnlocked) continue;
-
-                if (item.has("achievement_id")
-                        && !item.get("achievement_id").isJsonNull()) {
-                    result.add(item.get("achievement_id").getAsLong());
-                }
-            }
-
-        } catch (Exception e) {
-            Log.e(TAG, "Ошибка загрузки разблокированных ачивок: "
-                    + e.getMessage(), e);
-        }
-        return result;
     }
 
     private void grantAchievementXp(int xpReward) {
@@ -236,108 +323,110 @@ public class AchievementRepository {
         listener.syncUserProgressToRemote(currentUser);
     }
 
-    // ===== ОСНОВНОЙ МЕТОД =====
-
     /**
-     * ✅ ПОЛНОСТЬЮ ОПТИМИЗИРОВАНО:
-     *
-     * Было:
-     * - В цикле для КАЖДОЙ ачивки 2 синхронных сетевых вызова
-     * - Каждая операция БД отдельно
-     * - Итого: ~20 сетевых вызовов + ~20 операций БД = 3-10 секунд
-     *
-     * Стало:
-     * - 1 запрос на проверку разблокированных
-     * - Все операции БД в ОДНОЙ транзакции
-     * - 1 батчевый асинхронный upsert
-     * - Итого: ~100ms
+     * ✅ ИСПРАВЛЕНО: запускаем всю работу с БД в фоновом потоке через dbExecutor
      */
     public void refreshAchievementsSync(User user, UserStats stats) {
-        try {
-            if (user == null || user.getId() == null || stats == null) return;
+        dbExecutor.execute(() -> {
+            try {
+                if (user == null || user.getId() == null || stats == null) return;
 
-            List<Achievement> all = achievementDao.getAllAchievements();
-            if (all == null || all.isEmpty()) return;
+                List<Achievement> all = achievementDao.getAllAchievements();
+                if (all == null || all.isEmpty()) return;
 
-            // ===== ШАГ 1: Один запрос на сервер за всеми разблокированными =====
-            List<Long> remotelyUnlocked = getRemotelyUnlockedAchievementIds(
-                    user.getId().longValue());
+                List<UserAchievement> changedAchievements = new ArrayList<>();
+                int[] totalRewardXp = {0};
+                long now = System.currentTimeMillis();
 
-            // ===== ШАГ 2: Считаем всё в памяти =====
-            List<UserAchievement> toUpsert = new ArrayList<>();
-            int[] totalRewardXp = {0};
-            long now = System.currentTimeMillis();
+                database.runInTransaction(() -> {
+                    for (Achievement achievement : all) {
+                        if (achievement == null || achievement.getId() == null) continue;
 
-            // ===== ШАГ 3: Все операции БД в одной транзакции =====
-            database.runInTransaction(() -> {
-                for (Achievement achievement : all) {
-                    if (achievement == null || achievement.getId() == null) continue;
+                        int progress = getAchievementProgress(achievement, user, stats);
+                        int maxProgress = safeInt(achievement.getMaxProgress());
+                        int normalized = Math.min(
+                                progress, maxProgress > 0 ? maxProgress : progress);
 
-                    int progress = getAchievementProgress(achievement, user, stats);
-                    int maxProgress = safeInt(achievement.getMaxProgress());
-                    int normalized = Math.min(
-                            progress, maxProgress > 0 ? maxProgress : progress);
+                        int conditionValue = safeInt(achievement.getConditionValue());
+                        boolean shouldUnlock = conditionValue > 0 && progress >= conditionValue;
 
-                    int conditionValue = safeInt(achievement.getConditionValue());
-                    boolean shouldUnlock = conditionValue > 0
-                            && progress >= conditionValue;
+                        UserAchievement ua = achievementDao.getUserAchievement(
+                                user.getId(), achievement.getId().intValue());
 
-                    UserAchievement ua = achievementDao.getUserAchievement(
-                            user.getId(),
-                            achievement.getId().intValue()
-                    );
+                        boolean wasUnlockedLocal = ua != null && ua.isUnlocked;
+                        boolean hasChanged = false;
 
-                    boolean wasUnlockedLocal = ua != null && ua.isUnlocked;
-                    boolean alreadyRemote = remotelyUnlocked.contains(
-                            achievement.getId());
+                        if (ua == null) {
+                            ua = new UserAchievement(
+                                    user.getId().longValue(),
+                                    achievement.getId(),
+                                    shouldUnlock ? now : 0,
+                                    normalized,
+                                    shouldUnlock,
+                                    shouldUnlock
+                            );
+                            achievementDao.insertUserAchievement(ua);
+                            hasChanged = true;
 
-                    if (ua == null) {
-                        ua = new UserAchievement(
-                                user.getId().longValue(),
-                                achievement.getId(),
-                                shouldUnlock ? now : 0,
-                                normalized,
-                                shouldUnlock,
-                                shouldUnlock && !alreadyRemote
-                        );
-                        achievementDao.insertUserAchievement(ua);
-
-                        if (shouldUnlock && !alreadyRemote) {
-                            totalRewardXp[0] += safeInt(achievement.getXpReward());
-                        }
-                    } else {
-                        ua.currentProgress = normalized;
-
-                        if (!wasUnlockedLocal && shouldUnlock) {
-                            ua.isUnlocked = true;
-                            ua.isNew = !alreadyRemote;
-                            ua.dateReceived = now;
-
-                            if (!alreadyRemote) {
+                            if (shouldUnlock) {
                                 totalRewardXp[0] += safeInt(achievement.getXpReward());
                             }
+                        } else {
+                            int oldProgress = ua.currentProgress;
+
+                            // ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
+                            // Прогресс ачивки НИКОГДА не откатывается вниз.
+                            // Для серий (PERFECT_STREAK, LOGIN_STREAK) это критично:
+                            // серия обнуляется при ошибке, но достижение должно
+                            // помнить максимальный достигнутый результат.
+                            int bestProgress = Math.max(oldProgress, normalized);
+
+                            ua.currentProgress = bestProgress;
+
+                            if (!wasUnlockedLocal && shouldUnlock) {
+                                ua.isUnlocked = true;
+                                ua.isNew = true;
+                                ua.dateReceived = now;
+                                totalRewardXp[0] += safeInt(achievement.getXpReward());
+                                hasChanged = true;
+                            } else if (oldProgress != bestProgress) {
+                                hasChanged = true;
+                            }
+
+                            achievementDao.updateUserAchievement(ua);
                         }
 
-                        achievementDao.updateUserAchievement(ua);
+                        if (hasChanged) {
+                            changedAchievements.add(ua);
+                        }
                     }
 
-                    toUpsert.add(ua);
+                    if (totalRewardXp[0] > 0) {
+                        grantAchievementXp(totalRewardXp[0]);
+                    }
+                });
+
+                if (!changedAchievements.isEmpty() && serverCacheLoaded) {
+                    sendChangedAchievementsToServer(changedAchievements);
+                } else if (!changedAchievements.isEmpty()) {
+                    Log.d(TAG, "Серверный кэш ещё не загружен — пропускаем отправку");
                 }
 
-                // Начисление XP тоже внутри транзакции (если есть награда)
-                if (totalRewardXp[0] > 0) {
-                    grantAchievementXp(totalRewardXp[0]);
-                }
-            });
+                Log.d(TAG, "refreshAchievements: изменено "
+                        + changedAchievements.size() + " ачивок, награда "
+                        + totalRewardXp[0] + " XP");
 
-            // ===== ШАГ 4: Один батчевый асинхронный upsert на сервер =====
-            batchUpsertAchievementsRemote(toUpsert);
+            } catch (Exception e) {
+                Log.e(TAG, "Ошибка refreshAchievementsSync: " + e.getMessage(), e);
+            }
+        });
+    }
 
-            Log.d(TAG, "refreshAchievements: обработано "
-                    + toUpsert.size() + " ачивок, награда " + totalRewardXp[0] + " XP");
-
-        } catch (Exception e) {
-            Log.e(TAG, "Ошибка refreshAchievementsSync: " + e.getMessage(), e);
+    public void resetState() {
+        synchronized (serverExistingAchievementIds) {
+            serverExistingAchievementIds.clear();
+            serverCacheLoaded = false;
         }
+        Log.d(TAG, "resetState: кэши AchievementRepository сброшены");
     }
 }

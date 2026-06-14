@@ -291,4 +291,19 @@
     <color name="progress_xp_bg">#D6E2EA</color>
     <color name="progress_xp_fill">#58CC02</color>
 
+    <!-- Game Result screen / Светлая тема -->
+    <color name="game_result_bg">#FFFFFF</color>
+
+    <color name="game_result_card_bg">#FFFFFF</color>
+    <color name="game_result_card_stroke">#DCE6EA</color>
+
+    <color name="game_result_label">#6B7280</color>
+
+    <color name="game_result_success">#58CC02</color>
+    <color name="game_result_orange">#FF9800</color>
+    <color name="game_result_blue">#2196F3</color>
+
+    <color name="game_result_status_bar">#FFFFFF</color>
+    <color name="game_result_navigation_bar">#FFFFFF</color>
+
 </resources>

@@ -50,15 +50,17 @@ public class TeamActivity extends AppCompatActivity {
         setupSpinners();
         setupRecycler();
         setupClicks();
-
-        loadMyTeams();
-        loadFriends();
     }
 
+    /**
+     * ✅ ИСПРАВЛЕНО: обновляем И команды, И друзей при каждом возврате на экран.
+     * Это нужно, чтобы свежедобавленные друзья сразу появлялись в списке выбора.
+     */
     @Override
     protected void onResume() {
         super.onResume();
         loadMyTeams();
+        loadFriends();
     }
 
     private void initViews() {

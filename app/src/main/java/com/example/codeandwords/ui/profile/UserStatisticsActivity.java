@@ -56,8 +56,16 @@ public class UserStatisticsActivity extends AppCompatActivity {
     private final List<ThemeProgressStats> allThemeProgressItems = new ArrayList<>();
     private final List<LessonHistory> allRecentLessonItems = new ArrayList<>();
 
-    private final SimpleDateFormat dayKeyFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-    private final SimpleDateFormat dayLabelFormat = new SimpleDateFormat("dd.MM", Locale.getDefault());
+    private final SimpleDateFormat dayKeyFormat;
+    private final SimpleDateFormat dayLabelFormat;
+
+    {
+        dayKeyFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        dayKeyFormat.setTimeZone(java.util.TimeZone.getDefault());
+
+        dayLabelFormat = new SimpleDateFormat("dd.MM", Locale.getDefault());
+        dayLabelFormat.setTimeZone(java.util.TimeZone.getDefault());
+    }
 
     // Переменные для управления состоянием загрузки
     private int loadedRequests = 0;

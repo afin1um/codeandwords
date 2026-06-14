@@ -13,12 +13,11 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import com.airbnb.lottie.LottieAnimationView;
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
 import com.example.codeandwords.model.Word;
+import com.example.codeandwords.ui.base.BaseBackActivity;
 import com.google.android.material.card.MaterialCardView;
 
 import java.util.ArrayList;
@@ -26,7 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-public class SprintGameActivity extends AppCompatActivity {
+public class SprintGameActivity extends BaseBackActivity {
 
     private static final long GAME_DURATION = 15000;
     private static final int WORDS_LIMIT = 20;
@@ -60,6 +59,9 @@ public class SprintGameActivity extends AppCompatActivity {
     private CountDownTimer timer;
     private List<Word> gameWords = new ArrayList<>();
 
+    private Long themeId;
+    private String themeTitle;
+
     private int currentWordIndex = 0;
     private int score = 0;
     private int correctAnswers = 0;
@@ -87,14 +89,33 @@ public class SprintGameActivity extends AppCompatActivity {
         setContentView(R.layout.activity_sprint_game);
 
         repository = Repository.getInstance(getApplicationContext());
+        themeId = getIntent().getLongExtra("THEME_ID", -1);
+        themeTitle = getIntent().getStringExtra("THEME_TITLE");
+
         initViews();
 
-        long themeId = getIntent().getLongExtra("THEME_ID", -1);
         if (themeId != -1) {
             loadWords(themeId);
         } else {
             finish();
         }
+    }
+
+    @Override
+    public void onBackPressed() {
+        goBackToGameSelection();
+    }
+
+    /**
+     * ✅ Возврат в GameSelectionActivity текущей темы.
+     */
+    private void goBackToGameSelection() {
+        Intent intent = new Intent(this, GameSelectionActivity.class);
+        intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
+        intent.putExtra("THEME_TITLE", themeTitle);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish();
     }
 
     private void initViews() {
@@ -116,6 +137,12 @@ public class SprintGameActivity extends AppCompatActivity {
         cardSprintDictionaryState = findViewById(R.id.cardSprintDictionaryState);
         tvSprintDictionaryIcon = findViewById(R.id.tvSprintDictionaryIcon);
         tvSprintDictionaryText = findViewById(R.id.tvSprintDictionaryText);
+
+        // ✅ Крестик → GameSelectionActivity текущей темы
+        View btnClose = findViewById(R.id.btnUniClose);
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> goBackToGameSelection());
+        }
 
         if (confettiAnimation != null) {
             confettiAnimation.setFailureListener(throwable -> isAnimationLoaded = false);
@@ -175,9 +202,9 @@ public class SprintGameActivity extends AppCompatActivity {
                 progressBarLoading.setVisibility(View.GONE);
                 List<Word> playableWords = preparePlayableWords(data);
 
-                if (playableWords.size() < 5) {
+                if (playableWords.isEmpty()) {
                     Toast.makeText(SprintGameActivity.this,
-                            "Для режима нужно минимум 5 терминов", Toast.LENGTH_LONG).show();
+                            "В теме нет доступных терминов", Toast.LENGTH_LONG).show();
                     finish();
                     return;
                 }
@@ -410,10 +437,10 @@ public class SprintGameActivity extends AppCompatActivity {
             correctAnswers++;
             score += 10;
 
-            // ✅ ПРАВИЛЬНЫЙ ОТВЕТ — начисляем прогресс
+            final Word w = currentWord;
             repository.getCurrentUserId(userId -> {
-                if (userId != null && userId > 0) {
-                    repository.incrementWordProgress(userId, currentWord.getId());
+                if (userId != null && userId > 0 && w != null) {
+                    repository.markSprintPassed(userId, w.getId());
                 }
             });
         } else {
@@ -431,12 +458,18 @@ public class SprintGameActivity extends AppCompatActivity {
         if (userSaidCorrect == isCorrectPair) {
             fixedErrorsCount++;
 
-            // ✅ ИСПРАВЛЕНИЕ ОШИБКИ — вызываем resolveWordMistake
-            repository.resolveWordMistake(currentWord,
-                    new Repository.DataCallback<Void>() {
-                        @Override public void onSuccess(Void data) { }
-                        @Override public void onError(String error) { }
-                    });
+            final Word w = currentWord;
+
+            repository.resolveWordMistake(w, new Repository.DataCallback<Void>() {
+                @Override public void onSuccess(Void data) { }
+                @Override public void onError(String error) { }
+            });
+
+            repository.getCurrentUserId(userId -> {
+                if (userId != null && userId > 0 && w != null) {
+                    repository.markSprintPassed(userId, w.getId());
+                }
+            });
 
             correctionIndex++;
             showCorrectionQuestion();
@@ -464,7 +497,8 @@ public class SprintGameActivity extends AppCompatActivity {
         correctionQuestions.clear();
         correctionQuestions.addAll(mistakeQuestions);
         correctionIndex = 0;
-        Toast.makeText(this, "Переходим к работе над ошибками", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Переходим к работе над ошибками",
+                Toast.LENGTH_LONG).show();
         showCorrectionQuestion();
     }
 
@@ -479,15 +513,23 @@ public class SprintGameActivity extends AppCompatActivity {
         int bonus = isPerfectGame ? WIN_BONUS : 0;
         int totalXp = xpForWords + bonus;
 
-        repository.recordLessonCompletion("SPRINT",
-                getIntent().getLongExtra("THEME_ID", -1),
-                totalXp, initialTotalWords, mistakeQuestions.size(),
-                fixedErrorsCount, true);
+        repository.recordLessonCompletion(
+                "SPRINT",
+                themeId != null ? themeId : -1L,
+                totalXp,
+                initialTotalWords,
+                mistakeQuestions.size(),
+                fixedErrorsCount,
+                true
+        );
 
         Intent intent = new Intent(this, GameResultActivity.class);
         intent.putExtra("SCORE", totalXp);
         intent.putExtra("TOTAL_WORDS", initialTotalWords);
         intent.putExtra("MISTAKES_COUNT", mistakeQuestions.size());
+        // ✅ Передаём тему, чтобы из результата возврат шёл в GameSelection текущей темы
+        intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
+        intent.putExtra("THEME_TITLE", themeTitle);
         startActivity(intent);
         finish();
     }
@@ -516,24 +558,26 @@ public class SprintGameActivity extends AppCompatActivity {
     }
 
     private int getDictionaryCardBackgroundColor() {
-        return isDarkTheme() ? Color.parseColor("#102733") : Color.parseColor("#FFFFFF");
+        return isDarkTheme()
+                ? Color.parseColor("#102733")
+                : Color.parseColor("#FFFFFF");
     }
 
     private int getDictionaryCardTextColor() {
-        return isDarkTheme() ? Color.WHITE : Color.parseColor("#14303C");
+        return isDarkTheme()
+                ? Color.WHITE
+                : Color.parseColor("#14303C");
     }
 
     private int getDictionaryAddedBackgroundColor() {
-        return isDarkTheme() ? Color.parseColor("#09251A") : Color.parseColor("#EAF9DF");
+        return isDarkTheme()
+                ? Color.parseColor("#09251A")
+                : Color.parseColor("#EAF9DF");
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Это важно! Иначе TTS и SoundPool остаются в памяти
-        if (repository != null) {
-            repository.onDestroy();
-        }
         if (timer != null) timer.cancel();
     }
 

@@ -2,7 +2,6 @@ package com.example.codeandwords.ui.game;
 
 import android.animation.ObjectAnimator;
 import android.content.Intent;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
@@ -19,12 +18,12 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.example.codeandwords.R;
 import com.example.codeandwords.data.Repository;
 import com.example.codeandwords.model.Word;
+import com.example.codeandwords.ui.base.BaseBackActivity;
 import com.google.android.material.card.MaterialCardView;
 
 import java.util.ArrayList;
@@ -34,9 +33,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public class MatchingGameActivity extends AppCompatActivity {
+public class MatchingGameActivity extends BaseBackActivity {
 
-    private static final int REQUIRED_PAIRS_COUNT = 5;
+    private static final int MAX_PAIRS_COUNT = 5;
     private static final int POINTS_PER_FIRST_TRY_PAIR = 10;
 
     private static final int COLOR_CARD_DEFAULT = Color.rgb(16, 39, 51);
@@ -61,6 +60,7 @@ public class MatchingGameActivity extends AppCompatActivity {
 
     private Repository repository;
     private Long themeId;
+    private String themeTitle;
 
     private int score = 0;
     private int totalPairs = 0;
@@ -95,12 +95,13 @@ public class MatchingGameActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_matching_game);
 
+        repository = Repository.getInstance(getApplicationContext());
+        themeId = getIntent().getLongExtra("THEME_ID", -1);
+        themeTitle = getIntent().getStringExtra("THEME_TITLE");
+
         initViews();
         initSounds();
         initTTS();
-
-        repository = Repository.getInstance(getApplicationContext());
-        themeId = getIntent().getLongExtra("THEME_ID", -1);
 
         if (themeId != -1) {
             loadGameData();
@@ -108,6 +109,23 @@ public class MatchingGameActivity extends AppCompatActivity {
             Toast.makeText(this, "Тема не выбрана", Toast.LENGTH_SHORT).show();
             finish();
         }
+    }
+
+    @Override
+    public void onBackPressed() {
+        goBackToGameSelection();
+    }
+
+    /**
+     * ✅ Возврат в GameSelectionActivity текущей темы.
+     */
+    private void goBackToGameSelection() {
+        Intent intent = new Intent(this, GameSelectionActivity.class);
+        intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
+        intent.putExtra("THEME_TITLE", themeTitle);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish();
     }
 
     private void initViews() {
@@ -125,7 +143,11 @@ public class MatchingGameActivity extends AppCompatActivity {
         tvMatchingDictionaryIcon = findViewById(R.id.tvMatchingDictionaryIcon);
         tvMatchingDictionaryText = findViewById(R.id.tvMatchingDictionaryText);
 
-        findViewById(R.id.btnClose).setOnClickListener(v -> finish());
+        // ✅ Крестик → GameSelectionActivity текущей темы
+        View btnClose = findViewById(R.id.btnUniClose);
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> goBackToGameSelection());
+        }
 
         cardMatchingDictionaryState.setVisibility(View.GONE);
         cardMatchingDictionaryState.setOnClickListener(v -> {
@@ -194,19 +216,11 @@ public class MatchingGameActivity extends AppCompatActivity {
                     return;
                 }
 
-                if (playableWords.size() < REQUIRED_PAIRS_COUNT) {
-                    Toast.makeText(MatchingGameActivity.this,
-                            "Для режима нужно минимум 5 неизученных терминов. Сейчас: "
-                                    + playableWords.size(),
-                            Toast.LENGTH_LONG).show();
-                    finish();
-                    return;
-                }
-
                 Collections.shuffle(playableWords);
 
+                int pairCount = Math.min(playableWords.size(), MAX_PAIRS_COUNT);
                 currentLevelWords = new ArrayList<>(
-                        playableWords.subList(0, REQUIRED_PAIRS_COUNT));
+                        playableWords.subList(0, pairCount));
 
                 roundWords = new ArrayList<>(currentLevelWords);
 
@@ -512,11 +526,18 @@ public class MatchingGameActivity extends AppCompatActivity {
         if (isCorrectionMode) {
             fixedErrorsCount++;
 
-            // ✅ ИСПРАВЛЕНИЕ ОШИБКИ — вызываем resolveWordMistake
             if (matchedWord != null) {
-                repository.resolveWordMistake(matchedWord, new Repository.DataCallback<Void>() {
+                final Word w = matchedWord;
+
+                repository.resolveWordMistake(w, new Repository.DataCallback<Void>() {
                     @Override public void onSuccess(Void data) { }
                     @Override public void onError(String error) { }
+                });
+
+                repository.getCurrentUserId(userId -> {
+                    if (userId != null && userId > 0) {
+                        repository.markMatchingPassed(userId, w.getId());
+                    }
                 });
             }
         } else {
@@ -524,11 +545,11 @@ public class MatchingGameActivity extends AppCompatActivity {
                 score += POINTS_PER_FIRST_TRY_PAIR;
             }
 
-            // ✅ ПРАВИЛЬНЫЙ ОТВЕТ — начисляем прогресс
             if (matchedWord != null) {
+                final Word w = matchedWord;
                 repository.getCurrentUserId(userId -> {
                     if (userId != null && userId > 0) {
-                        repository.incrementWordProgress(userId, matchedWord.getId());
+                        repository.markMatchingPassed(userId, w.getId());
                     }
                 });
             }
@@ -595,7 +616,6 @@ public class MatchingGameActivity extends AppCompatActivity {
         if (!isCorrectionMode && !mistakenWordsMap.isEmpty()) {
             startCorrectionMode();
         } else {
-            // ✅ Прогресс уже начислен поштучно — просто завершаем
             finishGame();
         }
     }
@@ -637,6 +657,9 @@ public class MatchingGameActivity extends AppCompatActivity {
         intent.putExtra("SCORE", score);
         intent.putExtra("TOTAL_WORDS", initialTotalPairs);
         intent.putExtra("MISTAKES_COUNT", mistakesCount);
+        // ✅ Передаём тему, чтобы GameResultActivity знал, куда возвращать пользователя
+        intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
+        intent.putExtra("THEME_TITLE", themeTitle);
         startActivity(intent);
         finish();
     }
@@ -648,12 +671,7 @@ public class MatchingGameActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Это важно! Иначе TTS и SoundPool остаются в памяти
-        if (repository != null) {
-            repository.onDestroy();
-        }
         if (soundPool != null) soundPool.release();
-
         if (tts != null) { tts.stop(); tts.shutdown(); }
     }
 }

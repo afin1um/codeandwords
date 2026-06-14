@@ -2,7 +2,6 @@ package com.example.codeandwords.model;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
-import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 
 import com.google.gson.annotations.SerializedName;
@@ -47,7 +46,9 @@ public class TeamChallengeProgress {
     @ColumnInfo(name = "awarded_xp")
     public int awardedXp;
 
-    @Ignore
+    // ✅ ИСПРАВЛЕНО: Теперь ник сохраняется в базу данных
+    @SerializedName("username")
+    @ColumnInfo(name = "username")
     public String username;
 
     public TeamChallengeProgress() {

@@ -20,12 +20,12 @@ public class WordProgressRepository {
 
     private static final String TAG = "WordProgressRepository";
 
-    // Слово считается выученным после 3 правильных ответов без ошибок в истории
-    private static final int REQUIRED_CORRECT = 3;
-
     private static final int MISTAKES_LIMIT = 15;
     private static final int LEARNED_TRAINING_LIMIT = 15;
-    private static final int LEARNED_LIST_LIMIT = 80;
+
+    public static final String MODE_SPRINT = "SPRINT";
+    public static final String MODE_MATCHING = "MATCHING";
+    public static final String MODE_WRITING = "WRITING";
 
     private final ApiService apiService;
     private final Handler mainHandler;
@@ -36,8 +36,6 @@ public class WordProgressRepository {
         this.mainHandler = mainHandler;
     }
 
-    // ===== ИНТЕРФЕЙС СЛУШАТЕЛЯ =====
-
     public interface WordProgressListener {
         void loadWordsByIds(List<Long> ids, DataCallback<List<Word>> callback);
         void getWordsByTheme(Long themeId, DataCallback<List<Word>> callback);
@@ -47,34 +45,50 @@ public class WordProgressRepository {
         this.listener = listener;
     }
 
-    // ===== ЕДИНСТВЕННОЕ ОБЪЯВЛЕНИЕ CALLBACK =====
-
     public interface DataCallback<T> {
         void onSuccess(T data);
         void onError(String error);
     }
 
-    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
-
     private int safeInt(Integer v) {
         return v == null ? 0 : v;
     }
 
-    private boolean calculateIsLearned(int correct, int mistakes) {
-        return correct >= REQUIRED_CORRECT && mistakes == 0;
+    /**
+     * ✅ НОВАЯ ЛОГИКА:
+     * слово считается изученным только если пройдены все 3 режима.
+     */
+    private boolean calculateIsLearned(UserWordProgress p) {
+        if (p == null) return false;
+        return Boolean.TRUE.equals(p.getPassedSprint())
+                && Boolean.TRUE.equals(p.getPassedMatching())
+                && Boolean.TRUE.equals(p.getPassedWriting());
     }
 
     // ======================================================================
-    // INCREMENT WORD PROGRESS — вызывается при ПРАВИЛЬНОМ ответе
+    // ✅ НОВЫЙ ПУБЛИЧНЫЙ МЕТОД: пометить, что слово пройдено в одном из 3 режимов
     // ======================================================================
 
-    public void incrementWordProgress(Integer userId, Long wordId) {
-        if (userId == null || wordId == null) return;
+    public void markSprintPassed(Integer userId, Long wordId) {
+        markModePassed(userId, wordId, MODE_SPRINT);
+    }
+
+    public void markMatchingPassed(Integer userId, Long wordId) {
+        markModePassed(userId, wordId, MODE_MATCHING);
+    }
+
+    public void markWritingPassed(Integer userId, Long wordId) {
+        markModePassed(userId, wordId, MODE_WRITING);
+    }
+
+    private void markModePassed(Integer userId, Long wordId, String mode) {
+        if (userId == null || wordId == null || mode == null) return;
 
         apiService.getUserWordProgress(
                         "eq." + userId,
                         "eq." + wordId,
-                        "id,user_id,word_id,correct_answers_count,mistakes_count,is_learned"
+                        "id,user_id,word_id,correct_answers_count,mistakes_count," +
+                                "is_learned,passed_sprint,passed_matching,passed_writing"
                 )
                 .enqueue(new Callback<List<UserWordProgress>>() {
                     @Override
@@ -88,7 +102,17 @@ public class WordProgressRepository {
                             prog.setWordId(wordId);
                             prog.setCorrectAnswersCount(1);
                             prog.setMistakesCount(0);
-                            prog.setIsLearned(false);
+                            applyModeFlag(prog, mode);
+                            prog.setIsLearned(calculateIsLearned(prog));
+
+                            // ✅ Если слово стало изученным — обновляем кэш
+                            if (Boolean.TRUE.equals(prog.getIsLearned())) {
+                                synchronized (learnedIdsCache) {
+                                    learnedIdsCache.add(wordId);
+                                }
+                                Log.d(TAG, "markModePassed: слово " + wordId
+                                        + " добавлено в кэш выученных");
+                            }
 
                             apiService.createWordProgress(prog).enqueue(noOpCallback());
                             return;
@@ -97,12 +121,81 @@ public class WordProgressRepository {
                         UserWordProgress existing = response.body().get(0);
 
                         int oldCorrect = safeInt(existing.getCorrectAnswersCount());
-                        int oldMistakes = safeInt(existing.getMistakesCount());
+                        existing.setCorrectAnswersCount(oldCorrect + 1);
 
-                        int newCorrect = oldCorrect + 1;
-                        existing.setCorrectAnswersCount(newCorrect);
+                        applyModeFlag(existing, mode);
+                        existing.setIsLearned(calculateIsLearned(existing));
 
-                        existing.setIsLearned(calculateIsLearned(newCorrect, oldMistakes));
+                        // ✅ Если слово стало изученным — обновляем кэш
+                        if (Boolean.TRUE.equals(existing.getIsLearned())) {
+                            synchronized (learnedIdsCache) {
+                                learnedIdsCache.add(wordId);
+                            }
+                            Log.d(TAG, "markModePassed: слово " + wordId
+                                    + " добавлено в кэш выученных");
+                        }
+
+                        apiService.updateWordProgress("eq." + existing.getId(), existing)
+                                .enqueue(noOpVoidCallback());
+                    }
+
+                    @Override
+                    public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
+                        Log.e(TAG, "markModePassed failure: " + t.getMessage());
+                    }
+                });
+    }
+
+    private void applyModeFlag(UserWordProgress p, String mode) {
+        switch (mode) {
+            case MODE_SPRINT:
+                p.setPassedSprint(true);
+                break;
+            case MODE_MATCHING:
+                p.setPassedMatching(true);
+                break;
+            case MODE_WRITING:
+                p.setPassedWriting(true);
+                break;
+        }
+    }
+
+    // ======================================================================
+    // СТАРЫЙ incrementWordProgress — оставлен для обратной совместимости
+    // (НЕ ставит флагов режимов, просто увеличивает correct_answers_count)
+    // ======================================================================
+
+    public void incrementWordProgress(Integer userId, Long wordId) {
+        if (userId == null || wordId == null) return;
+
+        apiService.getUserWordProgress(
+                        "eq." + userId,
+                        "eq." + wordId,
+                        "id,user_id,word_id,correct_answers_count,mistakes_count," +
+                                "is_learned,passed_sprint,passed_matching,passed_writing"
+                )
+                .enqueue(new Callback<List<UserWordProgress>>() {
+                    @Override
+                    public void onResponse(Call<List<UserWordProgress>> call,
+                                           Response<List<UserWordProgress>> response) {
+                        if (!response.isSuccessful() || response.body() == null) return;
+
+                        if (response.body().isEmpty()) {
+                            UserWordProgress prog = new UserWordProgress();
+                            prog.setUserId(userId.longValue());
+                            prog.setWordId(wordId);
+                            prog.setCorrectAnswersCount(1);
+                            prog.setMistakesCount(0);
+                            prog.setIsLearned(calculateIsLearned(prog));
+
+                            apiService.createWordProgress(prog).enqueue(noOpCallback());
+                            return;
+                        }
+
+                        UserWordProgress existing = response.body().get(0);
+                        int oldCorrect = safeInt(existing.getCorrectAnswersCount());
+                        existing.setCorrectAnswersCount(oldCorrect + 1);
+                        existing.setIsLearned(calculateIsLearned(existing));
 
                         apiService.updateWordProgress("eq." + existing.getId(), existing)
                                 .enqueue(noOpVoidCallback());
@@ -116,7 +209,7 @@ public class WordProgressRepository {
     }
 
     // ======================================================================
-    // RECORD WORD MISTAKE — вызывается при ОШИБКЕ
+    // RECORD WORD MISTAKE — фиксируем ошибку
     // ======================================================================
 
     public void recordWordMistake(Word word, Integer userId) {
@@ -125,7 +218,8 @@ public class WordProgressRepository {
         apiService.getUserWordProgress(
                         "eq." + userId,
                         "eq." + word.getId(),
-                        "id,user_id,word_id,correct_answers_count,mistakes_count,is_learned"
+                        "id,user_id,word_id,correct_answers_count,mistakes_count," +
+                                "is_learned,passed_sprint,passed_matching,passed_writing"
                 )
                 .enqueue(new Callback<List<UserWordProgress>>() {
                     @Override
@@ -139,21 +233,16 @@ public class WordProgressRepository {
                             prog.setWordId(word.getId());
                             prog.setCorrectAnswersCount(0);
                             prog.setMistakesCount(1);
-                            prog.setIsLearned(false);
+                            prog.setIsLearned(calculateIsLearned(prog));
 
                             apiService.createWordProgress(prog).enqueue(noOpCallback());
                             return;
                         }
 
                         UserWordProgress existing = response.body().get(0);
-
-                        int oldCorrect = safeInt(existing.getCorrectAnswersCount());
                         int oldMistakes = safeInt(existing.getMistakesCount());
-
-                        int newMistakes = oldMistakes + 1;
-                        existing.setMistakesCount(newMistakes);
-
-                        existing.setIsLearned(calculateIsLearned(oldCorrect, newMistakes));
+                        existing.setMistakesCount(oldMistakes + 1);
+                        existing.setIsLearned(calculateIsLearned(existing));
 
                         apiService.updateWordProgress("eq." + existing.getId(), existing)
                                 .enqueue(noOpVoidCallback());
@@ -167,7 +256,9 @@ public class WordProgressRepository {
     }
 
     // ======================================================================
-    // RESOLVE WORD MISTAKE — вызывается при ИСПРАВЛЕНИИ ошибки
+    // RESOLVE WORD MISTAKE — пользователь исправил ошибку
+    // ✅ Уменьшаем mistakes_count, и больше ничего.
+    // Флаг режима выставит вызывающий код (Sprint/Matching/Write Activity)
     // ======================================================================
 
     public void resolveWordMistake(Word word, Integer userId, DataCallback<Void> callback) {
@@ -179,7 +270,8 @@ public class WordProgressRepository {
         apiService.getUserWordProgress(
                         "eq." + userId,
                         "eq." + word.getId(),
-                        "id,user_id,word_id,correct_answers_count,mistakes_count,is_learned"
+                        "id,user_id,word_id,correct_answers_count,mistakes_count," +
+                                "is_learned,passed_sprint,passed_matching,passed_writing"
                 )
                 .enqueue(new Callback<List<UserWordProgress>>() {
                     @Override
@@ -193,47 +285,47 @@ public class WordProgressRepository {
                             newProg.setWordId(word.getId());
                             newProg.setCorrectAnswersCount(1);
                             newProg.setMistakesCount(0);
-                            newProg.setIsLearned(false);
+                            newProg.setIsLearned(calculateIsLearned(newProg));
 
                             apiService.createWordProgress(newProg)
                                     .enqueue(new Callback<List<UserWordProgress>>() {
                                         @Override
                                         public void onResponse(Call<List<UserWordProgress>> c,
                                                                Response<List<UserWordProgress>> r) {
-                                            if (callback != null) mainHandler.post(() -> callback.onSuccess(null));
+                                            if (callback != null)
+                                                mainHandler.post(() -> callback.onSuccess(null));
                                         }
 
                                         @Override
-                                        public void onFailure(Call<List<UserWordProgress>> c, Throwable t) {
-                                            if (callback != null) mainHandler.post(() -> callback.onError(t.getMessage()));
+                                        public void onFailure(Call<List<UserWordProgress>> c,
+                                                              Throwable t) {
+                                            if (callback != null)
+                                                mainHandler.post(() -> callback.onError(t.getMessage()));
                                         }
                                     });
                             return;
                         }
 
                         UserWordProgress existing = response.body().get(0);
-
                         int oldCorrect = safeInt(existing.getCorrectAnswersCount());
                         int oldMistakes = safeInt(existing.getMistakesCount());
 
-                        int newMistakes = Math.max(0, oldMistakes - 1);
-                        int newCorrect = oldCorrect + 1;
-
-                        existing.setMistakesCount(newMistakes);
-                        existing.setCorrectAnswersCount(newCorrect);
-
-                        existing.setIsLearned(calculateIsLearned(newCorrect, newMistakes));
+                        existing.setMistakesCount(Math.max(0, oldMistakes - 1));
+                        existing.setCorrectAnswersCount(oldCorrect + 1);
+                        existing.setIsLearned(calculateIsLearned(existing));
 
                         apiService.updateWordProgress("eq." + existing.getId(), existing)
                                 .enqueue(new Callback<Void>() {
                                     @Override
                                     public void onResponse(Call<Void> c, Response<Void> r) {
-                                        if (callback != null) mainHandler.post(() -> callback.onSuccess(null));
+                                        if (callback != null)
+                                            mainHandler.post(() -> callback.onSuccess(null));
                                     }
 
                                     @Override
                                     public void onFailure(Call<Void> c, Throwable t) {
-                                        if (callback != null) mainHandler.post(() -> callback.onError(t.getMessage()));
+                                        if (callback != null)
+                                            mainHandler.post(() -> callback.onError(t.getMessage()));
                                     }
                                 });
                     }
@@ -241,13 +333,14 @@ public class WordProgressRepository {
                     @Override
                     public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
                         Log.e(TAG, "resolveWordMistake failure: " + t.getMessage());
-                        if (callback != null) mainHandler.post(() -> callback.onError(t.getMessage()));
+                        if (callback != null)
+                            mainHandler.post(() -> callback.onError(t.getMessage()));
                     }
                 });
     }
 
     // ======================================================================
-    // UPSERT WORD PROGRESS — Обобщенный метод (требуется для компиляции Repository)
+    // UPSERT WORD PROGRESS — обобщённый старый метод
     // ======================================================================
 
     public void upsertWordProgress(Long userId,
@@ -263,7 +356,8 @@ public class WordProgressRepository {
         apiService.getUserWordProgress(
                         "eq." + userId,
                         "eq." + wordId,
-                        "id,user_id,word_id,correct_answers_count,mistakes_count,is_learned"
+                        "id,user_id,word_id,correct_answers_count,mistakes_count," +
+                                "is_learned,passed_sprint,passed_matching,passed_writing"
                 )
                 .enqueue(new Callback<List<UserWordProgress>>() {
                     @Override
@@ -282,13 +376,13 @@ public class WordProgressRepository {
 
                             existing.setCorrectAnswersCount(newCorrect);
                             existing.setMistakesCount(newMistakes);
-
-                            existing.setIsLearned(calculateIsLearned(newCorrect, newMistakes));
+                            existing.setIsLearned(calculateIsLearned(existing));
 
                             apiService.updateWordProgress("eq." + existing.getId(), existing)
                                     .enqueue(new Callback<Void>() {
                                         @Override
-                                        public void onResponse(Call<Void> call, Response<Void> response) {
+                                        public void onResponse(Call<Void> call,
+                                                               Response<Void> response) {
                                             if (callback != null) callback.onSuccess(null);
                                         }
 
@@ -305,7 +399,7 @@ public class WordProgressRepository {
                         progress.setWordId(wordId);
                         progress.setCorrectAnswersCount(markLearned ? 1 : 0);
                         progress.setMistakesCount(addMistake ? 1 : 0);
-                        progress.setIsLearned(calculateIsLearned(markLearned ? 1 : 0, addMistake ? 1 : 0));
+                        progress.setIsLearned(calculateIsLearned(progress));
 
                         apiService.createWordProgress(progress)
                                 .enqueue(new Callback<List<UserWordProgress>>() {
@@ -316,7 +410,8 @@ public class WordProgressRepository {
                                     }
 
                                     @Override
-                                    public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
+                                    public void onFailure(Call<List<UserWordProgress>> call,
+                                                          Throwable t) {
                                         if (callback != null) callback.onError(t.getMessage());
                                     }
                                 });
@@ -330,7 +425,7 @@ public class WordProgressRepository {
     }
 
     // ======================================================================
-    // ЗАГРУЗКА ОБУЧЕННЫХ СЛОВ (для экрана «Выученные слова»)
+    // ВЫУЧЕННЫЕ СЛОВА
     // ======================================================================
 
     public void getLearnedWords(Integer userId, DataCallback<List<Word>> callback) {
@@ -339,51 +434,47 @@ public class WordProgressRepository {
             return;
         }
 
-        apiService.getUserProgressByUser(
-                        "eq." + userId,
-                        "word_id,is_learned",
-                        "id.desc",
-                        LEARNED_LIST_LIMIT
-                )
-                .enqueue(new Callback<List<UserWordProgress>>() {
-                    @Override
-                    public void onResponse(Call<List<UserWordProgress>> call,
-                                           Response<List<UserWordProgress>> response) {
-                        if (!response.isSuccessful() || response.body() == null) {
-                            mainHandler.post(() -> callback.onError("Не удалось загрузить слова"));
-                            return;
-                        }
+        apiService.getLearnedProgress(
+                "eq." + userId,
+                "eq.true",
+                "word_id,is_learned",
+                "id.desc",
+                1000
+        ).enqueue(new Callback<List<UserWordProgress>>() {
+            @Override
+            public void onResponse(Call<List<UserWordProgress>> call,
+                                   Response<List<UserWordProgress>> response) {
+                if (!response.isSuccessful() || response.body() == null) {
+                    mainHandler.post(() -> callback.onError("Не удалось загрузить выученные слова"));
+                    return;
+                }
 
-                        List<Long> ids = new ArrayList<>();
-                        for (UserWordProgress p : response.body()) {
-                            if (p != null && p.getWordId() != null
-                                    && Boolean.TRUE.equals(p.getIsLearned())) {
-                                ids.add(p.getWordId());
-                            }
-                        }
-
-                        if (ids.isEmpty()) {
-                            mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
-                            return;
-                        }
-
-                        if (listener != null) {
-                            listener.loadWordsByIds(ids, callback);
-                        } else {
-                            mainHandler.post(() -> callback.onError("Listener не установлен"));
-                        }
+                List<Long> ids = new ArrayList<>();
+                for (UserWordProgress p : response.body()) {
+                    if (p != null && p.getWordId() != null
+                            && Boolean.TRUE.equals(p.getIsLearned())) {
+                        ids.add(p.getWordId());
                     }
+                }
 
-                    @Override
-                    public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
-                        mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
-                    }
-                });
+                if (ids.isEmpty()) {
+                    mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
+                    return;
+                }
+
+                if (listener != null) {
+                    listener.loadWordsByIds(ids, callback);
+                } else {
+                    mainHandler.post(() -> callback.onError("listener не установлен"));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
+                mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
+            }
+        });
     }
-
-    // ======================================================================
-    // ЗАГРУЗКА ДЛЯ ТРЕНИРОВКИ ВЫУЧЕННЫХ СЛОВ
-    // ======================================================================
 
     public void getLearnedWordsForTraining(Integer userId, DataCallback<List<Word>> callback) {
         if (userId == null) {
@@ -391,50 +482,50 @@ public class WordProgressRepository {
             return;
         }
 
-        apiService.getUserProgressByUser(
-                        "eq." + userId,
-                        "word_id,is_learned",
-                        "id.desc",
-                        LEARNED_TRAINING_LIMIT
-                )
-                .enqueue(new Callback<List<UserWordProgress>>() {
-                    @Override
-                    public void onResponse(Call<List<UserWordProgress>> call,
-                                           Response<List<UserWordProgress>> response) {
-                        if (!response.isSuccessful() || response.body() == null) {
-                            mainHandler.post(() -> callback.onError("Не удалось загрузить прогресс слов"));
-                            return;
-                        }
+        apiService.getLearnedProgress(
+                "eq." + userId,
+                "eq.true",
+                "word_id,is_learned",
+                "id.desc",
+                LEARNED_TRAINING_LIMIT
+        ).enqueue(new Callback<List<UserWordProgress>>() {
+            @Override
+            public void onResponse(Call<List<UserWordProgress>> call,
+                                   Response<List<UserWordProgress>> response) {
+                if (!response.isSuccessful() || response.body() == null) {
+                    mainHandler.post(() -> callback.onError("Не удалось загрузить прогресс слов"));
+                    return;
+                }
 
-                        List<Long> ids = new ArrayList<>();
-                        for (UserWordProgress p : response.body()) {
-                            if (p != null && p.getWordId() != null
-                                    && Boolean.TRUE.equals(p.getIsLearned())) {
-                                ids.add(p.getWordId());
-                            }
-                        }
-
-                        if (ids.isEmpty()) {
-                            mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
-                            return;
-                        }
-
-                        if (listener != null) {
-                            listener.loadWordsByIds(ids, callback);
-                        } else {
-                            mainHandler.post(() -> callback.onError("Listener не установлен"));
-                        }
+                List<Long> ids = new ArrayList<>();
+                for (UserWordProgress p : response.body()) {
+                    if (p != null && p.getWordId() != null
+                            && Boolean.TRUE.equals(p.getIsLearned())) {
+                        ids.add(p.getWordId());
                     }
+                }
 
-                    @Override
-                    public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
-                        mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
-                    }
-                });
+                if (ids.isEmpty()) {
+                    mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
+                    return;
+                }
+
+                if (listener != null) {
+                    listener.loadWordsByIds(ids, callback);
+                } else {
+                    mainHandler.post(() -> callback.onError("listener не установлен"));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
+                mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
+            }
+        });
     }
 
     // ======================================================================
-    // ЗАГРУЗКА СЛОВ С ОШИБКАМИ
+    // СЛОВА С ОШИБКАМИ (с retry при таймауте)
     // ======================================================================
 
     public void getMistakeWordsForTraining(Integer userId, DataCallback<List<Word>> callback) {
@@ -442,52 +533,70 @@ public class WordProgressRepository {
             mainHandler.post(() -> callback.onError("Пользователь не авторизован"));
             return;
         }
+        getMistakeWordsWithRetry(userId, callback, 2);
+    }
 
-        apiService.getUserProgressByUser(
-                        "eq." + userId,
-                        "word_id,mistakes_count",
-                        "mistakes_count.desc",
-                        MISTAKES_LIMIT
-                )
-                .enqueue(new Callback<List<UserWordProgress>>() {
-                    @Override
-                    public void onResponse(Call<List<UserWordProgress>> call,
-                                           Response<List<UserWordProgress>> response) {
-                        if (!response.isSuccessful() || response.body() == null) {
-                            mainHandler.post(() -> callback.onError("Не удалось загрузить ошибки"));
-                            return;
-                        }
+    private void getMistakeWordsWithRetry(Integer userId,
+                                          DataCallback<List<Word>> callback,
+                                          int attemptsLeft) {
+        apiService.getMistakeProgress(
+                "eq." + userId,
+                "gt.0",
+                "word_id,mistakes_count",
+                "mistakes_count.desc",
+                MISTAKES_LIMIT
+        ).enqueue(new Callback<List<UserWordProgress>>() {
+            @Override
+            public void onResponse(Call<List<UserWordProgress>> call,
+                                   Response<List<UserWordProgress>> response) {
+                if (!response.isSuccessful() || response.body() == null) {
+                    mainHandler.post(() -> callback.onError(
+                            "Не удалось загрузить ошибки (код: " + response.code() + ")"));
+                    return;
+                }
 
-                        List<Long> ids = new ArrayList<>();
-                        for (UserWordProgress p : response.body()) {
-                            if (p != null && p.getWordId() != null
-                                    && safeInt(p.getMistakesCount()) > 0) {
-                                ids.add(p.getWordId());
-                            }
-                        }
-
-                        if (ids.isEmpty()) {
-                            mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
-                            return;
-                        }
-
-                        if (listener != null) {
-                            listener.loadWordsByIds(ids, callback);
-                        } else {
-                            mainHandler.post(() -> callback.onError("Listener не установлен"));
-                        }
+                List<Long> ids = new ArrayList<>();
+                for (UserWordProgress p : response.body()) {
+                    if (p != null && p.getWordId() != null
+                            && safeInt(p.getMistakesCount()) > 0) {
+                        ids.add(p.getWordId());
                     }
+                }
 
-                    @Override
-                    public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
-                        mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
-                    }
-                });
+                if (ids.isEmpty()) {
+                    mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
+                    return;
+                }
+
+                if (listener != null) {
+                    listener.loadWordsByIds(ids, callback);
+                } else {
+                    mainHandler.post(() -> callback.onError("listener не установлен"));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
+                if (attemptsLeft > 0) {
+                    mainHandler.postDelayed(() ->
+                                    getMistakeWordsWithRetry(userId, callback, attemptsLeft - 1),
+                            1500);
+                } else {
+                    mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
+                }
+            }
+        });
     }
 
     // ======================================================================
-    // ОСТАЛЬНЫЕ МЕТОДЫ СИНХРОНИЗАЦИИ И РАСЧЕТОВ
+    // ОСТАЛЬНЫЕ МЕТОДЫ
     // ======================================================================
+
+    // ✅ КЭШ выученных ID слов в памяти (живёт пока приложение запущено)
+    private final Set<Long> learnedIdsCache = new HashSet<>();
+    private volatile boolean learnedIdsCacheLoaded = false;
+    private volatile long learnedIdsCacheTimestamp = 0;
+    private static final long CACHE_TTL_MS = 60_000; // кэш живёт 60 секунд
 
     public void getUnlearnedWordsByTheme(Long themeId,
                                          Integer userId,
@@ -501,39 +610,33 @@ public class WordProgressRepository {
             return;
         }
 
+        // ✅ ШАГ 1: грузим слова темы из Room (быстро)
         listener.getWordsByTheme(themeId, new DataCallback<List<Word>>() {
             @Override
             public void onSuccess(List<Word> words) {
-                apiService.getUserProgressByUser(
-                                "eq." + userId,
-                                "word_id,is_learned",
-                                "id.asc",
-                                1000
-                        )
-                        .enqueue(new Callback<List<UserWordProgress>>() {
-                            @Override
-                            public void onResponse(Call<List<UserWordProgress>> call,
-                                                   Response<List<UserWordProgress>> response) {
-                                Set<Long> learnedSet = new HashSet<>();
-                                if (response.isSuccessful() && response.body() != null) {
-                                    for (UserWordProgress p : response.body()) {
-                                        if (p != null && p.getWordId() != null
-                                                && Boolean.TRUE.equals(p.getIsLearned())) {
-                                            learnedSet.add(p.getWordId());
-                                        }
-                                    }
-                                }
+                // ✅ ШАГ 2: если кэш свежий — используем его моментально
+                long age = System.currentTimeMillis() - learnedIdsCacheTimestamp;
+                if (learnedIdsCacheLoaded && age < CACHE_TTL_MS) {
+                    Log.d(TAG, "getUnlearnedWordsByTheme: используем кэш ("
+                            + learnedIdsCache.size() + " выученных)");
+                    Set<Long> cacheCopy;
+                    synchronized (learnedIdsCache) {
+                        cacheCopy = new HashSet<>(learnedIdsCache);
+                    }
+                    List<Word> result = buildUnlearnedList(words, cacheCopy);
+                    mainHandler.post(() -> callback.onSuccess(result));
 
-                                List<Word> result = buildUnlearnedList(words, learnedSet);
-                                mainHandler.post(() -> callback.onSuccess(result));
-                            }
+                    // Фоновое обновление кэша (на случай если что-то изменилось)
+                    refreshLearnedIdsCache(userId, null);
+                    return;
+                }
 
-                            @Override
-                            public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
-                                List<Word> fallback = buildUnlearnedList(words, new HashSet<>());
-                                mainHandler.post(() -> callback.onSuccess(fallback));
-                            }
-                        });
+                // ✅ ШАГ 3: кэша нет/устарел — грузим с сервера
+                refreshLearnedIdsCache(userId, freshIds -> {
+                    Set<Long> idsToUse = freshIds != null ? freshIds : new HashSet<>();
+                    List<Word> result = buildUnlearnedList(words, idsToUse);
+                    mainHandler.post(() -> callback.onSuccess(result));
+                });
             }
 
             @Override
@@ -541,6 +644,87 @@ public class WordProgressRepository {
                 callback.onError(error);
             }
         });
+    }
+
+    /**
+     * Фоновое обновление кэша выученных ID.
+     * Если callback != null — вызывается с результатом.
+     */
+    private void refreshLearnedIdsCache(Integer userId,
+                                        OnLearnedIdsLoaded callback) {
+        apiService.getLearnedProgress(
+                "eq." + userId,
+                "eq.true",
+                "word_id,is_learned",
+                "id.asc",
+                1000
+        ).enqueue(new Callback<List<UserWordProgress>>() {
+            @Override
+            public void onResponse(Call<List<UserWordProgress>> call,
+                                   Response<List<UserWordProgress>> response) {
+                Set<Long> ids = new HashSet<>();
+                if (response.isSuccessful() && response.body() != null) {
+                    for (UserWordProgress p : response.body()) {
+                        if (p != null && p.getWordId() != null
+                                && Boolean.TRUE.equals(p.getIsLearned())) {
+                            ids.add(p.getWordId());
+                        }
+                    }
+                }
+
+                // Обновляем кэш
+                synchronized (learnedIdsCache) {
+                    learnedIdsCache.clear();
+                    learnedIdsCache.addAll(ids);
+                    learnedIdsCacheLoaded = true;
+                    learnedIdsCacheTimestamp = System.currentTimeMillis();
+                }
+
+                Log.d(TAG, "refreshLearnedIdsCache: загружено " + ids.size() + " ID");
+
+                if (callback != null) {
+                    callback.onLoaded(ids);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
+                Log.e(TAG, "refreshLearnedIdsCache failure: " + t.getMessage());
+                if (callback != null) {
+                    // При ошибке — возвращаем что есть в кэше
+                    Set<Long> cacheCopy;
+                    synchronized (learnedIdsCache) {
+                        cacheCopy = new HashSet<>(learnedIdsCache);
+                    }
+                    callback.onLoaded(cacheCopy);
+                }
+            }
+        });
+    }
+
+    private interface OnLearnedIdsLoaded {
+        void onLoaded(Set<Long> ids);
+    }
+
+    /**
+     * ✅ ПУБЛИЧНЫЙ МЕТОД: прогрев кэша при старте приложения.
+     * Вызовите из MainActivity, чтобы первый вход в игру был мгновенным.
+     */
+    public void warmupLearnedIdsCache(Integer userId) {
+        if (userId == null || userId <= 0) return;
+        Log.d(TAG, "warmupLearnedIdsCache: прогреваем кэш для userId=" + userId);
+        refreshLearnedIdsCache(userId, null);
+    }
+
+    /**
+     * ✅ Очистка кэша при logout
+     */
+    public void clearLearnedIdsCache() {
+        synchronized (learnedIdsCache) {
+            learnedIdsCache.clear();
+            learnedIdsCacheLoaded = false;
+            learnedIdsCacheTimestamp = 0;
+        }
     }
 
     private List<Word> buildUnlearnedList(List<Word> words, Set<Long> learnedIds) {
@@ -591,40 +775,38 @@ public class WordProgressRepository {
             return;
         }
 
-        apiService.getUserProgressByUser(
-                        "eq." + userId,
-                        "word_id,is_learned",
-                        "id.asc",
-                        1000
-                )
-                .enqueue(new Callback<List<UserWordProgress>>() {
-                    @Override
-                    public void onResponse(Call<List<UserWordProgress>> call,
-                                           Response<List<UserWordProgress>> response) {
-                        if (!response.isSuccessful() || response.body() == null) {
-                            mainHandler.post(() -> callback.onError("Не удалось загрузить прогресс"));
-                            return;
-                        }
+        apiService.getLearnedProgress(
+                "eq." + userId,
+                "eq.true",
+                "word_id,is_learned",
+                "id.asc",
+                1000
+        ).enqueue(new Callback<List<UserWordProgress>>() {
+            @Override
+            public void onResponse(Call<List<UserWordProgress>> call,
+                                   Response<List<UserWordProgress>> response) {
+                if (!response.isSuccessful() || response.body() == null) {
+                    mainHandler.post(() -> callback.onError("Не удалось загрузить прогресс"));
+                    return;
+                }
 
-                        int count = 0;
-                        for (UserWordProgress p : response.body()) {
-                            if (p != null && Boolean.TRUE.equals(p.getIsLearned())) {
-                                count++;
-                            }
-                        }
-
-                        int finalCount = count;
-                        mainHandler.post(() -> callback.onSuccess(finalCount));
+                int count = 0;
+                for (UserWordProgress p : response.body()) {
+                    if (p != null && Boolean.TRUE.equals(p.getIsLearned())) {
+                        count++;
                     }
+                }
 
-                    @Override
-                    public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
-                        mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
-                    }
-                });
+                int finalCount = count;
+                mainHandler.post(() -> callback.onSuccess(finalCount));
+            }
+
+            @Override
+            public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
+                mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
+            }
+        });
     }
-
-    // ===== УТИЛИТАРНЫЕ CALLBACK'И =====
 
     private Callback<List<UserWordProgress>> noOpCallback() {
         return new Callback<List<UserWordProgress>>() {

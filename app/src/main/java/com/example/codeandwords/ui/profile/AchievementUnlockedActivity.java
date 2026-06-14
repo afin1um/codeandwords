@@ -101,7 +101,8 @@ public class AchievementUnlockedActivity extends AppCompatActivity {
     }
 
     private void setupClicks() {
-        btnContinue.setOnClickListener(v -> finish());
+        // ✅ Кнопка "Продолжить" возвращает в AchievementsActivity
+        btnContinue.setOnClickListener(v -> goToAchievements());
 
         btnDetails.setOnClickListener(v -> {
             Intent intent = new Intent(this, AchievementDetailActivity.class);
@@ -118,8 +119,17 @@ public class AchievementUnlockedActivity extends AppCompatActivity {
         });
     }
 
+    // ✅ Перехват системной кнопки "назад"
     @Override
     public void onBackPressed() {
+        goToAchievements();
+    }
+
+    // ✅ Метод явного возврата
+    private void goToAchievements() {
+        Intent intent = new Intent(this, AchievementsActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
         finish();
     }
 }

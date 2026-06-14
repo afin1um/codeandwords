@@ -290,4 +290,19 @@
     <!-- ========== PROGRESS XP (Тёмная тема) ========== -->
     <color name="progress_xp_bg">#17313D</color>
     <color name="progress_xp_fill">#58CC02</color>
+
+    <!-- Game Result screen / Тёмная тема -->
+    <color name="game_result_bg">#071F26</color>
+
+    <color name="game_result_card_bg">#0D2630</color>
+    <color name="game_result_card_stroke">#38515B</color>
+
+    <color name="game_result_label">#B7C0C5</color>
+
+    <color name="game_result_success">#58CC02</color>
+    <color name="game_result_orange">#FFB020</color>
+    <color name="game_result_blue">#42A5F5</color>
+
+    <color name="game_result_status_bar">#071F26</color>
+    <color name="game_result_navigation_bar">#071F26</color>
 </resources>

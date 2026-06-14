@@ -57,7 +57,7 @@ public class AchievementsFragment extends Fragment {
         initViews(view);
         setupRecycler();
 
-        repository = new Repository(requireContext());
+        repository = Repository.getInstance(requireContext());
         loadAchievements();
 
         return view;
@@ -70,6 +70,16 @@ public class AchievementsFragment extends Fragment {
         tvTotalCount = view.findViewById(R.id.tvTotalCount);
         tvSummaryText = view.findViewById(R.id.tvSummaryText);
         progressAchievementsSummary = view.findViewById(R.id.progressAchievementsSummary);
+
+        // ✅ Обработчик для крестика: закрывает активити, в которой открыт этот фрагмент
+        View btnClose = view.findViewById(R.id.btnCloseAchievements);
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> {
+                if (getActivity() != null) {
+                    getActivity().finish();
+                }
+            });
+        }
     }
 
     private void setupRecycler() {

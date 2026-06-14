@@ -11,7 +11,9 @@ import com.example.codeandwords.model.Theme;
 import com.example.codeandwords.model.User;
 import com.example.codeandwords.model.UserWord;
 import com.example.codeandwords.model.Word;
+import com.google.gson.JsonObject;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,8 @@ import retrofit2.Response;
 
 public class PersonalDictionaryRepository {
 
+    private static final String TAG = "PersonalDictRepo";
+
     private final UserWordDao userWordDao;
     private final WordDao wordDao;
     private final ThemeDao themeDao;
@@ -30,9 +34,12 @@ public class PersonalDictionaryRepository {
     private final ExecutorService executor;
     private final Handler mainHandler;
 
-    public PersonalDictionaryRepository(UserWordDao userWordDao, WordDao wordDao,
-                                        ThemeDao themeDao, ApiService apiService,
-                                        ExecutorService executor, Handler mainHandler) {
+    public PersonalDictionaryRepository(UserWordDao userWordDao,
+                                        WordDao wordDao,
+                                        ThemeDao themeDao,
+                                        ApiService apiService,
+                                        ExecutorService executor,
+                                        Handler mainHandler) {
         this.userWordDao = userWordDao;
         this.wordDao = wordDao;
         this.themeDao = themeDao;
@@ -65,38 +72,160 @@ public class PersonalDictionaryRepository {
 
         try {
             Word sourceWord = null;
+
             if (!safeTranslation.isEmpty()) {
                 sourceWord = wordDao.getWordByTermAndTranslation(safeTerm, safeTranslation);
             }
+
             if (sourceWord == null) {
                 sourceWord = wordDao.getWordByTerm(safeTerm);
             }
-            if (sourceWord == null || sourceWord.getThemeId() == null) return null;
+
+            if (sourceWord == null || sourceWord.getThemeId() == null) {
+                return null;
+            }
 
             return themeDao.getThemeById(sourceWord.getThemeId());
+
         } catch (Exception e) {
-            Log.e("PersonalDictRepo", "Ошибка автопривязки темы: " + e.getMessage(), e);
+            Log.e(TAG, "Ошибка автопривязки темы: " + e.getMessage(), e);
             return null;
         }
     }
 
     private String getErrorBody(Response<?> response) {
         try {
-            if (response.errorBody() != null) return response.errorBody().string();
+            if (response.errorBody() != null) {
+                return response.errorBody().string();
+            }
         } catch (Exception e) {
-            Log.e("PersonalDictRepo", "Ошибка чтения errorBody: " + e.getMessage(), e);
+            Log.e(TAG, "Ошибка чтения errorBody: " + e.getMessage(), e);
         }
         return "Неизвестная ошибка";
     }
 
-    public void addUserWord(String word, String translation, String transcription,
-                            String notes, User currentUser, DataCallback<Void> callback) {
-        addUserWord(null, null, word, translation, transcription, notes, currentUser, callback);
+    private UserWord parseUserWordFromJson(JsonObject json, Integer fallbackUserId) {
+        UserWord word = new UserWord();
+
+        if (json == null) return word;
+
+        if (json.has("id") && !json.get("id").isJsonNull()) {
+            word.setServerId(json.get("id").getAsLong());
+        }
+
+        if (json.has("user_id") && !json.get("user_id").isJsonNull()) {
+            word.setUserId(json.get("user_id").getAsInt());
+        } else {
+            word.setUserId(fallbackUserId);
+        }
+
+        if (json.has("themeid") && !json.get("themeid").isJsonNull()) {
+            word.setThemeId(json.get("themeid").getAsLong());
+        } else if (json.has("theme_id") && !json.get("theme_id").isJsonNull()) {
+            word.setThemeId(json.get("theme_id").getAsLong());
+        }
+
+        if (json.has("themetitle") && !json.get("themetitle").isJsonNull()) {
+            word.setThemeTitle(json.get("themetitle").getAsString());
+        } else if (json.has("theme_title") && !json.get("theme_title").isJsonNull()) {
+            word.setThemeTitle(json.get("theme_title").getAsString());
+        } else {
+            word.setThemeTitle("Без темы");
+        }
+
+        if (json.has("word") && !json.get("word").isJsonNull()) {
+            word.setWord(json.get("word").getAsString());
+        }
+
+        if (json.has("translation") && !json.get("translation").isJsonNull()) {
+            word.setTranslation(json.get("translation").getAsString());
+        }
+
+        if (json.has("transcription") && !json.get("transcription").isJsonNull()) {
+            word.setTranscription(json.get("transcription").getAsString());
+        }
+
+        if (json.has("notes") && !json.get("notes").isJsonNull()) {
+            word.setNotes(json.get("notes").getAsString());
+        }
+
+        word.setDateAdded(System.currentTimeMillis());
+        word.setSynced(true);
+
+        return word;
     }
 
-    public void addUserWord(Long themeId, String themeTitle, String word,
-                            String translation, String transcription, String notes,
-                            User currentUser, DataCallback<Void> callback) {
+    public void addUserWord(String word,
+                            String translation,
+                            String transcription,
+                            String notes,
+                            User currentUser,
+                            DataCallback<Void> callback) {
+        executor.execute(() -> {
+            addWordInternalSync(null, "Без темы", word, translation, transcription, notes, currentUser, callback);
+        });
+    }
+
+    public void addUserWord(Long themeId,
+                            String themeTitle,
+                            String word,
+                            String translation,
+                            String transcription,
+                            String notes,
+                            User currentUser,
+                            DataCallback<Void> callback) {
+        executor.execute(() -> {
+            addWordInternalSync(themeId, themeTitle, word, translation, transcription, notes, currentUser, callback);
+        });
+    }
+
+    public void addWordToPersonalDictionary(Word word,
+                                            User currentUser,
+                                            DataCallback<Void> callback) {
+        if (word == null) {
+            callback.onError("Слово не найдено");
+            return;
+        }
+        if (currentUser == null || currentUser.getId() == null) {
+            callback.onError("Пользователь не авторизован");
+            return;
+        }
+
+        executor.execute(() -> {
+            Long finalThemeId = word.getThemeId();
+            String finalThemeTitle = "Без темы";
+
+            try {
+                if (finalThemeId != null && finalThemeId > 0) {
+                    Theme theme = themeDao.getThemeById(finalThemeId);
+                    if (theme != null) {
+                        finalThemeTitle = safeThemeTitle(theme);
+                    }
+                } else {
+                    Theme autoTheme = findThemeForWordLocally(word.getTerm(), word.getTranslation());
+                    if (autoTheme != null && autoTheme.getId() != null) {
+                        finalThemeId = autoTheme.getId();
+                        finalThemeTitle = safeThemeTitle(autoTheme);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Не удалось определить тему слова: " + e.getMessage(), e);
+            }
+
+            // ✅ Вся работа выполняется внутри одного фонового вызова - это МАКСИМАЛЬНО быстро!
+            addWordInternalSync(finalThemeId, finalThemeTitle, word.getTerm(), word.getTranslation(),
+                    word.getTranscription(), word.getExampleSentence(), currentUser, callback);
+        });
+    }
+
+    /**
+     * ✅ СИНХРОННЫЙ метод для добавления. Вызывается СТРОГО из executor.execute().
+     * Позволяет мгновенно обновить UI, не дожидаясь ответа сервера.
+     */
+    private void addWordInternalSync(Long themeId, String themeTitle, String word, String translation,
+                                     String transcription, String notes, User currentUser,
+                                     DataCallback<Void> callback) {
+
         if (currentUser == null || currentUser.getId() == null) {
             mainHandler.post(() -> callback.onError("Пользователь не авторизован"));
             return;
@@ -112,87 +241,124 @@ public class PersonalDictionaryRepository {
             return;
         }
 
-        executor.execute(() -> {
-            try {
-                UserWord existing = userWordDao.findWordByUserAndTerm(currentUser.getId(), safeWord);
-                if (existing != null) {
-                    mainHandler.post(() -> callback.onError("Это слово уже есть в личном словаре"));
-                    return;
-                }
+        try {
+            UserWord existing = userWordDao.findWordByUserAndTerm(currentUser.getId(), safeWord);
 
-                Long finalThemeId = themeId;
-                String finalThemeTitle = normalizeText(themeTitle);
-
-                if (finalThemeId == null || finalThemeTitle.isEmpty() || "Без темы".equals(finalThemeTitle)) {
-                    Theme autoTheme = findThemeForWordLocally(safeWord, safeTranslation);
-                    if (autoTheme != null && autoTheme.getId() != null) {
-                        finalThemeId = autoTheme.getId();
-                        finalThemeTitle = safeThemeTitle(autoTheme);
-                    }
-                }
-
-                if (finalThemeTitle.isEmpty()) finalThemeTitle = "Без темы";
-
-                UserWord userWord = new UserWord(
-                        currentUser.getId(), finalThemeId, finalThemeTitle,
-                        safeWord, safeTranslation, safeTranscription, safeNotes
-                );
-                userWordDao.insert(userWord);
-
-                mainHandler.post(() -> callback.onSuccess(null));
-            } catch (Exception e) {
-                Log.e("PersonalDictRepo", "Ошибка добавления слова: " + e.getMessage(), e);
-                mainHandler.post(() -> callback.onError("Не удалось добавить слово"));
+            if (existing != null) {
+                mainHandler.post(() -> callback.onError("Это слово уже есть в личном словаре"));
+                return;
             }
-        });
-    }
 
-    public void addWordToPersonalDictionary(Word word, User currentUser, DataCallback<Void> callback) {
-        if (word == null) {
-            callback.onError("Слово не найдено");
-            return;
+            Long finalThemeId = themeId;
+            String finalThemeTitle = normalizeText(themeTitle);
+
+            if (finalThemeId == null || finalThemeTitle.isEmpty() || "Без темы".equals(finalThemeTitle)) {
+                Theme autoTheme = findThemeForWordLocally(safeWord, safeTranslation);
+                if (autoTheme != null && autoTheme.getId() != null) {
+                    finalThemeId = autoTheme.getId();
+                    finalThemeTitle = safeThemeTitle(autoTheme);
+                }
+            }
+
+            if (finalThemeTitle.isEmpty()) finalThemeTitle = "Без темы";
+
+            UserWord userWord = new UserWord(
+                    currentUser.getId(),
+                    finalThemeId,
+                    finalThemeTitle,
+                    safeWord,
+                    safeTranslation,
+                    safeTranscription,
+                    safeNotes
+            );
+
+            // 1. Быстрое локальное сохранение
+            long localId = userWordDao.insert(userWord);
+            userWord.setId(localId);
+
+            // 2. ✅ МОМЕНТАЛЬНОЕ УВЕДОМЛЕНИЕ UI (иконка закрасится сразу)
+            mainHandler.post(() -> callback.onSuccess(null));
+
+            // 3. Сборка Payload
+            JsonObject payload = new JsonObject();
+            payload.addProperty("user_id", currentUser.getId());
+            payload.addProperty("word", safeWord);
+            payload.addProperty("translation", safeTranslation);
+
+            if (!safeTranscription.isEmpty()) payload.addProperty("transcription", safeTranscription);
+            if (!safeNotes.isEmpty()) payload.addProperty("notes", safeNotes);
+            if (finalThemeId != null) payload.addProperty("themeid", finalThemeId);
+            payload.addProperty("themetitle", finalThemeTitle);
+
+            // 4. Отправка на сервер в фоне
+            apiService.insertUserPersonalWordRaw(payload)
+                    .enqueue(new Callback<List<JsonObject>>() {
+                        @Override
+                        public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
+                            if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
+                                JsonObject serverSaved = response.body().get(0);
+                                executor.execute(() -> {
+                                    try {
+                                        if (serverSaved.has("id") && !serverSaved.get("id").isJsonNull()) {
+                                            long serverId = serverSaved.get("id").getAsLong();
+                                            userWordDao.updateUserWordServerId(localId, serverId);
+                                            Log.d(TAG, "Слово сохранено на сервере. serverId=" + serverId);
+                                        }
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "Ошибка сохранения serverId: " + e.getMessage(), e);
+                                    }
+                                });
+                            } else {
+                                Log.e(TAG, "Не удалось отправить слово на сервер: " + response.code() + " | " + getErrorBody(response));
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Call<List<JsonObject>> call, Throwable t) {
+                            Log.e(TAG, "Ошибка сети/парсинга при отправке слова: " + t.getMessage(), t);
+                        }
+                    });
+
+        } catch (Exception e) {
+            Log.e(TAG, "Ошибка добавления слова: " + e.getMessage(), e);
+            mainHandler.post(() -> callback.onError("Не удалось добавить слово"));
         }
-
-        executor.execute(() -> {
-            Long finalThemeId = word.getThemeId();
-            String finalThemeTitle = "Без темы";
-
-            try {
-                if (finalThemeId != null && finalThemeId > 0) {
-                    Theme theme = themeDao.getThemeById(finalThemeId);
-                    if (theme != null) finalThemeTitle = safeThemeTitle(theme);
-                } else {
-                    Theme autoTheme = findThemeForWordLocally(word.getTerm(), word.getTranslation());
-                    if (autoTheme != null && autoTheme.getId() != null) {
-                        finalThemeId = autoTheme.getId();
-                        finalThemeTitle = safeThemeTitle(autoTheme);
-                    }
-                }
-            } catch (Exception e) {
-                Log.e("PersonalDictRepo", "Не удалось определить тему слова: " + e.getMessage(), e);
-            }
-
-            Long safeThemeId = finalThemeId;
-            String safeTitle = finalThemeTitle;
-
-            mainHandler.post(() -> addUserWord(
-                    safeThemeId, safeTitle,
-                    word.getTerm(), word.getTranslation(),
-                    word.getTranscription() != null ? word.getTranscription() : "",
-                    word.getExampleSentence() != null ? word.getExampleSentence() : "",
-                    currentUser, callback
-            ));
-        });
     }
 
     public void deleteUserWord(UserWord word, Runnable onDone) {
+        if (word == null) {
+            if (onDone != null) mainHandler.post(onDone);
+            return;
+        }
+
+        if (word.getServerId() != null) {
+            apiService.deleteUserPersonalWordFromServer(
+                    "eq." + word.getUserId(),
+                    "eq." + word.getServerId()
+            ).enqueue(new Callback<Void>() {
+                @Override
+                public void onResponse(Call<Void> call, Response<Void> response) {
+                    if (!response.isSuccessful()) {
+                        Log.e(TAG, "Ошибка удаления на сервере: " + response.code() + " | " + getErrorBody(response));
+                    }
+                }
+                @Override
+                public void onFailure(Call<Void> call, Throwable t) {
+                    Log.e(TAG, "Сеть: ошибка удаления на сервере: " + t.getMessage(), t);
+                }
+            });
+        }
+
         executor.execute(() -> {
             try {
                 userWordDao.delete(word);
             } catch (Exception e) {
-                Log.e("PersonalDictRepo", "Ошибка удаления слова: " + e.getMessage(), e);
+                Log.e(TAG, "Ошибка удаления слова: " + e.getMessage(), e);
             }
-            mainHandler.post(onDone);
+
+            if (onDone != null) {
+                mainHandler.post(onDone);
+            }
         });
     }
 
@@ -203,6 +369,7 @@ public class PersonalDictionaryRepository {
         }
 
         String safeTerm = normalizeText(term);
+
         if (safeTerm.isEmpty()) {
             mainHandler.post(() -> callback.onError("Пустое слово"));
             return;
@@ -210,17 +377,31 @@ public class PersonalDictionaryRepository {
 
         executor.execute(() -> {
             try {
+                UserWord existing = userWordDao.findWordByUserAndTerm(currentUser.getId(), safeTerm);
+
+                if (existing != null && existing.getServerId() != null) {
+                    apiService.deleteUserPersonalWordFromServer(
+                            "eq." + currentUser.getId(),
+                            "eq." + existing.getServerId()
+                    ).enqueue(new Callback<Void>() {
+                        @Override
+                        public void onResponse(Call<Void> call, Response<Void> response) {}
+                        @Override
+                        public void onFailure(Call<Void> call, Throwable t) {}
+                    });
+                }
+
                 userWordDao.deleteUserWordsByTerm(currentUser.getId(), safeTerm);
                 mainHandler.post(() -> callback.onSuccess(null));
             } catch (Exception e) {
-                Log.e("PersonalDictRepo", "Ошибка удаления слова по термину: " + e.getMessage(), e);
+                Log.e(TAG, "Ошибка удаления слова по термину: " + e.getMessage(), e);
                 mainHandler.post(() -> callback.onError("Не удалось удалить слово"));
             }
         });
     }
 
     public void getUserPersonalWords(User currentUser, DataCallback<List<UserWord>> callback) {
-        if (currentUser == null) {
+        if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
             return;
         }
@@ -228,9 +409,9 @@ public class PersonalDictionaryRepository {
         executor.execute(() -> {
             try {
                 List<UserWord> words = userWordDao.getUserWords(currentUser.getId());
-                mainHandler.post(() -> callback.onSuccess(words));
+                mainHandler.post(() -> callback.onSuccess(words != null ? words : new ArrayList<>()));
             } catch (Exception e) {
-                Log.e("PersonalDictRepo", "Ошибка загрузки словаря: " + e.getMessage(), e);
+                Log.e(TAG, "Ошибка загрузки словаря: " + e.getMessage(), e);
                 mainHandler.post(() -> callback.onError("Не удалось загрузить словарь"));
             }
         });
@@ -238,7 +419,7 @@ public class PersonalDictionaryRepository {
 
     public void getUserPersonalWordsByTheme(Long themeId, String themeTitle,
                                             User currentUser, DataCallback<List<UserWord>> callback) {
-        if (currentUser == null) {
+        if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
             return;
         }
@@ -251,16 +432,16 @@ public class PersonalDictionaryRepository {
                 } else {
                     words = userWordDao.getUserWordsByThemeId(currentUser.getId(), themeId);
                 }
-                mainHandler.post(() -> callback.onSuccess(words));
+                mainHandler.post(() -> callback.onSuccess(words != null ? words : new ArrayList<>()));
             } catch (Exception e) {
-                Log.e("PersonalDictRepo", "Ошибка загрузки словаря по теме: " + e.getMessage(), e);
+                Log.e(TAG, "Ошибка загрузки словаря по теме: " + e.getMessage(), e);
                 mainHandler.post(() -> callback.onError("Не удалось загрузить слова темы"));
             }
         });
     }
 
     public void getUserDictionaryThemeTitles(User currentUser, DataCallback<List<String>> callback) {
-        if (currentUser == null) {
+        if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
             return;
         }
@@ -268,9 +449,9 @@ public class PersonalDictionaryRepository {
         executor.execute(() -> {
             try {
                 List<String> themes = userWordDao.getUserDictionaryThemeTitles(currentUser.getId());
-                mainHandler.post(() -> callback.onSuccess(themes));
+                mainHandler.post(() -> callback.onSuccess(themes != null ? themes : new ArrayList<>()));
             } catch (Exception e) {
-                Log.e("PersonalDictRepo", "Ошибка загрузки тем словаря: " + e.getMessage(), e);
+                Log.e(TAG, "Ошибка загрузки тем словаря: " + e.getMessage(), e);
                 mainHandler.post(() -> callback.onError("Не удалось загрузить темы словаря"));
             }
         });
@@ -282,7 +463,7 @@ public class PersonalDictionaryRepository {
             return;
         }
 
-        if (currentUser == null) {
+        if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
             return;
         }
@@ -294,20 +475,14 @@ public class PersonalDictionaryRepository {
                 UserWord existingWord = userWordDao.findWordByUserAndTerm(currentUser.getId(), safeTerm);
                 mainHandler.post(() -> callback.onSuccess(existingWord != null));
             } catch (Exception e) {
-                Log.e("PersonalDictRepo", "Ошибка проверки слова в словаре: " + e.getMessage(), e);
+                Log.e(TAG, "Ошибка проверки слова в словаре: " + e.getMessage(), e);
                 mainHandler.post(() -> callback.onError("Не удалось проверить слово в словаре"));
             }
         });
     }
 
-    /**
-     * ✅ ОПТИМИЗИРОВАНО:
-     * 1. Загружаем все темы в Map один раз
-     * 2. Не делаем запрос в БД на каждой итерации
-     * 3. Если ничего не нужно чинить — выходим сразу
-     */
     public void repairPersonalDictionaryThemes(User currentUser, DataCallback<Void> callback) {
-        if (currentUser == null) {
+        if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
             return;
         }
@@ -321,15 +496,14 @@ public class PersonalDictionaryRepository {
                     return;
                 }
 
-                // Собираем только слова, которым нужен ремонт
-                List<UserWord> needsRepair = new java.util.ArrayList<>();
+                List<UserWord> needsRepair = new ArrayList<>();
                 for (UserWord uw : personalWords) {
                     if (uw == null || uw.getWord() == null) continue;
-                    boolean broken = uw.getThemeId() == null
-                            || uw.getThemeTitle() == null
-                            || uw.getThemeTitle().trim().isEmpty()
-                            || "Без темы".equals(uw.getThemeTitle());
-                    if (broken) needsRepair.add(uw);
+                    boolean broken = uw.getThemeId() == null || uw.getThemeTitle() == null
+                            || uw.getThemeTitle().trim().isEmpty() || "Без темы".equals(uw.getThemeTitle());
+                    if (broken) {
+                        needsRepair.add(uw);
+                    }
                 }
 
                 if (needsRepair.isEmpty()) {
@@ -337,31 +511,27 @@ public class PersonalDictionaryRepository {
                     return;
                 }
 
-                // Кэш тем: themeId -> title
                 Map<Long, String> themeCache = new HashMap<>();
 
                 for (UserWord uw : needsRepair) {
                     Word sourceWord = wordDao.getWordByTerm(uw.getWord());
                     if (sourceWord == null || sourceWord.getThemeId() == null) continue;
 
-                    Long themeId = sourceWord.getThemeId();
-                    String themeTitle = themeCache.get(themeId);
+                    Long sourceThemeId = sourceWord.getThemeId();
+                    String sourceThemeTitle = themeCache.get(sourceThemeId);
 
-                    if (themeTitle == null) {
-                        Theme theme = themeDao.getThemeById(themeId);
-                        if (theme == null || theme.getTitle() == null || theme.getTitle().trim().isEmpty()) {
-                            continue;
-                        }
-                        themeTitle = theme.getTitle().trim();
-                        themeCache.put(themeId, themeTitle);
+                    if (sourceThemeTitle == null) {
+                        Theme theme = themeDao.getThemeById(sourceThemeId);
+                        if (theme == null || theme.getTitle() == null || theme.getTitle().trim().isEmpty()) continue;
+                        sourceThemeTitle = theme.getTitle().trim();
+                        themeCache.put(sourceThemeId, sourceThemeTitle);
                     }
 
-                    userWordDao.updateUserWordTheme(uw.getId(), themeId, themeTitle);
+                    userWordDao.updateUserWordTheme(uw.getId(), sourceThemeId, sourceThemeTitle);
                 }
-
                 mainHandler.post(() -> callback.onSuccess(null));
             } catch (Exception e) {
-                Log.e("PersonalDictRepo", "Ошибка восстановления тем словаря: " + e.getMessage(), e);
+                Log.e(TAG, "Ошибка восстановления тем словаря: " + e.getMessage(), e);
                 mainHandler.post(() -> callback.onError("Не удалось восстановить темы словаря"));
             }
         });
@@ -372,49 +542,77 @@ public class PersonalDictionaryRepository {
             mainHandler.post(() -> callback.onError("Пользователь не авторизован"));
             return;
         }
-        syncPersonalWords(currentUser.getId(), callback);
+        syncPersonalWordsFromServer(currentUser.getId(), callback);
     }
 
     public void syncPersonalWords(Integer userId, DataCallback<Void> callback) {
-        if (userId == null || userId == -1) {
+        if (userId == null || userId <= 0) {
             mainHandler.post(() -> callback.onError("Пользователь не авторизован"));
             return;
         }
-
-        executor.execute(() -> {
-            try {
-                List<UserWord> localWords = userWordDao.getUserWords(userId);
-                Log.d("PersonalDictRepo", "Локальный словарь: "
-                        + (localWords != null ? localWords.size() : 0) + " слов");
-                mainHandler.post(() -> callback.onSuccess(null));
-            } catch (Exception e) {
-                Log.e("PersonalDictRepo", "Ошибка подготовки личного словаря: " + e.getMessage(), e);
-                mainHandler.post(() -> callback.onError("Не удалось загрузить личный словарь"));
-            }
-        });
+        syncPersonalWordsFromServer(userId, callback);
     }
 
     public void syncPersonalWordsFromServer(Integer userId, DataCallback<Void> callback) {
         apiService.getUserPersonalWordsFromServer("eq." + userId, "date_added.desc")
-                .enqueue(new Callback<List<UserWord>>() {
+                .enqueue(new Callback<List<JsonObject>>() {
                     @Override
-                    public void onResponse(Call<List<UserWord>> call,
-                                           Response<List<UserWord>> response) {
+                    public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
                         if (response.isSuccessful() && response.body() != null) {
-                            List<UserWord> remoteWords = response.body();
+                            List<JsonObject> remoteJsonWords = response.body();
 
                             executor.execute(() -> {
                                 try {
+                                    List<UserWord> localBefore = userWordDao.getUserWords(userId);
+                                    List<UserWord> unsyncedLocal = new ArrayList<>();
+
+                                    if (localBefore != null) {
+                                        for (UserWord local : localBefore) {
+                                            if (local == null) continue;
+                                            boolean notOnServerYet = local.getServerId() == null || !local.isSynced();
+                                            if (notOnServerYet) unsyncedLocal.add(local);
+                                        }
+                                    }
+
+                                    List<UserWord> remoteWords = new ArrayList<>();
+                                    for (JsonObject json : remoteJsonWords) {
+                                        UserWord parsed = parseUserWordFromJson(json, userId);
+                                        if (parsed.getWord() != null && !parsed.getWord().trim().isEmpty()) {
+                                            remoteWords.add(parsed);
+                                        }
+                                    }
+
                                     userWordDao.deleteAllUserWordsForUser(userId);
+
                                     if (!remoteWords.isEmpty()) {
                                         userWordDao.insertAll(remoteWords);
                                     }
+
+                                    for (UserWord local : unsyncedLocal) {
+                                        if (local == null || local.getWord() == null) continue;
+                                        boolean alreadyExists = false;
+                                        for (UserWord remote : remoteWords) {
+                                            if (remote == null || remote.getWord() == null) continue;
+                                            if (remote.getWord().trim().equalsIgnoreCase(local.getWord().trim())) {
+                                                alreadyExists = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!alreadyExists) {
+                                            local.setId(null);
+                                            userWordDao.insert(local);
+                                        }
+                                    }
+
+                                    Log.d(TAG, "Словарь синхронизирован. Сервер: " + remoteWords.size() + ", локально несинхр.: " + unsyncedLocal.size());
                                     mainHandler.post(() -> callback.onSuccess(null));
+
                                 } catch (Exception e) {
-                                    Log.e("PersonalDictRepo", "Ошибка сохранения слов: " + e.getMessage(), e);
+                                    Log.e(TAG, "Ошибка сохранения слов: " + e.getMessage(), e);
                                     mainHandler.post(() -> callback.onError("Ошибка БД: " + e.getMessage()));
                                 }
                             });
+
                         } else {
                             String errorMsg = getErrorBody(response);
                             mainHandler.post(() -> callback.onError("Ошибка сервера: " + errorMsg));
@@ -422,8 +620,8 @@ public class PersonalDictionaryRepository {
                     }
 
                     @Override
-                    public void onFailure(Call<List<UserWord>> call, Throwable t) {
-                        Log.e("PersonalDictRepo", "Сбой сети: " + t.getMessage(), t);
+                    public void onFailure(Call<List<JsonObject>> call, Throwable t) {
+                        Log.e(TAG, "Сбой сети/парсинга при загрузке словаря: " + t.getMessage(), t);
                         mainHandler.post(() -> callback.onError("Нет соединения: " + t.getMessage()));
                     }
                 });

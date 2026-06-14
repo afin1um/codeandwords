@@ -1,5 +1,6 @@
 package com.example.codeandwords.ui.profile;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -34,7 +35,8 @@ public class AchievementDetailActivity extends AppCompatActivity {
 
         initViews();
         bindData();
-        btnBack.setOnClickListener(v -> finish());
+        // ✅ Переход в AchievementsActivity
+        btnBack.setOnClickListener(v -> goToAchievements());
     }
 
     private void initViews() {
@@ -79,6 +81,7 @@ public class AchievementDetailActivity extends AppCompatActivity {
 
         if (isUnlocked && dateReceived > 0) {
             SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
+            sdf.setTimeZone(java.util.TimeZone.getDefault());
             tvReceivedAt.setText("Получено: " + sdf.format(new Date(dateReceived)));
         } else {
             tvReceivedAt.setText("Получено: ещё не открыто");
@@ -119,5 +122,19 @@ public class AchievementDetailActivity extends AppCompatActivity {
             default:
                 return type + ": " + value;
         }
+    }
+
+    // ✅ Перехват системной кнопки "назад"
+    @Override
+    public void onBackPressed() {
+        goToAchievements();
+    }
+
+    // ✅ Метод явного возврата
+    private void goToAchievements() {
+        Intent intent = new Intent(this, AchievementsActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish();
     }
 }

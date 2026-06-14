@@ -4,7 +4,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF">
+    android:fitsSystemWindows="true"
+    android:background="@color/game_result_bg">
 
     <com.airbnb.lottie.LottieAnimationView
         android:id="@+id/lottieResultConfetti"
@@ -12,7 +13,22 @@
         android:layout_height="match_parent"
         app:lottie_autoPlay="true"
         app:lottie_loop="false"
-        app:lottie_rawRes="@raw/confetti" />
+        app:lottie_rawRes="@raw/confetti"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- ✅ Крестик в правом верхнем углу -->
+    <include
+        android:id="@+id/btnUniClose"
+        layout="@layout/view_close_button"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="12dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -28,7 +44,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Урок завершён!"
-            android:textColor="#58CC02"
+            android:textColor="@color/game_result_success"
             android:textSize="28sp"
             android:textStyle="bold" />
 
@@ -44,16 +60,17 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
-                android:background="@drawable/bg_stat_card"
+                android:background="@drawable/bg_result_stat_card"
                 android:gravity="center"
                 android:orientation="vertical"
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/tvAccuracyLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="ТОЧНОСТЬ"
-                    android:textColor="#AFB1B3"
+                    android:textColor="@color/game_result_label"
                     android:textSize="12sp"
                     android:textStyle="bold" />
 
@@ -62,7 +79,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="100%"
-                    android:textColor="#FF9800"
+                    android:textColor="@color/game_result_orange"
                     android:textSize="24sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -72,7 +89,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:background="@drawable/bg_stat_card"
+                android:background="@drawable/bg_result_stat_card"
                 android:gravity="center"
                 android:orientation="vertical"
                 android:padding="16dp">
@@ -82,7 +99,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="СЛОВ"
-                    android:textColor="#AFB1B3"
+                    android:textColor="@color/game_result_label"
                     android:textSize="12sp"
                     android:textStyle="bold" />
 
@@ -91,7 +108,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="10"
-                    android:textColor="#2196F3"
+                    android:textColor="@color/game_result_blue"
                     android:textSize="24sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -103,7 +120,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:text="+ 100 XP"
-            android:textColor="#FF9800"
+            android:textColor="@color/game_result_orange"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -112,12 +129,13 @@
             android:layout_width="match_parent"
             android:layout_height="60dp"
             android:layout_marginTop="48dp"
-            android:backgroundTint="#58CC02"
+            android:backgroundTint="@color/game_result_success"
             android:text="ПРОДОЛЖИТЬ"
             android:textColor="@android:color/white"
             android:textSize="18sp"
             android:textStyle="bold"
             app:cornerRadius="16dp" />
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

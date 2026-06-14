@@ -4,6 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:background="@color/app_bg"
     android:fillViewport="true"
     android:scrollbars="none">
@@ -23,14 +24,12 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <ImageButton
+            <!-- ✅ Единая стрелочка -->
+            <include
                 android:id="@+id/btnBackStatistics"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Назад"
-                android:src="@android:drawable/ic_menu_revert"
-                app:tint="@color/app_text_secondary" />
+                layout="@layout/view_back_button"
+                android:layout_width="42dp"
+                android:layout_height="42dp" />
 
             <TextView
                 android:layout_width="0dp"

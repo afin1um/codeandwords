@@ -212,7 +212,6 @@ public interface ApiService {
     @POST("team_challenges")
     Call<Void> insertTeamChallengeMinimalRaw(@Body JsonObject payload);
 
-    // Единственный метод getTeamChallengeRaw — с select (4 параметра)
     @GET("team_challenges")
     Call<List<JsonObject>> getTeamChallengeRaw(
             @Query("team_id") String teamFilter,
@@ -377,9 +376,17 @@ public interface ApiService {
             "Content-Type: application/json"
     })
     @GET("user_personal_words")
-    Call<List<UserWord>> getUserPersonalWordsFromServer(
+    Call<List<JsonObject>> getUserPersonalWordsFromServer(
             @Query("user_id") String userId,
             @Query("order") String order);
+
+    // ✅ ИСПРАВЛЕНИЕ: Новый, безопасный метод добавления, не вызывающий конфликтов ключей
+    @Headers({
+            "Prefer: return=representation",
+            "Content-Type: application/json"
+    })
+    @POST("user_personal_words")
+    Call<List<JsonObject>> insertUserPersonalWordRaw(@Body JsonObject payload);
 
     @Headers({
             "Prefer: resolution=merge-duplicates,return=representation",
@@ -399,22 +406,15 @@ public interface ApiService {
             @Query("user_id") String userId,
             @Query("id") String serverId);
 
-    // ДОБАВЛЕНО: удаление команды по id
     @DELETE("teams")
     Call<Void> deleteTeamRaw(@Query("id") String idFilter);
 
-    /**
-     * Получить ВСЕ ачивки пользователя одним запросом (вместо проверки каждой)
-     */
     @GET("user_achievements")
     Call<List<JsonObject>> getUserAchievementsByUserRaw(
             @Query("user_id") String userIdFilter,
             @Query("select") String select
     );
 
-    /**
-     * Батчевый upsert ачивок одним запросом
-     */
     @Headers({
             "Content-Type: application/json",
             "Prefer: resolution=merge-duplicates"

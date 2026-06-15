@@ -25,6 +25,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+// Репозиторий для управления достижениями: синхронизация с сервером, проверка условий, выдача XP
 public class AchievementRepository {
 
     private static final String TAG = "AchievementRepository";
@@ -34,11 +35,12 @@ public class AchievementRepository {
     private final UserDao userDao;
     private final ApiService apiService;
 
-    // ✅ Единый пул потоков для всех операций с БД
+    // Однопоточный executor для последовательной работы с локальной БД
     private final ExecutorService dbExecutor = Executors.newSingleThreadExecutor();
 
     private AchievementListener listener;
 
+    // Кэш ID достижений, уже существующих на сервере — для разделения INSERT и PATCH
     private final Set<Long> serverExistingAchievementIds = new HashSet<>();
     private volatile boolean serverCacheLoaded = false;
 
@@ -52,6 +54,7 @@ public class AchievementRepository {
         this.apiService = apiService;
     }
 
+    // Интерфейс для делегирования вспомогательных операций во ViewModel или Activity
     public interface AchievementListener {
         int safeInt(Integer value);
         String toSqlTimestamp(long millis);
@@ -86,10 +89,8 @@ public class AchievementRepository {
         return "Неизвестная ошибка";
     }
 
-    // ====================================================================
-    // ✅ СИНХРОНИЗАЦИЯ С СЕРВЕРА (при логине/старте приложения)
-    // ====================================================================
-
+    // Загружает достижения пользователя с сервера и сохраняет в локальную БД.
+    // Заполняет кэш serverExistingAchievementIds для последующих операций.
     public void syncAchievementsFromServer(Integer userId, DataCallback<Void> callback) {
         if (userId == null || userId <= 0) {
             if (callback != null) callback.onError("Некорректный userId");
@@ -111,10 +112,9 @@ public class AchievementRepository {
 
                 List<JsonObject> items = response.body();
 
-                // ✅ ИСПРАВЛЕНИЕ: переносим всю работу с БД в фоновый поток
+                // Вся работа с БД выполняется в фоновом потоке
                 dbExecutor.execute(() -> {
                     try {
-                        // Заполняем кэш существующих записей
                         synchronized (serverExistingAchievementIds) {
                             serverExistingAchievementIds.clear();
                             for (JsonObject item : items) {
@@ -127,7 +127,6 @@ public class AchievementRepository {
                             serverCacheLoaded = true;
                         }
 
-                        // ✅ Теперь runInTransaction() выполняется в фоновом потоке
                         database.runInTransaction(() -> {
                             for (JsonObject item : items) {
                                 if (item == null) continue;
@@ -144,15 +143,13 @@ public class AchievementRepository {
 
                                 if (existing == null) {
                                     UserAchievement ua = new UserAchievement(
-                                            userId.longValue(),
-                                            achId,
+                                            userId.longValue(), achId,
                                             unlocked ? System.currentTimeMillis() : 0,
-                                            progress,
-                                            unlocked,
-                                            isNew
+                                            progress, unlocked, isNew
                                     );
                                     achievementDao.insertUserAchievement(ua);
                                 } else {
+                                    // Прогресс не откатывается: берём максимальное значение
                                     existing.currentProgress = Math.max(
                                             existing.currentProgress, progress);
                                     if (unlocked) existing.isUnlocked = true;
@@ -193,13 +190,8 @@ public class AchievementRepository {
         try { return e.getAsBoolean(); } catch (Exception ex) { return false; }
     }
 
-    // ====================================================================
-    // ОСНОВНОЙ МЕТОД (после каждого урока)
-    // ====================================================================
-
-    private int getAchievementProgress(Achievement achievement,
-                                       User user,
-                                       UserStats stats) {
+    // Определяет текущий прогресс пользователя для конкретного типа достижения
+    private int getAchievementProgress(Achievement achievement, User user, UserStats stats) {
         if (achievement.getConditionType() == null) return 0;
 
         switch (achievement.getConditionType()) {
@@ -217,6 +209,7 @@ public class AchievementRepository {
         }
     }
 
+    // Формирует JSON-объект достижения для отправки на сервер
     private JsonObject buildAchievementPayload(UserAchievement ua, boolean includeUserId) {
         JsonObject payload = new JsonObject();
         if (includeUserId) {
@@ -235,6 +228,8 @@ public class AchievementRepository {
         return payload;
     }
 
+    // Отправляет изменённые достижения на сервер:
+    // существующие обновляются через PATCH, новые вставляются пакетом через POST
     private void sendChangedAchievementsToServer(List<UserAchievement> changedAchievements) {
         if (changedAchievements == null || changedAchievements.isEmpty()) return;
 
@@ -251,13 +246,10 @@ public class AchievementRepository {
             }
         }
 
-        // PATCH существующих
         for (UserAchievement ua : toUpdate) {
             JsonObject payload = buildAchievementPayload(ua, false);
             apiService.updateUserAchievementRaw(
-                    "eq." + ua.userId,
-                    "eq." + ua.achievementId,
-                    payload
+                    "eq." + ua.userId, "eq." + ua.achievementId, payload
             ).enqueue(new Callback<Void>() {
                 @Override
                 public void onResponse(Call<Void> call, Response<Void> response) {
@@ -266,7 +258,6 @@ public class AchievementRepository {
                                 + " | achId=" + ua.achievementId);
                     }
                 }
-
                 @Override
                 public void onFailure(Call<Void> call, Throwable t) {
                     Log.e(TAG, "Сеть PATCH ачивки: " + t.getMessage());
@@ -274,7 +265,6 @@ public class AchievementRepository {
             });
         }
 
-        // INSERT новых через batch
         if (!toInsert.isEmpty()) {
             JsonArray batch = new JsonArray();
             for (UserAchievement ua : toInsert) {
@@ -297,7 +287,6 @@ public class AchievementRepository {
                                         + response.code() + " | " + getErrorBody(response));
                             }
                         }
-
                         @Override
                         public void onFailure(Call<Void> call, Throwable t) {
                             Log.e(TAG, "Сеть INSERT batch: " + t.getMessage());
@@ -306,6 +295,7 @@ public class AchievementRepository {
         }
     }
 
+    // Начисляет XP за полученные достижения и синхронизирует прогресс с сервером
     private void grantAchievementXp(int xpReward) {
         if (listener == null) return;
 
@@ -323,9 +313,8 @@ public class AchievementRepository {
         listener.syncUserProgressToRemote(currentUser);
     }
 
-    /**
-     * ✅ ИСПРАВЛЕНО: запускаем всю работу с БД в фоновом потоке через dbExecutor
-     */
+    // Проверяет и обновляет все достижения пользователя после завершения урока.
+    // Прогресс серий никогда не откатывается — сохраняется максимальное достигнутое значение.
     public void refreshAchievementsSync(User user, UserStats stats) {
         dbExecutor.execute(() -> {
             try {
@@ -344,8 +333,7 @@ public class AchievementRepository {
 
                         int progress = getAchievementProgress(achievement, user, stats);
                         int maxProgress = safeInt(achievement.getMaxProgress());
-                        int normalized = Math.min(
-                                progress, maxProgress > 0 ? maxProgress : progress);
+                        int normalized = Math.min(progress, maxProgress > 0 ? maxProgress : progress);
 
                         int conditionValue = safeInt(achievement.getConditionValue());
                         boolean shouldUnlock = conditionValue > 0 && progress >= conditionValue;
@@ -358,12 +346,8 @@ public class AchievementRepository {
 
                         if (ua == null) {
                             ua = new UserAchievement(
-                                    user.getId().longValue(),
-                                    achievement.getId(),
-                                    shouldUnlock ? now : 0,
-                                    normalized,
-                                    shouldUnlock,
-                                    shouldUnlock
+                                    user.getId().longValue(), achievement.getId(),
+                                    shouldUnlock ? now : 0, normalized, shouldUnlock, shouldUnlock
                             );
                             achievementDao.insertUserAchievement(ua);
                             hasChanged = true;
@@ -374,13 +358,8 @@ public class AchievementRepository {
                         } else {
                             int oldProgress = ua.currentProgress;
 
-                            // ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
-                            // Прогресс ачивки НИКОГДА не откатывается вниз.
-                            // Для серий (PERFECT_STREAK, LOGIN_STREAK) это критично:
-                            // серия обнуляется при ошибке, но достижение должно
-                            // помнить максимальный достигнутый результат.
+                            // Прогресс не откатывается: фиксируем максимум
                             int bestProgress = Math.max(oldProgress, normalized);
-
                             ua.currentProgress = bestProgress;
 
                             if (!wasUnlockedLocal && shouldUnlock) {
@@ -422,6 +401,7 @@ public class AchievementRepository {
         });
     }
 
+    // Сбрасывает локальный кэш при выходе из аккаунта
     public void resetState() {
         synchronized (serverExistingAchievementIds) {
             serverExistingAchievementIds.clear();

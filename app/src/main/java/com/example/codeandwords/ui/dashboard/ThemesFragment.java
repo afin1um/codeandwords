@@ -22,6 +22,7 @@ import com.example.codeandwords.ui.game.GameSelectionActivity;
 
 import java.util.List;
 
+// Фрагмент списка тем: cache-first отображение без мигания при обновлении данных
 public class ThemesFragment extends Fragment implements ThemeAdapter.OnThemeClickListener {
 
     private RecyclerView recyclerView;
@@ -30,6 +31,7 @@ public class ThemesFragment extends Fragment implements ThemeAdapter.OnThemeClic
     private ThemeAdapter adapter;
     private Repository repository;
 
+    // Флаг предотвращает показ ошибки, если данные уже отображены
     private boolean hasShownData = false;
 
     public ThemesFragment() {}
@@ -63,7 +65,6 @@ public class ThemesFragment extends Fragment implements ThemeAdapter.OnThemeClic
     }
 
     private void loadThemes() {
-        // Показываем лоадер только если данных ещё нет
         showInitialLoading();
 
         repository.getThemes(new Repository.DataCallback<List<Theme>>() {
@@ -74,7 +75,6 @@ public class ThemesFragment extends Fragment implements ThemeAdapter.OnThemeClic
                 if (data != null && !data.isEmpty()) {
                     showData(data);
                 } else if (!hasShownData) {
-                    // Показываем ошибку только если данных вообще нет
                     showError("Темы не найдены");
                 }
             }
@@ -83,7 +83,6 @@ public class ThemesFragment extends Fragment implements ThemeAdapter.OnThemeClic
             public void onError(String error) {
                 if (!isAdded()) return;
 
-                // Показываем ошибку только если данных вообще нет
                 if (!hasShownData) {
                     showError(error);
                 }
@@ -91,6 +90,7 @@ public class ThemesFragment extends Fragment implements ThemeAdapter.OnThemeClic
         });
     }
 
+    // Показывает загрузчик только если данные ещё не отображались
     private void showInitialLoading() {
         if (hasShownData) return;
         progressBar.setVisibility(View.VISIBLE);

@@ -40,6 +40,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+// Репозиторий статистики: уроки, достижения, прогресс по темам, квесты, синхронизация с сервером
 public class StatsRepository {
 
     private static final String TAG = "StatsRepository";
@@ -55,6 +56,7 @@ public class StatsRepository {
 
     private StatsListener listener;
 
+    // Кэш ID изученных слов с TTL 30 секунд
     private volatile List<Long> cachedLearnedWordIds;
     private volatile long lastLearnedIdsLoadTime = 0;
     private static final long LEARNED_IDS_CACHE_TTL = 30_000;
@@ -77,6 +79,7 @@ public class StatsRepository {
         this.mainHandler = mainHandler;
     }
 
+    // Интерфейс для делегирования операций с данными пользователя во ViewModel
     public interface StatsListener {
         String toSqlTimestamp(long millis);
         int safeInt(Integer value);
@@ -109,50 +112,30 @@ public class StatsRepository {
         void onError(String error);
     }
 
-    // ====================================================================
-    // ✅ НОВОЕ: СИНХРОНИЗАЦИЯ STATS И HISTORY С СЕРВЕРА (ПРИ ЛОГИНЕ)
-    // ====================================================================
-
-    /**
-     * Скачивает с сервера user_stats и lesson_history,
-     * сохраняет в локальную БД, чтобы статистика была актуальна
-     * на новом устройстве.
-     */
+    // Синхронизирует статистику с сервера при логине:
+    // последовательно загружает user_stats и lesson_history
     public void syncStatsFromServer(Integer userId, DataCallback<Void> callback) {
         if (userId == null || userId <= 0) {
             if (callback != null) callback.onError("Некорректный userId");
             return;
         }
 
-        // 1. Сначала качаем user_stats
         downloadUserStatsFromServer(userId, new DataCallback<Void>() {
             @Override
             public void onSuccess(Void data) {
-                // 2. Затем качаем lesson_history
                 downloadLessonHistoryFromServer(userId, callback);
             }
 
             @Override
             public void onError(String error) {
                 Log.w(TAG, "syncStatsFromServer: user_stats не скачаны: " + error);
-                // Всё равно пробуем скачать историю
                 downloadLessonHistoryFromServer(userId, callback);
             }
         });
     }
 
-    /**
-     * Скачивает user_stats с сервера и кладёт в Room.
-     */
+    // Скачивает user_stats через upsert с merge-duplicates — сервер возвращает текущую запись
     private void downloadUserStatsFromServer(Integer userId, DataCallback<Void> callback) {
-        // Используем upsert endpoint с GET-стилем через прямой запрос — но т.к. у нас нет
-        // отдельного GET метода для user_stats, используем upsert с пустым payload не получится.
-        // Поэтому используем raw upsert который вернёт текущие данные.
-        // Альтернатива — добавить GET метод в ApiService, но для минимальных правок используем
-        // upsert с merge-duplicates: он вернёт существующую запись.
-        //
-        // Простой подход: делаем минимальный upsert {user_id: X}, сервер вернёт текущую запись.
-
         JsonObject minimalPayload = new JsonObject();
         minimalPayload.addProperty("user_id", userId);
 
@@ -176,8 +159,7 @@ public class StatsRepository {
                             try {
                                 UserStats localStats = userStatsDao.getByUserId(userId);
 
-                                // Мерджим: берём максимальные значения
-                                // (на случай если на сервере данные старше локальных).
+                                // Мержим: берём максимальные значения для защиты от рассинхрона
                                 UserStats merged = mergeStats(localStats, serverStats);
                                 userStatsDao.insertOrUpdate(merged);
 
@@ -198,9 +180,7 @@ public class StatsRepository {
                 });
     }
 
-    /**
-     * Берём максимальные значения статистики (на случай рассинхрона).
-     */
+    // Мержит локальную и серверную статистику: берёт максимальное значение каждого поля
     private UserStats mergeStats(UserStats local, UserStats server) {
         if (local == null) return server;
         if (server == null) return local;
@@ -223,6 +203,7 @@ public class StatsRepository {
         return merged;
     }
 
+    // Разбирает JSON-объект статистики в модель UserStats
     private UserStats parseUserStatsFromJson(JsonObject json, int userId) {
         UserStats stats = new UserStats(userId);
         if (json == null) return stats;
@@ -258,6 +239,7 @@ public class StatsRepository {
         try { return e.getAsLong(); } catch (Exception ex) { return 0L; }
     }
 
+    // Парсит timestamp из строки формата "yyyy-MM-dd HH:mm:ss" в Unix-время
     private long parseTimestamp(JsonObject json, String key) {
         if (json == null || !json.has(key)) return 0L;
         JsonElement e = json.get(key);
@@ -272,27 +254,13 @@ public class StatsRepository {
         }
     }
 
-    /**
-     * Скачивает историю уроков с сервера и кладёт в Room.
-     * Так на новом устройстве будет полная история.
-     */
+    // Загрузка lesson_history пропущена: в ApiService нет GET-метода для этого ресурса
     private void downloadLessonHistoryFromServer(Integer userId, DataCallback<Void> callback) {
-        // У нас нет специального GET для lesson_history в ApiService.
-        // Используем insertLessonRaw нельзя.
-        // Поэтому добавим возможность через прямой Retrofit вызов
-        // не получится без правки ApiService. Делаем "best effort":
-        // если в ApiService нет GET, просто пропускаем и возвращаем успех.
-
-        // Поскольку в текущем ApiService нет метода getLessonHistory,
-        // просто помечаем как успешно (история не критична — постепенно накопится).
         Log.d(TAG, "downloadLessonHistory: пропущено (нет GET endpoint)");
         if (callback != null) mainHandler.post(() -> callback.onSuccess(null));
     }
 
-    // ====================================================================
-    // ОРИГИНАЛЬНЫЕ МЕТОДЫ (без изменений)
-    // ====================================================================
-
+    // Собирает JSON-объект для отправки user_stats на сервер
     private JsonObject buildUserStatsPayload(UserStats stats) {
         JsonObject payload = new JsonObject();
         payload.addProperty("user_id", stats.userId);
@@ -309,14 +277,30 @@ public class StatsRepository {
         payload.addProperty("completed_tasks_total", stats.completedTasksTotal);
         payload.addProperty("sprint_xp_total", stats.sprintXpTotal);
 
-        String createdAt = listener != null ? listener.toSqlTimestamp(stats.createdAt) : "";
-        String updatedAt = listener != null ? listener.toSqlTimestamp(stats.updatedAt) : "";
+        // Защита от некорректных дат: если 0 или null — подставляем текущее время
+        long createdMillis = stats.createdAt > 0 ? stats.createdAt : System.currentTimeMillis();
+        long updatedMillis = stats.updatedAt > 0 ? stats.updatedAt : System.currentTimeMillis();
+
+        String createdAt = listener != null
+                ? listener.toSqlTimestamp(createdMillis)
+                : formatTimestampFallback(createdMillis);
+        String updatedAt = listener != null
+                ? listener.toSqlTimestamp(updatedMillis)
+                : formatTimestampFallback(updatedMillis);
 
         payload.addProperty("created_at", createdAt);
         payload.addProperty("updated_at", updatedAt);
         return payload;
     }
 
+    // Запасной форматтер на случай отсутствия listener
+    private String formatTimestampFallback(long millis) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
+        sdf.setTimeZone(TimeZone.getDefault());
+        return sdf.format(new Date(millis));
+    }
+
+    // Собирает JSON-объект для отправки истории урока на сервер
     private JsonObject buildLessonHistoryPayload(LessonHistory lessonHistory) {
         JsonObject payload = new JsonObject();
         payload.addProperty("user_id", lessonHistory.userId);
@@ -333,8 +317,14 @@ public class StatsRepository {
         payload.addProperty("mistakes_count", lessonHistory.mistakesCount);
         payload.addProperty("fixed_errors_count", lessonHistory.fixedErrorsCount);
 
+        // Защита от некорректной даты завершения
+        long finishedMillis = lessonHistory.finishedAt > 0
+                ? lessonHistory.finishedAt
+                : System.currentTimeMillis();
+
         String finishedAt = listener != null
-                ? listener.toSqlTimestamp(lessonHistory.finishedAt) : "";
+                ? listener.toSqlTimestamp(finishedMillis)
+                : formatTimestampFallback(finishedMillis);
 
         payload.addProperty("finished_at", finishedAt);
         payload.addProperty("was_perfect", lessonHistory.wasPerfect);
@@ -344,6 +334,7 @@ public class StatsRepository {
         return payload;
     }
 
+    // Возвращает начало текущего дня в миллисекундах
     public long getStartOfDay(long timeMillis) {
         Calendar calendar = Calendar.getInstance();
         calendar.setTimeInMillis(timeMillis);
@@ -369,16 +360,12 @@ public class StatsRepository {
                 && cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR);
     }
 
-    /**
-     * ✅ ИСПРАВЛЕНО: если локально нет stats — сначала пытаемся скачать с сервера
-     * (синхронно, т.к. метод вызывается из background-потока), и только если
-     * на сервере тоже нет — создаём новые.
-     */
+    // Возвращает локальную статистику или скачивает с сервера синхронно (вызов из фонового потока)
     public UserStats getOrCreateUserStats(int userId) {
         UserStats stats = userStatsDao.getByUserId(userId);
         if (stats != null) return stats;
 
-        // Пробуем скачать с сервера синхронно (мы уже в фоновом потоке)
+        // Пробуем скачать с сервера синхронно, т.к. уже в фоновом потоке
         try {
             JsonObject minimalPayload = new JsonObject();
             minimalPayload.addProperty("user_id", userId);
@@ -398,13 +385,14 @@ public class StatsRepository {
             Log.w(TAG, "getOrCreateUserStats: не удалось скачать с сервера: " + e.getMessage());
         }
 
-        // На сервере тоже пусто — создаём новые
+        // Данных нет ни локально, ни на сервере — создаём новые
         stats = new UserStats(userId);
         userStatsDao.insertOrUpdate(stats);
         syncUserStatsToRemote(stats);
         return stats;
     }
 
+    // Определяет лигу пользователя по суммарному XP
     private LeagueData getStatisticsLeagueData(int xp) {
         if (xp >= 2500) return new LeagueData("Алмазная лига", "💎");
         if (xp >= 1200) return new LeagueData("Изумрудная лига", "💚");
@@ -413,6 +401,7 @@ public class StatsRepository {
         return new LeagueData("Бронзовая лига", "🥉");
     }
 
+    // Генерирует два ежедневных квеста: XP и количество игр со случайными целями
     private List<DailyQuest> generateNewQuests() {
         List<DailyQuest> newQuests = new ArrayList<>();
         long now = System.currentTimeMillis();
@@ -429,6 +418,7 @@ public class StatsRepository {
         return newQuests;
     }
 
+    // Считает количество изученных слов для конкретной темы из фактических данных
     private ThemeProgressStats buildThemeProgressFromActualWords(Theme theme, List<Word> actualThemeWords, List<Long> learnedWordIds) {
         int totalWords = actualThemeWords != null ? actualThemeWords.size() : 0;
         int learnedWords = 0;
@@ -443,6 +433,7 @@ public class StatsRepository {
         return new ThemeProgressStats(theme, learnedWords, totalWords, progressPercent, mastered);
     }
 
+    // Собирает итоговый список прогресса по темам в исходном порядке
     private void finishThemeProgress(List<Theme> originalThemes, ConcurrentHashMap<Long, ThemeProgressStats> map, DataCallback<List<ThemeProgressStats>> callback) {
         List<ThemeProgressStats> result = new ArrayList<>();
         for (Theme theme : originalThemes) {
@@ -462,21 +453,26 @@ public class StatsRepository {
         return "Неизвестная ошибка";
     }
 
+    // Инвалидирует кэш ID изученных слов для принудительного обновления
     public void invalidateLearnedIdsCache() {
         cachedLearnedWordIds = null;
         lastLearnedIdsLoadTime = 0;
     }
 
+    // Сбрасывает состояние репозитория при выходе из аккаунта
     public void resetState() {
         invalidateLearnedIdsCache();
         Log.d(TAG, "resetState: кэши StatsRepository сброшены");
     }
+
+    // Возвращает ежедневные квесты; при необходимости генерирует новые
     public void getDailyQuests(DataCallback<List<DailyQuest>> callback) {
         executor.execute(() -> {
             try {
                 List<DailyQuest> quests = dailyQuestDao.getAllQuests();
                 long today = System.currentTimeMillis();
 
+                // Если квесты устарели или отсутствуют — генерируем новые
                 if (quests.isEmpty() || !isSameDay(quests.get(0).getDateCreated(), today)) {
                     quests = generateNewQuests();
                     dailyQuestDao.replaceAll(quests);
@@ -491,6 +487,7 @@ public class StatsRepository {
         });
     }
 
+    // Обновляет прогресс активных квестов указанного типа; выдаёт XP при завершении
     public void updateQuestProgress(String type, int amount) {
         executor.execute(() -> {
             try {
@@ -513,6 +510,7 @@ public class StatsRepository {
         });
     }
 
+    // Возвращает список достижений с прогрессом для текущего пользователя
     public void getAchievements(User currentUser,
                                 DataCallback<List<AchievementWithProgress>> callback) {
         if (currentUser == null) {
@@ -532,6 +530,7 @@ public class StatsRepository {
         });
     }
 
+    // Возвращает таблицу лидеров из локальной БД
     public void getLeaderboard(DataCallback<List<User>> callback) {
         executor.execute(() -> {
             try {
@@ -547,6 +546,7 @@ public class StatsRepository {
         });
     }
 
+    // Возвращает общую статистику пользователя: уроки, слова, точность, XP, лига
     public void getUserOverallStatistics(User currentUser, DataCallback<UserOverallStats> callback) {
         if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
@@ -569,6 +569,10 @@ public class StatsRepository {
         });
     }
 
+    // Рассчитывает итоговую статистику из истории уроков.
+    // Точность считается по формуле «верных попыток / всего попыток»,
+    // что корректно работает даже когда mistakesCount > totalWords
+    // (например, в Matching-режиме ошибки считаются по каждой неверной попытке)
     private void calculateAndReturnStats(User currentUser, int userId, int learnedCount, DataCallback<UserOverallStats> callback) {
         executor.execute(() -> {
             try {
@@ -588,9 +592,12 @@ public class StatsRepository {
                     }
                 }
 
-                int correctWords = Math.max(0, totalWords - totalMistakes);
-                int accuracy = totalWords > 0
-                        ? Math.max(0, Math.min(100, (correctWords * 100) / totalWords)) : 0;
+                // Точность по попыткам: каждое слово в итоге пройдено верно (= totalWords верных),
+                // а каждая ошибка — это дополнительная неверная попытка
+                int totalAttempts = totalWords + totalMistakes;
+                int accuracy = totalAttempts > 0
+                        ? Math.max(0, Math.min(100, (totalWords * 100) / totalAttempts))
+                        : 0;
 
                 int totalXp = currentUser.getTotalXp() != null ? currentUser.getTotalXp() : 0;
                 int level = currentUser.getCurrentLevel() != null
@@ -612,6 +619,7 @@ public class StatsRepository {
         });
     }
 
+    // Возвращает прогресс по всем темам с использованием кэша ID изученных слов
     public void getThemeProgressStatistics(User currentUser, DataCallback<List<ThemeProgressStats>> callback) {
         if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
@@ -653,6 +661,7 @@ public class StatsRepository {
         });
     }
 
+    // Рассчитывает прогресс по всем темам параллельно с помощью AtomicInteger-счётчика
     private void calculateThemeProgressOptimized(
             List<Theme> themes,
             List<Long> learnedWordIds,
@@ -701,6 +710,7 @@ public class StatsRepository {
         }
     }
 
+    // Возвращает ID изученных слов из кэша или загружает с сервера
     public void getLearnedWordIdsForCurrentUser(User currentUser, DataCallback<List<Long>> callback) {
         if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
@@ -739,6 +749,7 @@ public class StatsRepository {
                 });
     }
 
+    // Возвращает последние N уроков из локальной истории
     public void getRecentLessonHistory(int limit, User currentUser, DataCallback<List<LessonHistory>> callback) {
         if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
@@ -756,6 +767,7 @@ public class StatsRepository {
         });
     }
 
+    // Возвращает полную историю уроков пользователя для экрана статистики
     public void getLessonHistoryForStatistics(User currentUser, DataCallback<List<LessonHistory>> callback) {
         if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
@@ -772,6 +784,7 @@ public class StatsRepository {
         });
     }
 
+    // Начисляет XP пользователю, обновляет уровень и синхронизирует с сервером
     public void addXp(int xpReward) {
         User currentUser = listener != null ? listener.getCurrentUser() : null;
 
@@ -782,6 +795,7 @@ public class StatsRepository {
 
         if (currentUser == null) return;
 
+        // Обновляем прогресс квестов вместе с XP
         if (listener != null) {
             listener.updateQuestProgress("XP", xpReward);
             listener.updateQuestProgress("GAME_PLAYED", 1);
@@ -812,6 +826,7 @@ public class StatsRepository {
         });
     }
 
+    // Записывает завершение урока: обновляет статистику, историю и синхронизирует с сервером
     public void recordLessonCompletion(String lessonType, Long themeId, int earnedXp,
                                        int totalWords, int mistakesCount,
                                        int fixedErrorsCount, boolean isTimedMode) {
@@ -837,6 +852,7 @@ public class StatsRepository {
                 long todayStart = getStartOfDay(now);
                 int hour = getHourOfDay(now);
 
+                // Сбрасываем дневной XP при смене дня
                 if (stats.currentXpDay != todayStart) {
                     stats.currentXpDay = todayStart;
                     stats.currentDayXp = 0;
@@ -850,6 +866,7 @@ public class StatsRepository {
                 stats.completedTasksTotal += 1;
                 stats.fixedErrorsTotal += fixedErrorsCount;
 
+                // Серия идеальных уроков обнуляется при первой ошибке
                 if (mistakesCount == 0) {
                     stats.perfectLessonsStreak += 1;
                     stats.perfectLessonsTotal += 1;
@@ -889,6 +906,7 @@ public class StatsRepository {
         });
     }
 
+    // Фиксирует событие входа, обновляет streak и синхронизирует статистику
     public void recordLoginEvent() {
         User currentUser = listener != null ? listener.getCurrentUser() : null;
         if (currentUser == null || currentUser.getId() == null) return;
@@ -902,8 +920,10 @@ public class StatsRepository {
                 long todayStart = getStartOfDay(now);
                 long yesterdayStart = todayStart - 24L * 60L * 60L * 1000L;
 
+                // Повторный вход в тот же день не меняет streak
                 if (stats.lastLoginDay == todayStart) return;
 
+                // Streak продолжается только если вход был вчера
                 stats.loginStreak = stats.lastLoginDay == yesterdayStart
                         ? stats.loginStreak + 1 : 1;
                 stats.lastLoginDay = todayStart;
@@ -920,6 +940,7 @@ public class StatsRepository {
         });
     }
 
+    // Отправляет обновлённые XP и уровень пользователя на сервер
     public void syncUserProgressToRemote(User user) {
         try {
             if (user == null || user.getId() == null) return;
@@ -949,6 +970,7 @@ public class StatsRepository {
         }
     }
 
+    // Отправляет user_stats на сервер через upsert
     public void syncUserStatsToRemote(UserStats stats) {
         JsonObject payload = buildUserStatsPayload(stats);
 
@@ -970,6 +992,7 @@ public class StatsRepository {
                 });
     }
 
+    // Отправляет запись об уроке в lesson_history на сервере
     public void syncLessonHistoryToRemote(LessonHistory lessonHistory) {
         JsonObject payload = buildLessonHistoryPayload(lessonHistory);
 

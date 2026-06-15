@@ -14,6 +14,7 @@ import com.example.codeandwords.model.Word;
 import java.util.ArrayList;
 import java.util.List;
 
+// Адаптер списка терминов в административной панели.
 public class AdminWordAdapter extends RecyclerView.Adapter<AdminWordAdapter.WordViewHolder> {
 
     public interface Listener {

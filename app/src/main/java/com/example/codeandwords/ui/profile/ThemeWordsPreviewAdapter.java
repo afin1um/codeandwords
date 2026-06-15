@@ -14,6 +14,7 @@ import com.example.codeandwords.model.Word;
 import java.util.ArrayList;
 import java.util.List;
 
+// Адаптер предпросмотра терминов темы в административном BottomSheet.
 public class ThemeWordsPreviewAdapter extends RecyclerView.Adapter<ThemeWordsPreviewAdapter.WordViewHolder> {
 
     private final List<Word> items = new ArrayList<>();

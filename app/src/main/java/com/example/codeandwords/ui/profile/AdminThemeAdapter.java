@@ -14,6 +14,7 @@ import com.example.codeandwords.model.Theme;
 import java.util.ArrayList;
 import java.util.List;
 
+// Адаптер списка тем в административном разделе.
 public class AdminThemeAdapter extends RecyclerView.Adapter<AdminThemeAdapter.ThemeViewHolder> {
 
     public interface Listener {

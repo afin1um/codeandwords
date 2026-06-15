@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+// Room-база данных приложения: регистрация сущностей, миграции и инициализация начального контента
 @Database(
         entities = {
                 User.class,
@@ -49,14 +50,13 @@ import java.util.concurrent.Executors;
                 TeamChallenge.class,
                 TeamChallengeProgress.class
         },
-        version = 24,  // ✅ ПОДНЯЛИ ВЕРСИЮ ДО 24
+        version = 24,
         exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {
 
     private static final String TAG = "AppDatabase";
 
-    // ===== Все DAO =====
     public abstract UserDao userDao();
     public abstract ThemeDao themeDao();
     public abstract WordDao wordDao();
@@ -72,14 +72,13 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract TeamChallengeDao teamChallengeDao();
     public abstract TeamChallengeProgressDao teamChallengeProgressDao();
 
-    // ===== Singleton instance =====
     private static volatile AppDatabase INSTANCE;
 
-    // ===== Пул потоков для работы с БД =====
+    // Пул потоков для операций с БД
     public static final ExecutorService databaseWriteExecutor =
             Executors.newFixedThreadPool(4);
 
-    // ===== Миграции =====
+    // Пересоздаёт таблицы командного функционала с нуля
     private static final Migration MIGRATION_17_18 = new Migration(17, 18) {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
@@ -134,6 +133,7 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // Добавляет поля темы в таблицу личного словаря
     private static final Migration MIGRATION_18_19 = new Migration(18, 19) {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
@@ -142,6 +142,7 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // Добавляет поля для серверной синхронизации личного словаря
     private static final Migration MIGRATION_19_20 = new Migration(19, 20) {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
@@ -150,6 +151,7 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // Создаёт индексы для ускорения часто используемых запросов
     private static final Migration MIGRATION_20_21 = new Migration(20, 21) {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
@@ -164,6 +166,7 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // Пересоздаёт таблицу friends с композитным первичным ключом
     private static final Migration MIGRATION_21_22 = new Migration(21, 22) {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
@@ -179,11 +182,7 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
-    /**
-     * ✅ НОВЫЕ МИГРАЦИИ (22->24 и 23->24)
-     * Добавляют поле username в таблицу прогресса.
-     * Созданы две, на случай если у тебя БД версии 22 или 23.
-     */
+    // Добавляет столбец username в таблицу прогресса командных заданий (версия 22 → 24)
     private static final Migration MIGRATION_22_24 = new Migration(22, 24) {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
@@ -192,6 +191,7 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
+    // Добавляет столбец username в таблицу прогресса командных заданий (версия 23 → 24)
     private static final Migration MIGRATION_23_24 = new Migration(23, 24) {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
@@ -200,7 +200,7 @@ public abstract class AppDatabase extends RoomDatabase {
         }
     };
 
-    // ===== Получение singleton-а =====
+    // Singleton с двойной проверкой блокировки
     public static AppDatabase getDatabase(final Context context) {
         if (INSTANCE == null) {
             synchronized (AppDatabase.class) {
@@ -216,8 +216,8 @@ public abstract class AppDatabase extends RoomDatabase {
                                     MIGRATION_19_20,
                                     MIGRATION_20_21,
                                     MIGRATION_21_22,
-                                    MIGRATION_22_24, // ✅ Добавлено
-                                    MIGRATION_23_24  // ✅ Добавлено
+                                    MIGRATION_22_24,
+                                    MIGRATION_23_24
                             )
                             .fallbackToDestructiveMigration()
                             .fallbackToDestructiveMigrationOnDowngrade()
@@ -234,7 +234,8 @@ public abstract class AppDatabase extends RoomDatabase {
         return getDatabase(context);
     }
 
-    // ===== Инициализация контента БД при первом запуске =====
+    // Заполняет БД начальными темами, словами и достижениями при первом запуске.
+    // Пропускает инициализацию, если данные уже присутствуют и содержат тексты теории.
     private static void forceInitDatabase(AppDatabase db) {
         try {
             ThemeDao themeDao = db.themeDao();
@@ -264,6 +265,7 @@ public abstract class AppDatabase extends RoomDatabase {
                 wordDao.deleteAll();
                 achievementDao.deleteAll();
 
+                // Тексты теории с разметкой [[Перевод|Term]] для подсветки терминов в UI
                 String gitTheory = "Система контроля версий Git позволяет разработчикам работать вместе, не мешая друг другу. " +
                         "Главное место хранения вашего кода называется [[Репозиторий|Repository]]. " +
                         "Когда вы написали кусок кода и хотите его сохранить в историю, вы делаете сохранение, которое называется [[Фиксация|Commit]].\n\n" +

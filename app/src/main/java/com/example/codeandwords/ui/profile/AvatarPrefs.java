@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 
+// Хранилище настроек аватара в SharedPreferences.
 public class AvatarPrefs {
 
     private static final String PREFS = "avatar_prefs";
@@ -31,6 +32,7 @@ public class AvatarPrefs {
     private AvatarPrefs() {
     }
 
+    // Загружает сохранённую конфигурацию аватара.
     public static AvatarConfig load(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 
@@ -58,6 +60,7 @@ public class AvatarPrefs {
         return config;
     }
 
+    // Полное сохранение аватара как подтверждённого.
     public static void save(Context context, AvatarConfig config) {
         if (config == null) {
             config = new AvatarConfig();
@@ -90,6 +93,7 @@ public class AvatarPrefs {
                 .apply();
     }
 
+    // Черновое сохранение аватара без отметки о завершённой настройке.
     public static void saveDraft(Context context, AvatarConfig config) {
         if (config == null) {
             config = new AvatarConfig();

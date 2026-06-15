@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey;
 
 import com.google.gson.annotations.SerializedName;
 
+// Запись об одном завершённом уроке; используется для статистики и истории
 @Entity(
         tableName = "lesson_history",
         indices = {
@@ -15,6 +16,7 @@ import com.google.gson.annotations.SerializedName;
         }
 )
 public class LessonHistory {
+
     @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = "id")
     @SerializedName("id")
@@ -67,17 +69,10 @@ public class LessonHistory {
     public LessonHistory() {
     }
 
-    public LessonHistory(int userId,
-                         String lessonType,
-                         Long themeId,
-                         int earnedXp,
-                         int totalWords,
-                         int mistakesCount,
-                         int fixedErrorsCount,
-                         long finishedAt,
-                         boolean wasPerfect,
-                         boolean completedBefore9,
-                         boolean completedAfter22) {
+    public LessonHistory(int userId, String lessonType, Long themeId, int earnedXp,
+                         int totalWords, int mistakesCount, int fixedErrorsCount,
+                         long finishedAt, boolean wasPerfect,
+                         boolean completedBefore9, boolean completedAfter22) {
         this.userId = userId;
         this.lessonType = lessonType;
         this.themeId = themeId;

@@ -21,6 +21,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+// Репозиторий расписания занятий: создание, удаление и загрузка с поддержкой cache-first
 public class ScheduleRepository {
 
     private static final String TAG = "ScheduleRepository";
@@ -45,8 +46,7 @@ public class ScheduleRepository {
         void onError(String error);
     }
 
-    // ===== СОЗДАНИЕ ЗАНЯТИЯ =====
-
+    // Создаёт запись расписания на сервере, затем сохраняет локально с полученным ID
     public void createStudySchedule(StudySchedule schedule, DataCallback<StudySchedule> callback) {
         if (schedule == null) {
             callback.onError("Данные занятия не заполнены");
@@ -95,15 +95,13 @@ public class ScheduleRepository {
         });
     }
 
-    // ===== УДАЛЕНИЕ ЗАНЯТИЯ =====
-
+    // Удаляет запись расписания: сначала локально для мгновенного отклика UI, затем на сервере
     public void deleteStudySchedule(StudySchedule schedule, DataCallback<Void> callback) {
         if (schedule == null) {
             callback.onError("Занятие не найдено");
             return;
         }
 
-        // СНАЧАЛА удаляем локально — мгновенный отклик UI
         executor.execute(() -> {
             try {
                 studyScheduleDao.delete(schedule);
@@ -113,7 +111,6 @@ public class ScheduleRepository {
             mainHandler.post(() -> callback.onSuccess(null));
         });
 
-        // ПОТОМ удаляем с сервера в фоне
         scheduleApiService.deleteStudyScheduleRaw("eq." + schedule.id).enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
@@ -130,13 +127,7 @@ public class ScheduleRepository {
         });
     }
 
-    // ===== ЗАГРУЗКА: CACHE-FIRST =====
-
-    /**
-     * ✅ ОПТИМИЗИРОВАНО: cache-first
-     * 1. Моментально показываем локальные данные (использует индекс idx_schedule_user_date_time)
-     * 2. В фоне обновляем с сервера
-     */
+    // Cache-first: сначала отдаёт локальные данные, затем обновляет с сервера в фоне
     public void getStudyScheduleForDate(int userId, String date,
                                         DataCallback<List<StudySchedule>> callback) {
         if (userId <= 0 || date == null || date.trim().isEmpty()) {
@@ -144,14 +135,12 @@ public class ScheduleRepository {
             return;
         }
 
-        // 1. СРАЗУ показываем локальные данные
         executor.execute(() -> {
             try {
                 List<StudySchedule> local = studyScheduleDao.getByDate(userId, date);
                 if (local != null && !local.isEmpty()) {
                     mainHandler.post(() -> callback.onSuccess(local));
                 }
-                // 2. ПОТОМ обновляем с сервера
                 refreshScheduleForDateFromServer(userId, date, local, callback);
             } catch (Exception e) {
                 Log.e(TAG, "Ошибка локальной загрузки: " + e.getMessage(), e);
@@ -160,6 +149,7 @@ public class ScheduleRepository {
         });
     }
 
+    // Загружает расписание за дату с сервера и сохраняет локально
     private void refreshScheduleForDateFromServer(int userId, String date,
                                                   List<StudySchedule> localData,
                                                   DataCallback<List<StudySchedule>> callback) {
@@ -175,15 +165,11 @@ public class ScheduleRepository {
                         try {
                             List<StudySchedule> schedules = parseStudySchedules(response.body());
 
-                            // Сохраняем в одной транзакции для скорости
-                            for (StudySchedule schedule : schedules) {
-                                studyScheduleDao.insert(schedule);
-                            }
+                            studyScheduleDao.insertAllOrReplace(schedules);
 
                             mainHandler.post(() -> callback.onSuccess(schedules));
                         } catch (Exception e) {
                             Log.e(TAG, "Ошибка обработки study_schedule: " + e.getMessage(), e);
-                            // Если уже отдавали локальные данные — не нужно дублировать
                             if (localData == null || localData.isEmpty()) {
                                 mainHandler.post(() -> callback.onError("Ошибка обработки данных"));
                             }
@@ -192,7 +178,6 @@ public class ScheduleRepository {
                 } else {
                     Log.e(TAG, "Ошибка загрузки study_schedule: "
                             + response.code() + " | " + getErrorBody(response));
-                    // Если локальных данных не было — отдаём ошибку
                     if (localData == null || localData.isEmpty()) {
                         mainHandler.post(() -> callback.onError(
                                 "Не удалось загрузить график занятий"));
@@ -211,9 +196,7 @@ public class ScheduleRepository {
         });
     }
 
-    /**
-     * ✅ ОПТИМИЗИРОВАНО: cache-first для диапазона
-     */
+    // Cache-first для диапазона дат: сначала локальные данные, затем обновление с сервера
     public void getStudyScheduleForRange(int userId, String startDate, String endDate,
                                          DataCallback<List<StudySchedule>> callback) {
         if (userId <= 0 || startDate == null || startDate.trim().isEmpty()
@@ -222,14 +205,12 @@ public class ScheduleRepository {
             return;
         }
 
-        // 1. Локальные данные — мгновенно (использует индекс)
         executor.execute(() -> {
             try {
                 List<StudySchedule> local = studyScheduleDao.getByDateRange(userId, startDate, endDate);
                 if (local != null && !local.isEmpty()) {
                     mainHandler.post(() -> callback.onSuccess(local));
                 }
-                // 2. Сервер — в фоне
                 refreshScheduleRangeFromServer(userId, startDate, endDate, local, callback);
             } catch (Exception e) {
                 Log.e(TAG, "Ошибка локальной загрузки диапазона: " + e.getMessage(), e);
@@ -238,6 +219,7 @@ public class ScheduleRepository {
         });
     }
 
+    // Загружает расписание за диапазон дат с сервера и сохраняет локально
     private void refreshScheduleRangeFromServer(int userId, String startDate, String endDate,
                                                 List<StudySchedule> localData,
                                                 DataCallback<List<StudySchedule>> callback) {
@@ -251,20 +233,20 @@ public class ScheduleRepository {
             public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     executor.execute(() -> {
-                        try {
-                            List<StudySchedule> schedules = parseStudySchedules(response.body());
+                        executor.execute(() -> {
+                            try {
+                                List<StudySchedule> schedules = parseStudySchedules(response.body());
 
-                            for (StudySchedule schedule : schedules) {
-                                studyScheduleDao.insert(schedule);
-                            }
+                                studyScheduleDao.insertAllOrReplace(schedules);  // ← заменили
 
-                            mainHandler.post(() -> callback.onSuccess(schedules));
-                        } catch (Exception e) {
-                            Log.e(TAG, "Ошибка обработки диапазона: " + e.getMessage(), e);
-                            if (localData == null || localData.isEmpty()) {
-                                mainHandler.post(() -> callback.onError("Ошибка обработки"));
+                                mainHandler.post(() -> callback.onSuccess(schedules));
+                            } catch (Exception e) {
+                                Log.e(TAG, "Ошибка обработки диапазона: " + e.getMessage(), e);
+                                if (localData == null || localData.isEmpty()) {
+                                    mainHandler.post(() -> callback.onError("Ошибка обработки"));
+                                }
                             }
-                        }
+                        });
                     });
                 } else {
                     Log.e(TAG, "Ошибка загрузки диапазона: "
@@ -286,8 +268,7 @@ public class ScheduleRepository {
         });
     }
 
-    // ===== МЕТОДЫ ДЛЯ ПРЯМОГО ДОСТУПА К ЛОКАЛЬНОЙ БД =====
-
+    // Прямой доступ к локальной БД для получения расписания на дату без сетевого запроса
     public void loadLocalStudyScheduleForDate(int userId, String date,
                                               DataCallback<List<StudySchedule>> callback) {
         executor.execute(() -> {
@@ -301,6 +282,7 @@ public class ScheduleRepository {
         });
     }
 
+    // Прямой доступ к локальной БД для получения расписания за диапазон дат
     public void loadLocalStudyScheduleForRange(int userId, String startDate, String endDate,
                                                DataCallback<List<StudySchedule>> callback) {
         executor.execute(() -> {
@@ -314,8 +296,7 @@ public class ScheduleRepository {
         });
     }
 
-    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
-
+    // Разбирает список JSON-объектов расписания в список моделей StudySchedule
     private List<StudySchedule> parseStudySchedules(List<JsonObject> jsonList) {
         List<StudySchedule> result = new ArrayList<>();
         if (jsonList == null) return result;
@@ -341,6 +322,7 @@ public class ScheduleRepository {
             else
                 schedule.themeTitle = "Без темы";
 
+            // Если короткое название отсутствует — генерируем из полного
             if (item.has("theme_short_title") && !item.get("theme_short_title").isJsonNull())
                 schedule.themeShortTitle = item.get("theme_short_title").getAsString();
             else
@@ -360,6 +342,7 @@ public class ScheduleRepository {
             else
                 schedule.note = "";
 
+            // Добавляем только записи с обязательными полями
             if (schedule.userId > 0 && schedule.scheduleDate != null) {
                 result.add(schedule);
             }
@@ -368,6 +351,7 @@ public class ScheduleRepository {
         return result;
     }
 
+    // Генерирует короткое название из первых букв слов или первых двух символов строки
     private String makeScheduleShortTitle(String title) {
         if (title == null || title.trim().isEmpty()) return "??";
 
@@ -386,10 +370,12 @@ public class ScheduleRepository {
         return clean.toUpperCase(Locale.getDefault());
     }
 
+    // Собирает JSON-объект для отправки записи расписания на сервер
     private JsonObject buildStudySchedulePayload(StudySchedule schedule) {
         JsonObject payload = new JsonObject();
         payload.addProperty("user_id", schedule.userId);
 
+        // theme_id = null если тема не выбрана
         if (schedule.themeId > 0) {
             payload.addProperty("theme_id", schedule.themeId);
         } else {
@@ -402,6 +388,7 @@ public class ScheduleRepository {
         payload.addProperty("start_time", schedule.startTime);
         payload.addProperty("end_time", schedule.endTime);
 
+        // note = null если не заполнено
         if (schedule.note != null && !schedule.note.trim().isEmpty()) {
             payload.addProperty("note", schedule.note.trim());
         } else {

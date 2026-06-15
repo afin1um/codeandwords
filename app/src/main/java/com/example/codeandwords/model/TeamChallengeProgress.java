@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey;
 
 import com.google.gson.annotations.SerializedName;
 
+// Прогресс участника по командному заданию; username хранится для отображения в UI без JOIN
 @Entity(tableName = "team_challenge_progress")
 public class TeamChallengeProgress {
 
@@ -46,7 +47,7 @@ public class TeamChallengeProgress {
     @ColumnInfo(name = "awarded_xp")
     public int awardedXp;
 
-    // ✅ ИСПРАВЛЕНО: Теперь ник сохраняется в базу данных
+    // Кэшируется из вложенного объекта user при загрузке с сервером
     @SerializedName("username")
     @ColumnInfo(name = "username")
     public String username;

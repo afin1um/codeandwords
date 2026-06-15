@@ -16,13 +16,16 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+// Репозиторий прогресса по словам: отслеживание правильных ответов, ошибок и статуса изученности
 public class WordProgressRepository {
 
     private static final String TAG = "WordProgressRepository";
 
+    // Лимиты выборки для тренировок
     private static final int MISTAKES_LIMIT = 15;
     private static final int LEARNED_TRAINING_LIMIT = 15;
 
+    // Константы режимов обучения
     public static final String MODE_SPRINT = "SPRINT";
     public static final String MODE_MATCHING = "MATCHING";
     public static final String MODE_WRITING = "WRITING";
@@ -36,6 +39,7 @@ public class WordProgressRepository {
         this.mainHandler = mainHandler;
     }
 
+    // Интерфейс для делегирования загрузки слов во ViewModel
     public interface WordProgressListener {
         void loadWordsByIds(List<Long> ids, DataCallback<List<Word>> callback);
         void getWordsByTheme(Long themeId, DataCallback<List<Word>> callback);
@@ -54,10 +58,7 @@ public class WordProgressRepository {
         return v == null ? 0 : v;
     }
 
-    /**
-     * ✅ НОВАЯ ЛОГИКА:
-     * слово считается изученным только если пройдены все 3 режима.
-     */
+    // Слово считается изученным только если пройдены все три режима обучения
     private boolean calculateIsLearned(UserWordProgress p) {
         if (p == null) return false;
         return Boolean.TRUE.equals(p.getPassedSprint())
@@ -65,10 +66,7 @@ public class WordProgressRepository {
                 && Boolean.TRUE.equals(p.getPassedWriting());
     }
 
-    // ======================================================================
-    // ✅ НОВЫЙ ПУБЛИЧНЫЙ МЕТОД: пометить, что слово пройдено в одном из 3 режимов
-    // ======================================================================
-
+    // Публичные методы для пометки слова как пройденного в конкретном режиме
     public void markSprintPassed(Integer userId, Long wordId) {
         markModePassed(userId, wordId, MODE_SPRINT);
     }
@@ -81,6 +79,7 @@ public class WordProgressRepository {
         markModePassed(userId, wordId, MODE_WRITING);
     }
 
+    // Получает или создаёт запись прогресса, устанавливает флаг режима и пересчитывает is_learned
     private void markModePassed(Integer userId, Long wordId, String mode) {
         if (userId == null || wordId == null || mode == null) return;
 
@@ -97,6 +96,7 @@ public class WordProgressRepository {
                         if (!response.isSuccessful() || response.body() == null) return;
 
                         if (response.body().isEmpty()) {
+                            // Записи нет — создаём новую
                             UserWordProgress prog = new UserWordProgress();
                             prog.setUserId(userId.longValue());
                             prog.setWordId(wordId);
@@ -105,7 +105,6 @@ public class WordProgressRepository {
                             applyModeFlag(prog, mode);
                             prog.setIsLearned(calculateIsLearned(prog));
 
-                            // ✅ Если слово стало изученным — обновляем кэш
                             if (Boolean.TRUE.equals(prog.getIsLearned())) {
                                 synchronized (learnedIdsCache) {
                                     learnedIdsCache.add(wordId);
@@ -118,6 +117,7 @@ public class WordProgressRepository {
                             return;
                         }
 
+                        // Запись существует — обновляем
                         UserWordProgress existing = response.body().get(0);
 
                         int oldCorrect = safeInt(existing.getCorrectAnswersCount());
@@ -126,7 +126,6 @@ public class WordProgressRepository {
                         applyModeFlag(existing, mode);
                         existing.setIsLearned(calculateIsLearned(existing));
 
-                        // ✅ Если слово стало изученным — обновляем кэш
                         if (Boolean.TRUE.equals(existing.getIsLearned())) {
                             synchronized (learnedIdsCache) {
                                 learnedIdsCache.add(wordId);
@@ -146,6 +145,7 @@ public class WordProgressRepository {
                 });
     }
 
+    // Устанавливает флаг соответствующего режима в записи прогресса
     private void applyModeFlag(UserWordProgress p, String mode) {
         switch (mode) {
             case MODE_SPRINT:
@@ -160,11 +160,8 @@ public class WordProgressRepository {
         }
     }
 
-    // ======================================================================
-    // СТАРЫЙ incrementWordProgress — оставлен для обратной совместимости
-    // (НЕ ставит флагов режимов, просто увеличивает correct_answers_count)
-    // ======================================================================
-
+    // Увеличивает счётчик правильных ответов без выставления флагов режимов.
+    // Оставлен для обратной совместимости.
     public void incrementWordProgress(Integer userId, Long wordId) {
         if (userId == null || wordId == null) return;
 
@@ -208,10 +205,7 @@ public class WordProgressRepository {
                 });
     }
 
-    // ======================================================================
-    // RECORD WORD MISTAKE — фиксируем ошибку
-    // ======================================================================
-
+    // Фиксирует ошибку пользователя по слову: создаёт или обновляет запись прогресса
     public void recordWordMistake(Word word, Integer userId) {
         if (word == null || userId == null || word.getId() == null) return;
 
@@ -255,12 +249,8 @@ public class WordProgressRepository {
                 });
     }
 
-    // ======================================================================
-    // RESOLVE WORD MISTAKE — пользователь исправил ошибку
-    // ✅ Уменьшаем mistakes_count, и больше ничего.
-    // Флаг режима выставит вызывающий код (Sprint/Matching/Write Activity)
-    // ======================================================================
-
+    // Уменьшает счётчик ошибок и увеличивает счётчик правильных ответов.
+    // Флаги режимов выставляются отдельно вызывающим кодом.
     public void resolveWordMistake(Word word, Integer userId, DataCallback<Void> callback) {
         if (userId == null || word == null || word.getId() == null) {
             if (callback != null) callback.onError("Некорректные параметры");
@@ -280,6 +270,7 @@ public class WordProgressRepository {
                         if (!response.isSuccessful() || response.body() == null
                                 || response.body().isEmpty()) {
 
+                            // Записи нет — создаём с одним правильным ответом
                             UserWordProgress newProg = new UserWordProgress();
                             newProg.setUserId(userId.longValue());
                             newProg.setWordId(word.getId());
@@ -310,6 +301,7 @@ public class WordProgressRepository {
                         int oldCorrect = safeInt(existing.getCorrectAnswersCount());
                         int oldMistakes = safeInt(existing.getMistakesCount());
 
+                        // Ошибки не могут уйти в отрицательные значения
                         existing.setMistakesCount(Math.max(0, oldMistakes - 1));
                         existing.setCorrectAnswersCount(oldCorrect + 1);
                         existing.setIsLearned(calculateIsLearned(existing));
@@ -339,10 +331,8 @@ public class WordProgressRepository {
                 });
     }
 
-    // ======================================================================
-    // UPSERT WORD PROGRESS — обобщённый старый метод
-    // ======================================================================
-
+    // Универсальный метод обновления прогресса: используется там, где
+    // флаги режимов не важны, а нужно просто увеличить счётчики
     public void upsertWordProgress(Long userId,
                                    Long wordId,
                                    boolean markLearned,
@@ -394,6 +384,7 @@ public class WordProgressRepository {
                             return;
                         }
 
+                        // Записи нет — создаём
                         UserWordProgress progress = new UserWordProgress();
                         progress.setUserId(userId);
                         progress.setWordId(wordId);
@@ -424,10 +415,7 @@ public class WordProgressRepository {
                 });
     }
 
-    // ======================================================================
-    // ВЫУЧЕННЫЕ СЛОВА
-    // ======================================================================
-
+    // Возвращает полный список изученных слов пользователя
     public void getLearnedWords(Integer userId, DataCallback<List<Word>> callback) {
         if (userId == null) {
             mainHandler.post(() -> callback.onError("Пользователь не авторизован"));
@@ -476,8 +464,12 @@ public class WordProgressRepository {
         });
     }
 
+    // Возвращает ограниченный список изученных слов для режима повторения
     public void getLearnedWordsForTraining(Integer userId, DataCallback<List<Word>> callback) {
+        Log.d("WordProgressDiag", ">>> getLearnedWordsForTraining, userId=" + userId);
+
         if (userId == null) {
+            Log.e("WordProgressDiag", "userId is null!");
             mainHandler.post(() -> callback.onError("Пользователь не авторизован"));
             return;
         }
@@ -492,6 +484,10 @@ public class WordProgressRepository {
             @Override
             public void onResponse(Call<List<UserWordProgress>> call,
                                    Response<List<UserWordProgress>> response) {
+                Log.d("WordProgressDiag", "getLearnedProgress response: code="
+                        + response.code() + ", body="
+                        + (response.body() == null ? "null" : response.body().size()));
+
                 if (!response.isSuccessful() || response.body() == null) {
                     mainHandler.post(() -> callback.onError("Не удалось загрузить прогресс слов"));
                     return;
@@ -505,29 +501,31 @@ public class WordProgressRepository {
                     }
                 }
 
+                Log.d("WordProgressDiag", "Найдено learned ids: " + ids.size());
+
                 if (ids.isEmpty()) {
                     mainHandler.post(() -> callback.onSuccess(new ArrayList<>()));
                     return;
                 }
 
                 if (listener != null) {
+                    Log.d("WordProgressDiag", "Вызываем listener.loadWordsByIds для " + ids.size() + " ids");
                     listener.loadWordsByIds(ids, callback);
                 } else {
+                    Log.e("WordProgressDiag", "listener == null!");
                     mainHandler.post(() -> callback.onError("listener не установлен"));
                 }
             }
 
             @Override
             public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
+                Log.e("WordProgressDiag", "getLearnedProgress FAILURE: " + t.getMessage(), t);
                 mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
             }
         });
     }
 
-    // ======================================================================
-    // СЛОВА С ОШИБКАМИ (с retry при таймауте)
-    // ======================================================================
-
+    // Возвращает слова с ошибками для работы над ошибками; при сбое сети повторяет запрос
     public void getMistakeWordsForTraining(Integer userId, DataCallback<List<Word>> callback) {
         if (userId == null) {
             mainHandler.post(() -> callback.onError("Пользователь не авторизован"));
@@ -536,6 +534,7 @@ public class WordProgressRepository {
         getMistakeWordsWithRetry(userId, callback, 2);
     }
 
+    // Рекурсивный повтор запроса слов с ошибками при сетевом сбое
     private void getMistakeWordsWithRetry(Integer userId,
                                           DataCallback<List<Word>> callback,
                                           int attemptsLeft) {
@@ -577,6 +576,7 @@ public class WordProgressRepository {
 
             @Override
             public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
+                // При сбое повторяем запрос с задержкой; после исчерпания попыток — пустой список
                 if (attemptsLeft > 0) {
                     mainHandler.postDelayed(() ->
                                     getMistakeWordsWithRetry(userId, callback, attemptsLeft - 1),
@@ -588,16 +588,13 @@ public class WordProgressRepository {
         });
     }
 
-    // ======================================================================
-    // ОСТАЛЬНЫЕ МЕТОДЫ
-    // ======================================================================
-
-    // ✅ КЭШ выученных ID слов в памяти (живёт пока приложение запущено)
+    // In-memory кэш ID изученных слов с TTL 60 секунд
     private final Set<Long> learnedIdsCache = new HashSet<>();
     private volatile boolean learnedIdsCacheLoaded = false;
     private volatile long learnedIdsCacheTimestamp = 0;
-    private static final long CACHE_TTL_MS = 60_000; // кэш живёт 60 секунд
+    private static final long CACHE_TTL_MS = 60_000;
 
+    // Возвращает неизученные слова темы: сначала из кэша, затем обновляет с сервера
     public void getUnlearnedWordsByTheme(Long themeId,
                                          Integer userId,
                                          DataCallback<List<Word>> callback) {
@@ -610,12 +607,13 @@ public class WordProgressRepository {
             return;
         }
 
-        // ✅ ШАГ 1: грузим слова темы из Room (быстро)
+        // Шаг 1: загружаем слова темы из локальной БД
         listener.getWordsByTheme(themeId, new DataCallback<List<Word>>() {
             @Override
             public void onSuccess(List<Word> words) {
-                // ✅ ШАГ 2: если кэш свежий — используем его моментально
                 long age = System.currentTimeMillis() - learnedIdsCacheTimestamp;
+
+                // Шаг 2: если кэш актуален — используем немедленно и обновляем в фоне
                 if (learnedIdsCacheLoaded && age < CACHE_TTL_MS) {
                     Log.d(TAG, "getUnlearnedWordsByTheme: используем кэш ("
                             + learnedIdsCache.size() + " выученных)");
@@ -626,12 +624,11 @@ public class WordProgressRepository {
                     List<Word> result = buildUnlearnedList(words, cacheCopy);
                     mainHandler.post(() -> callback.onSuccess(result));
 
-                    // Фоновое обновление кэша (на случай если что-то изменилось)
                     refreshLearnedIdsCache(userId, null);
                     return;
                 }
 
-                // ✅ ШАГ 3: кэша нет/устарел — грузим с сервера
+                // Шаг 3: кэш устарел или отсутствует — загружаем с сервера
                 refreshLearnedIdsCache(userId, freshIds -> {
                     Set<Long> idsToUse = freshIds != null ? freshIds : new HashSet<>();
                     List<Word> result = buildUnlearnedList(words, idsToUse);
@@ -646,10 +643,7 @@ public class WordProgressRepository {
         });
     }
 
-    /**
-     * Фоновое обновление кэша выученных ID.
-     * Если callback != null — вызывается с результатом.
-     */
+    // Обновляет кэш ID изученных слов с сервера; вызывает callback с результатом если он задан
     private void refreshLearnedIdsCache(Integer userId,
                                         OnLearnedIdsLoaded callback) {
         apiService.getLearnedProgress(
@@ -672,7 +666,6 @@ public class WordProgressRepository {
                     }
                 }
 
-                // Обновляем кэш
                 synchronized (learnedIdsCache) {
                     learnedIdsCache.clear();
                     learnedIdsCache.addAll(ids);
@@ -690,8 +683,8 @@ public class WordProgressRepository {
             @Override
             public void onFailure(Call<List<UserWordProgress>> call, Throwable t) {
                 Log.e(TAG, "refreshLearnedIdsCache failure: " + t.getMessage());
+                // При ошибке сети возвращаем то, что есть в кэше
                 if (callback != null) {
-                    // При ошибке — возвращаем что есть в кэше
                     Set<Long> cacheCopy;
                     synchronized (learnedIdsCache) {
                         cacheCopy = new HashSet<>(learnedIdsCache);
@@ -706,19 +699,14 @@ public class WordProgressRepository {
         void onLoaded(Set<Long> ids);
     }
 
-    /**
-     * ✅ ПУБЛИЧНЫЙ МЕТОД: прогрев кэша при старте приложения.
-     * Вызовите из MainActivity, чтобы первый вход в игру был мгновенным.
-     */
+    // Прогрев кэша при старте приложения для мгновенного первого входа в игру
     public void warmupLearnedIdsCache(Integer userId) {
         if (userId == null || userId <= 0) return;
         Log.d(TAG, "warmupLearnedIdsCache: прогреваем кэш для userId=" + userId);
         refreshLearnedIdsCache(userId, null);
     }
 
-    /**
-     * ✅ Очистка кэша при logout
-     */
+    // Сброс кэша при выходе из аккаунта
     public void clearLearnedIdsCache() {
         synchronized (learnedIdsCache) {
             learnedIdsCache.clear();
@@ -727,6 +715,7 @@ public class WordProgressRepository {
         }
     }
 
+    // Фильтрует список слов, исключая уже изученные
     private List<Word> buildUnlearnedList(List<Word> words, Set<Long> learnedIds) {
         List<Word> result = new ArrayList<>();
         if (words == null) return result;
@@ -743,6 +732,7 @@ public class WordProgressRepository {
         return result;
     }
 
+    // Помечает список слов как изученные через incrementWordProgress
     public void markWordsAsLearned(List<Word> words,
                                    Integer userId,
                                    DataCallback<Void> callback) {
@@ -769,6 +759,7 @@ public class WordProgressRepository {
         }
     }
 
+    // Возвращает общее количество изученных слов пользователя
     public void getLearnedWordsCount(Integer userId, DataCallback<Integer> callback) {
         if (userId == null || userId <= 0) {
             callback.onError("Некорректный пользователь");
@@ -808,6 +799,7 @@ public class WordProgressRepository {
         });
     }
 
+    // Пустой callback для запросов, результат которых не нужен вызывающему коду
     private Callback<List<UserWordProgress>> noOpCallback() {
         return new Callback<List<UserWordProgress>>() {
             @Override
@@ -821,6 +813,7 @@ public class WordProgressRepository {
         };
     }
 
+    // Пустой Void-callback для запросов без возвращаемого значения
     private Callback<Void> noOpVoidCallback() {
         return new Callback<Void>() {
             @Override

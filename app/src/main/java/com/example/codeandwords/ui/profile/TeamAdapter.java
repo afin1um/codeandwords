@@ -14,6 +14,7 @@ import com.example.codeandwords.model.Team;
 import java.util.ArrayList;
 import java.util.List;
 
+// Адаптер списка команд пользователя.
 public class TeamAdapter extends RecyclerView.Adapter<TeamAdapter.TeamViewHolder> {
 
     public interface OnTeamClickListener {

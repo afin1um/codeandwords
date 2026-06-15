@@ -16,6 +16,7 @@ import com.example.codeandwords.model.Theme;
 import java.util.ArrayList;
 import java.util.List;
 
+// Адаптер списка тем обучения с цветовой индикацией уровня сложности
 public class ThemeAdapter extends RecyclerView.Adapter<ThemeAdapter.ThemeViewHolder> {
 
     private List<Theme> themes = new ArrayList<>();
@@ -69,38 +70,26 @@ public class ThemeAdapter extends RecyclerView.Adapter<ThemeAdapter.ThemeViewHol
             tvTitle.setText(theme.getTitle());
             tvDesc.setText(theme.getDescription());
 
-            // Устанавливаем текст сложности
             String difficulty = theme.getDifficultyLevel();
             tvDifficulty.setText(difficulty);
 
-            // Логика изменения цвета метки сложности
+            // Цвет метки зависит от уровня сложности
             int color;
             if (difficulty == null) {
-                color = Color.parseColor("#9E9E9E"); // Серый по умолчанию
+                color = Color.parseColor("#9E9E9E");
             } else {
                 switch (difficulty.toLowerCase()) {
-                    case "easy":
-                        color = Color.parseColor("#4CAF50"); // Зеленый
-                        break;
-                    case "medium":
-                        color = Color.parseColor("#FFB300"); // Оранжевый/Желтый
-                        break;
-                    case "hard":
-                        color = Color.parseColor("#F44336"); // Красный
-                        break;
-                    default:
-                        color = Color.parseColor("#9E9E9E"); // Серый
-                        break;
+                    case "easy":   color = Color.parseColor("#4CAF50"); break;
+                    case "medium": color = Color.parseColor("#FFB300"); break;
+                    case "hard":   color = Color.parseColor("#F44336"); break;
+                    default:       color = Color.parseColor("#9E9E9E"); break;
                 }
             }
 
-            // Применяем цвет к фону (background) нашего TextView
-            // Используем PorterDuff.Mode.SRC_IN для корректного закрашивания скругленного фона
             if (tvDifficulty.getBackground() != null) {
                 tvDifficulty.getBackground().setColorFilter(color, PorterDuff.Mode.SRC_IN);
             }
 
-            // Обработка клика
             itemView.setOnClickListener(v -> listener.onThemeClick(theme));
         }
     }

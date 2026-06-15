@@ -4,20 +4,28 @@ import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 import java.io.Serializable;
 
+// Модель ежедневного квеста; хранится локально и сбрасывается раз в день
 @Entity(tableName = "daily_quests")
 public class DailyQuest implements Serializable {
+
     @PrimaryKey(autoGenerate = true)
     private Long id;
-    private String description; // Например: "Заработать 50 XP"
-    private int targetCount;    // Цель: 50
-    private int currentProgress;// Текущий: 10
-    private int xpReward;       // Награда: 20
-    private String type;        // Тип: "XP", "GAME_PLAYED", "WORDS"
-    private boolean isCompleted;
-    private long dateCreated;   // Чтобы знать, когда обновлять квесты
 
-    // Конструктор
-    public DailyQuest(String description, int targetCount, int xpReward, String type, long dateCreated) {
+    private String description;
+    private int targetCount;
+    private int currentProgress;
+    private int xpReward;
+
+    // Тип квеста: "XP", "GAME_PLAYED", "WORDS"
+    private String type;
+
+    private boolean isCompleted;
+
+    // Unix-время создания — используется для сброса квестов в новый день
+    private long dateCreated;
+
+    public DailyQuest(String description, int targetCount, int xpReward,
+                      String type, long dateCreated) {
         this.description = description;
         this.targetCount = targetCount;
         this.xpReward = xpReward;
@@ -27,7 +35,6 @@ public class DailyQuest implements Serializable {
         this.isCompleted = false;
     }
 
-    // Геттеры и сеттеры
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getDescription() { return description; }

@@ -14,6 +14,7 @@ import com.example.codeandwords.model.Team;
 import java.util.ArrayList;
 import java.util.List;
 
+// Альтернативный адаптер списка команд (используется там, где нужен отдельный экземпляр).
 public class TeamListAdapter extends RecyclerView.Adapter<TeamListAdapter.VH> {
 
     public interface OnTeamClickListener {

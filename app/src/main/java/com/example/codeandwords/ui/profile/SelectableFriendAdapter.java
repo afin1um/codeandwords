@@ -18,15 +18,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+// Адаптер выбора друзей для команды: максимум 3 участника, выбор сохраняется при обновлении списка.
 public class SelectableFriendAdapter extends RecyclerView.Adapter<SelectableFriendAdapter.VH> {
 
     private final List<User> items = new ArrayList<>();
     private final Set<Integer> selectedUserIds = new HashSet<>();
 
-    /**
-     * ✅ ИСПРАВЛЕНО: при обновлении списка СОХРАНЯЕМ выбор пользователя.
-     * Сбрасываем только тех, кого больше нет в списке.
-     */
+    // Обновляет список, сохраняя только те ID, которые присутствуют в новом наборе
     public void setItems(List<User> users) {
         items.clear();
 
@@ -34,7 +32,6 @@ public class SelectableFriendAdapter extends RecyclerView.Adapter<SelectableFrie
             items.addAll(users);
         }
 
-        // ✅ Удаляем из выбора тех, кого больше нет в списке
         Set<Integer> validIds = new HashSet<>();
         for (User user : items) {
             if (user != null && user.getId() != null) {
@@ -46,6 +43,7 @@ public class SelectableFriendAdapter extends RecyclerView.Adapter<SelectableFrie
         notifyDataSetChanged();
     }
 
+    // Возвращает список выбранных пользователей
     public List<User> getSelectedFriends() {
         List<User> result = new ArrayList<>();
 
@@ -93,6 +91,7 @@ public class SelectableFriendAdapter extends RecyclerView.Adapter<SelectableFrie
 
         holder.itemView.setSelected(isSelected);
 
+        // Единый обработчик для клика по строке и чекбоксу
         View.OnClickListener clickListener = v -> {
             if (userId == null) {
                 Toast.makeText(v.getContext(), "Пользователь недоступен", Toast.LENGTH_SHORT).show();
@@ -105,7 +104,8 @@ public class SelectableFriendAdapter extends RecyclerView.Adapter<SelectableFrie
                 selectedUserIds.remove(userId);
             } else {
                 if (selectedUserIds.size() >= 3) {
-                    Toast.makeText(v.getContext(), "Можно выбрать максимум 3 друзей", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(v.getContext(), "Можно выбрать максимум 3 друзей",
+                            Toast.LENGTH_SHORT).show();
                     return;
                 }
 

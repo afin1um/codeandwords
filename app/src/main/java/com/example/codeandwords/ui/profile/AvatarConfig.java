@@ -4,6 +4,7 @@ import android.graphics.Color;
 
 import com.google.gson.Gson;
 
+// Конфигурация визуального вида аватара и сериализация в JSON.
 public class AvatarConfig {
 
     public int skinColor = Color.parseColor("#F2B39A");
@@ -27,6 +28,7 @@ public class AvatarConfig {
     public int hatStyle = 0;
     public int faceShape = 0;
 
+    // Брови всегда синхронизируются с цветом волос.
     public void syncEyebrowsWithHair() {
         eyebrowColor = hairColor;
     }
@@ -36,6 +38,7 @@ public class AvatarConfig {
         return new Gson().toJson(this);
     }
 
+    // Безопасное восстановление конфигурации из JSON с fallback на значения по умолчанию.
     public static AvatarConfig fromJson(String json) {
         try {
             if (json == null || json.trim().isEmpty() || json.equals("null")) {
@@ -58,6 +61,7 @@ public class AvatarConfig {
         }
     }
 
+    // Создаёт независимую копию текущей конфигурации.
     public AvatarConfig copy() {
         syncEyebrowsWithHair();
 

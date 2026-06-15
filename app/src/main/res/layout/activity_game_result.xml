@@ -19,7 +19,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- ✅ Крестик в правом верхнем углу -->
     <include
         android:id="@+id/btnUniClose"
         layout="@layout/view_close_button"

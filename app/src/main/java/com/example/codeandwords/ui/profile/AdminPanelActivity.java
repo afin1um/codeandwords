@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.codeandwords.R;
 import com.google.android.material.button.MaterialButton;
 
+// Главный экран административной панели.
 public class AdminPanelActivity extends AppCompatActivity {
 
     private ImageButton btnBackAdmin;

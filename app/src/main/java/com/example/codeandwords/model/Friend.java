@@ -6,14 +6,8 @@ import androidx.room.Index;
 
 import com.google.gson.annotations.SerializedName;
 
-/**
- * ✅ ИСПРАВЛЕНО: композитный первичный ключ (user_id, friend_id)
- * вместо autoGenerate id.
- *
- * Проблема была в том, что autoGenerate генерировал id=0 для каждой
- * новой записи, и Room с OnConflictStrategy.REPLACE перезаписывал
- * предыдущую запись.
- */
+// Связь дружбы между двумя пользователями.
+// Композитный первичный ключ предотвращает дублирование пар (userId, friendId).
 @Entity(
         tableName = "friends",
         primaryKeys = {"user_id", "friend_id"},

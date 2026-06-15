@@ -35,6 +35,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
+// Фрагмент списка достижений с краткой сводкой и переходом в детали.
 public class AchievementsFragment extends Fragment {
 
     private RecyclerView recyclerView;
@@ -71,7 +72,7 @@ public class AchievementsFragment extends Fragment {
         tvSummaryText = view.findViewById(R.id.tvSummaryText);
         progressAchievementsSummary = view.findViewById(R.id.progressAchievementsSummary);
 
-        // ✅ Обработчик для крестика: закрывает активити, в которой открыт этот фрагмент
+        // Закрывает экран достижений.
         View btnClose = view.findViewById(R.id.btnCloseAchievements);
         if (btnClose != null) {
             btnClose.setOnClickListener(v -> {
@@ -91,6 +92,7 @@ public class AchievementsFragment extends Fragment {
         recyclerView.setAdapter(adapter);
     }
 
+    // Загружает достижения пользователя из репозитория.
     private void loadAchievements() {
         repository.getAchievements(new Repository.DataCallback<List<AchievementWithProgress>>() {
             @Override
@@ -125,6 +127,7 @@ public class AchievementsFragment extends Fragment {
         });
     }
 
+    // Подготавливает и сортирует список достижений.
     private List<AchievementWithProgress> prepareAchievements(List<AchievementWithProgress> data) {
         List<AchievementWithProgress> result = new ArrayList<>();
 
@@ -159,6 +162,7 @@ public class AchievementsFragment extends Fragment {
         return result;
     }
 
+    // Обновляет верхнюю сводку по количеству открытых достижений.
     private void updateSummary(List<AchievementWithProgress> achievements) {
         int total = achievements != null ? achievements.size() : 0;
         int unlocked = 0;
@@ -193,6 +197,7 @@ public class AchievementsFragment extends Fragment {
         tvSummaryText.setText("Получено " + unlocked + " из " + total + " достижений");
     }
 
+    // Открывает экран деталей выбранного достижения.
     private void openAchievementDetails(AchievementWithProgress item) {
         if (item == null || !isAdded()) return;
 
@@ -212,6 +217,7 @@ public class AchievementsFragment extends Fragment {
         startActivity(intent);
     }
 
+    // Адаптер сетки достижений.
     private class AchievementsAdapter extends RecyclerView.Adapter<AchievementsAdapter.ViewHolder> {
 
         private List<AchievementWithProgress> list = new ArrayList<>();
@@ -274,6 +280,7 @@ public class AchievementsFragment extends Fragment {
                     ColorStateList.valueOf(color(R.color.app_divider))
             );
 
+            // Разное оформление для полученных и незавершённых достижений.
             if (item.isUnlocked) {
                 holder.tvStatus.setText("Получено");
                 holder.tvStatus.setTextColor(color(R.color.app_green));
@@ -351,6 +358,7 @@ public class AchievementsFragment extends Fragment {
         }
     }
 
+    // Делает иконку серой для закрытых достижений.
     private void applyGrayFilter(ImageView imageView) {
         ColorMatrix matrix = new ColorMatrix();
         matrix.setSaturation(0f);
@@ -366,6 +374,7 @@ public class AchievementsFragment extends Fragment {
         imageView.setColorFilter(new ColorMatrixColorFilter(matrix));
     }
 
+    // Определяет иконку достижения по имени ресурса, типу условия или заголовку.
     @DrawableRes
     private int resolveIcon(AchievementWithProgress item) {
         if (item == null) {

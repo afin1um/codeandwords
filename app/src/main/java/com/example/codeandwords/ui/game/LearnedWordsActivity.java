@@ -33,9 +33,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+// Экран выученных слов с фильтрацией по теме и поиском
 public class LearnedWordsActivity extends BaseBackActivity implements TextToSpeech.OnInitListener {
 
     private static final long FILTER_ALL_THEMES = -1L;
+
     private TextView tvLearnedCount;
     private TextView tvLearnedEmpty;
     private RecyclerView rvLearnedWords;
@@ -56,6 +58,7 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
     private long selectedThemeId = FILTER_ALL_THEMES;
     private String currentSearchQuery = "";
 
+    // Цвета чипов загружаются из ресурсов для поддержки тёмной темы
     private int chipSelectedBg;
     private int chipSelectedText;
     private int chipSelectedStroke;
@@ -79,17 +82,16 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
     }
 
     private void loadThemeColors() {
-        chipSelectedBg     = ContextCompat.getColor(this, R.color.chip_selected_bg);
-        chipSelectedText   = ContextCompat.getColor(this, R.color.chip_selected_text);
+        chipSelectedBg = ContextCompat.getColor(this, R.color.chip_selected_bg);
+        chipSelectedText = ContextCompat.getColor(this, R.color.chip_selected_text);
         chipSelectedStroke = ContextCompat.getColor(this, R.color.chip_selected_stroke);
-
-        chipUnselectedBg     = ContextCompat.getColor(this, R.color.chip_unselected_bg);
-        chipUnselectedText   = ContextCompat.getColor(this, R.color.chip_unselected_text);
+        chipUnselectedBg = ContextCompat.getColor(this, R.color.chip_unselected_bg);
+        chipUnselectedText = ContextCompat.getColor(this, R.color.chip_unselected_text);
         chipUnselectedStroke = ContextCompat.getColor(this, R.color.chip_unselected_stroke);
     }
 
     private void initViews() {
-        // ✅ Кнопка назад → TrainingFragment
+        // Кнопка назад возвращает в TrainingFragment
         setupCloseToTrainingButton(R.id.btnBackLearned);
 
         tvLearnedCount = findViewById(R.id.tvLearnedCount);
@@ -127,21 +129,21 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
     private void setupSearch() {
         etLearnedSearch.addTextChangedListener(new TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            }
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                currentSearchQuery = s == null ? "" : s.toString().trim().toLowerCase(Locale.ROOT);
+                currentSearchQuery = s == null
+                        ? "" : s.toString().trim().toLowerCase(Locale.ROOT);
                 applyFilters();
             }
 
             @Override
-            public void afterTextChanged(Editable s) {
-            }
+            public void afterTextChanged(Editable s) { }
         });
     }
 
+    // Сначала загружает темы для чипов, затем список изученных слов
     private void loadThemesAndWords() {
         pbLearnedWords.setVisibility(View.VISIBLE);
         tvLearnedEmpty.setVisibility(View.GONE);
@@ -181,12 +183,14 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
                 pbLearnedWords.setVisibility(View.GONE);
                 tvLearnedEmpty.setVisibility(View.VISIBLE);
                 rvLearnedWords.setVisibility(View.GONE);
-                tvLearnedEmpty.setText(error != null ? error : "Не удалось загрузить выученные слова");
+                tvLearnedEmpty.setText(error != null
+                        ? error : "Не удалось загрузить выученные слова");
                 Toast.makeText(LearnedWordsActivity.this, error, Toast.LENGTH_SHORT).show();
             }
         });
     }
 
+    // Строит горизонтальный список чипов-фильтров по темам
     private void buildThemeFilterChips() {
         themeFiltersContainer.removeAllViews();
         addThemeChip(FILTER_ALL_THEMES, "Все", selectedThemeId == FILTER_ALL_THEMES);
@@ -194,8 +198,7 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
         for (Theme theme : allThemes) {
             if (theme == null || theme.getId() == null) continue;
             String title = theme.getTitle() != null && !theme.getTitle().trim().isEmpty()
-                    ? theme.getTitle().trim()
-                    : "Без названия";
+                    ? theme.getTitle().trim() : "Без названия";
             addThemeChip(theme.getId(), title, selectedThemeId == theme.getId());
         }
 
@@ -206,9 +209,7 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
         MaterialButton chip = new MaterialButton(this);
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                dp(42)
-        );
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp(42));
         params.setMargins(0, 0, dp(10), 0);
 
         chip.setLayoutParams(params);
@@ -242,6 +243,7 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
         themeFiltersContainer.addView(chip);
     }
 
+    // Применяет фильтр по теме и поисковой строке одновременно
     private void applyFilters() {
         List<Word> filtered = new ArrayList<>();
         for (Word word : allLearnedWords) {
@@ -261,8 +263,10 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
     private boolean matchesSearch(Word word) {
         if (currentSearchQuery == null || currentSearchQuery.isEmpty()) return true;
         String term = word.getTerm() == null ? "" : word.getTerm().toLowerCase(Locale.ROOT);
-        String translation = word.getTranslation() == null ? "" : word.getTranslation().toLowerCase(Locale.ROOT);
-        String transcription = word.getTranscription() == null ? "" : word.getTranscription().toLowerCase(Locale.ROOT);
+        String translation = word.getTranslation() == null
+                ? "" : word.getTranslation().toLowerCase(Locale.ROOT);
+        String transcription = word.getTranscription() == null
+                ? "" : word.getTranscription().toLowerCase(Locale.ROOT);
         return term.contains(currentSearchQuery)
                 || translation.contains(currentSearchQuery)
                 || transcription.contains(currentSearchQuery);
@@ -276,7 +280,8 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
             rvLearnedWords.setVisibility(View.GONE);
             tvLearnedEmpty.setVisibility(View.VISIBLE);
             if (allLearnedWords.isEmpty()) {
-                tvLearnedEmpty.setText("Вы пока не выучили ни одного слова.\nПройдите режим сопоставления или другие упражнения.");
+                tvLearnedEmpty.setText("Вы пока не выучили ни одного слова.\n"
+                        + "Пройдите режим сопоставления или другие упражнения.");
             } else {
                 tvLearnedEmpty.setText("По выбранному фильтру ничего не найдено.");
             }
@@ -288,6 +293,7 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
         }
     }
 
+    // Загружает состояние личного словаря для подсветки добавленных слов
     private void loadPersonalDictionaryState() {
         repository.getUserPersonalWords(new Repository.DataCallback<List<UserWord>>() {
             @Override
@@ -305,7 +311,8 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
 
             @Override
             public void onError(String error) {
-                Log.e("LearnedWordsActivity", "Не удалось загрузить состояние словаря: " + error);
+                Log.e("LearnedWordsActivity",
+                        "Не удалось загрузить состояние словаря: " + error);
             }
         });
     }
@@ -321,8 +328,7 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
             public void onSuccess(Void data) {
                 adapter.markWordAsAdded(word);
                 Toast.makeText(LearnedWordsActivity.this,
-                        "Слово добавлено в личный словарь",
-                        Toast.LENGTH_SHORT).show();
+                        "Слово добавлено в личный словарь", Toast.LENGTH_SHORT).show();
             }
 
             @Override
@@ -341,6 +347,7 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
         return term == null ? "" : term.trim().toLowerCase(Locale.ROOT);
     }
 
+    // Возвращает правильное склонение слова «слово» для счётчика
     private String getWordEnding(int count) {
         int lastTwo = count % 100;
         int last = count % 10;
@@ -356,7 +363,8 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
             int result = tts.setLanguage(Locale.US);
             if (result == TextToSpeech.LANG_MISSING_DATA
                     || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Toast.makeText(this, "Английский язык не поддерживается", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Английский язык не поддерживается",
+                        Toast.LENGTH_SHORT).show();
             } else {
                 isTtsReady = true;
             }
@@ -389,8 +397,8 @@ public class LearnedWordsActivity extends BaseBackActivity implements TextToSpee
             tts.shutdown();
         }
         super.onDestroy();
-        if (repository != null) {
-            repository.onDestroy();
-        }
+       // if (repository != null) {
+         //   repository.onDestroy();
+       // }
     }
 }

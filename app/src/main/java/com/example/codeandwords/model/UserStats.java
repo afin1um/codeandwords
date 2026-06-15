@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey;
 
 import com.google.gson.annotations.SerializedName;
 
+// Статистика пользователя: серии входов, XP за день, счётчики уроков и ошибок
 @Entity(tableName = "user_stats")
 public class UserStats {
 
@@ -18,6 +19,7 @@ public class UserStats {
     @SerializedName("login_streak")
     public int loginStreak;
 
+    // Unix-время начала дня последнего входа
     @ColumnInfo(name = "last_login_day")
     @SerializedName("last_login_day")
     public long lastLoginDay;
@@ -30,6 +32,7 @@ public class UserStats {
     @SerializedName("current_day_xp")
     public int currentDayXp;
 
+    // Unix-время начала дня, за который накоплен currentDayXp
     @ColumnInfo(name = "current_xp_day")
     @SerializedName("current_xp_day")
     public long currentXpDay;

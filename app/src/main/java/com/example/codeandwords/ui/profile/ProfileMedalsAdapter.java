@@ -25,6 +25,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+// Горизонтальный адаптер медалей в шапке профиля.
+// Серый фильтр применяется к заблокированным достижениям.
 public class ProfileMedalsAdapter extends RecyclerView.Adapter<ProfileMedalsAdapter.MedalViewHolder> {
 
     private final Context context;
@@ -61,7 +63,7 @@ public class ProfileMedalsAdapter extends RecyclerView.Adapter<ProfileMedalsAdap
             holder.ivMedal.setImageResource(R.drawable.ic_achievement_default);
         }
 
-        // ✅ Адаптивные цвета (день/ночь)
+        // Цвета карточки адаптированы к текущей теме приложения
         int unlockedBg = ContextCompat.getColor(context, R.color.medal_unlocked_bg);
         int unlockedStroke = ContextCompat.getColor(context, R.color.medal_unlocked_stroke);
         int lockedBg = ContextCompat.getColor(context, R.color.medal_locked_bg);
@@ -90,6 +92,7 @@ public class ProfileMedalsAdapter extends RecyclerView.Adapter<ProfileMedalsAdap
         holder.itemView.setOnClickListener(v -> openAchievementDetails(item));
     }
 
+    // Открывает экран детального просмотра достижения
     private void openAchievementDetails(AchievementWithProgress item) {
         if (item == null) return;
 
@@ -128,6 +131,7 @@ public class ProfileMedalsAdapter extends RecyclerView.Adapter<ProfileMedalsAdap
         imageView.setColorFilter(new ColorMatrixColorFilter(matrix));
     }
 
+    // Определяет иконку по имени ресурса, типу условия или заголовку достижения
     @DrawableRes
     private int resolveIcon(AchievementWithProgress item) {
         if (item == null) {

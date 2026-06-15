@@ -24,7 +24,7 @@ public interface WordDao {
     @Query("SELECT * FROM words WHERE id = :wordId LIMIT 1")
     Word getWordById(Long wordId);
 
-    // ✅ ДОБАВЛЕНО: Метод для поиска пачки слов по их ID из локальной БД
+    // Пакетная выборка слов по списку ID для cache-first загрузки
     @Query("SELECT * FROM words WHERE id IN (:ids)")
     List<Word> getWordsByIds(List<Long> ids);
 

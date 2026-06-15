@@ -16,9 +16,9 @@ import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
+// Адаптер личного словаря пользователя с поддержкой произношения, сортировки и удаления
 public class UserWordAdapter extends RecyclerView.Adapter<UserWordAdapter.WordViewHolder> {
 
     private List<UserWord> wordList = new ArrayList<>();
@@ -44,6 +44,7 @@ public class UserWordAdapter extends RecyclerView.Adapter<UserWordAdapter.WordVi
         this.sortAscending = sortAscending;
     }
 
+    // Сортирует список по алфавиту в зависимости от текущего направления
     public void sortWords() {
         Collections.sort(wordList, (o1, o2) -> {
             String w1 = o1.getWord() == null ? "" : o1.getWord().toLowerCase();
@@ -56,7 +57,8 @@ public class UserWordAdapter extends RecyclerView.Adapter<UserWordAdapter.WordVi
     @NonNull
     @Override
     public WordViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_user_word, parent, false);
+        View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_user_word, parent, false);
         return new WordViewHolder(view);
     }
 
@@ -83,13 +85,14 @@ public class UserWordAdapter extends RecyclerView.Adapter<UserWordAdapter.WordVi
             holder.tvNotes.setVisibility(View.GONE);
         }
 
-        holder.btnSpeak.setOnClickListener(v -> repository.speak(currentWord.getWord(), false));
+        holder.btnSpeak.setOnClickListener(v ->
+                repository.speak(currentWord.getWord(), false));
 
-        holder.btnSlowSpeak.setOnClickListener(v -> repository.speak(currentWord.getWord(), true));
+        holder.btnSlowSpeak.setOnClickListener(v ->
+                repository.speak(currentWord.getWord(), true));
 
-        holder.btnDelete.setOnClickListener(v -> {
-            repository.deleteUserWord(currentWord, deleteListener::onDeleted);
-        });
+        holder.btnDelete.setOnClickListener(v ->
+                repository.deleteUserWord(currentWord, deleteListener::onDeleted));
     }
 
     @Override

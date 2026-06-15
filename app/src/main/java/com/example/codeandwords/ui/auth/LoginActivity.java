@@ -18,6 +18,7 @@ import com.example.codeandwords.ui.profile.AvatarPrefs;
 import com.example.codeandwords.utils.SecurityUtils;
 import com.google.android.material.textfield.TextInputEditText;
 
+// Экран входа: хеширует пароль в фоновом потоке, делегирует авторизацию в Repository
 public class LoginActivity extends AppCompatActivity {
 
     private TextInputEditText etEmail;
@@ -27,15 +28,15 @@ public class LoginActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private Repository repository;
 
-    private static final String TEST_EMAIL = "adminn@mail.com";
-    private static final String TEST_PASSWORD = "adminn";
+    private static final String TEST_EMAIL = "tester1@mail.com";
+    private static final String TEST_PASSWORD = "tester1";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        // ✅ ИСПРАВЛЕНО: используем singleton вместо создания нового Repository
+        // Используем singleton для доступа к общему состоянию приложения
         repository = Repository.getInstance(getApplicationContext());
 
         initViews();
@@ -60,7 +61,6 @@ public class LoginActivity extends AppCompatActivity {
         btnLogin.setOnClickListener(v -> {
             String email = etEmail.getText() != null
                     ? etEmail.getText().toString().trim() : "";
-
             String password = etPassword.getText() != null
                     ? etPassword.getText().toString().trim() : "";
 
@@ -87,10 +87,10 @@ public class LoginActivity extends AppCompatActivity {
         return true;
     }
 
+    // Хеширование выполняется в фоне (~50 мс), чтобы не блокировать UI-поток
     private void performLogin(String email, String password) {
         showLoading(true);
 
-        // ✅ ИСПРАВЛЕНО: хеширование в фоне (занимает ~50ms)
         new Thread(() -> {
             String hashedPassword = SecurityUtils.hashPassword(password);
 
@@ -105,11 +105,9 @@ public class LoginActivity extends AppCompatActivity {
                         showLoading(false);
                         prepareAvatarSetupState(data);
 
-                        Toast.makeText(
-                                LoginActivity.this,
+                        Toast.makeText(LoginActivity.this,
                                 "Добро пожаловать, " + data.getUsername() + "!",
-                                Toast.LENGTH_SHORT
-                        ).show();
+                                Toast.LENGTH_SHORT).show();
 
                         Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
@@ -121,17 +119,15 @@ public class LoginActivity extends AppCompatActivity {
                     @Override
                     public void onError(String error) {
                         showLoading(false);
-                        Toast.makeText(
-                                LoginActivity.this,
-                                "Ошибка входа: " + error,
-                                Toast.LENGTH_LONG
-                        ).show();
+                        Toast.makeText(LoginActivity.this,
+                                "Ошибка входа: " + error, Toast.LENGTH_LONG).show();
                     }
                 });
             });
         }).start();
     }
 
+    // Определяет, нужна ли настройка аватара после входа
     private void prepareAvatarSetupState(User user) {
         if (user == null) {
             AvatarPrefs.setNeedsAvatarSetup(this, true);
@@ -142,6 +138,7 @@ public class LoginActivity extends AppCompatActivity {
 
         if (avatarJson == null || avatarJson.trim().isEmpty()
                 || "null".equals(avatarJson.trim())) {
+            // Аватара нет — создаём дефолтный по полу пользователя
             AvatarConfig defaultConfig = new AvatarConfig();
             defaultConfig.gender = user.getGender();
 

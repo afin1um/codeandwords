@@ -13,6 +13,7 @@ import com.example.codeandwords.R;
 import java.util.ArrayList;
 import java.util.List;
 
+// Универсальный адаптер для выбора цветов и стилей аватара.
 public class AvatarOptionAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public interface OnOptionClickListener {
@@ -39,6 +40,7 @@ public class AvatarOptionAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         this.listener = listener;
     }
 
+    // Режим выбора цвета.
     public void setColorMode(List<Integer> colors, int selectedColor) {
         mode = MODE_COLOR;
         items.clear();
@@ -51,6 +53,7 @@ public class AvatarOptionAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         notifyDataSetChanged();
     }
 
+    // Режим выбора стиля с предварительным предпросмотром аватара.
     public void setStyleMode(String category, List<Integer> styleIndexes, int selectedIndex, AvatarConfig baseConfig) {
         mode = MODE_STYLE;
         this.category = category != null ? category : "skin";
@@ -129,6 +132,7 @@ public class AvatarOptionAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
 
         previewConfig.facialHairStyle = 0;
 
+        // Подменяем только тот параметр, который относится к текущей категории.
         switch (category) {
             case "body":
                 previewConfig.bodyStyle = value;

@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+// Экран управления темами: создание, редактирование, просмотр слов и удаление.
 public class AdminThemesActivity extends AppCompatActivity {
 
     private ImageButton btnBackAdminThemes;
@@ -121,6 +122,7 @@ public class AdminThemesActivity extends AppCompatActivity {
         btnClearTheme.setOnClickListener(v -> clearThemeForm());
     }
 
+    // Загружает список тем и обновляет адаптер.
     private void loadThemes() {
         setLoading(true);
 
@@ -148,6 +150,7 @@ public class AdminThemesActivity extends AppCompatActivity {
         });
     }
 
+    // Создаёт новую тему или обновляет существующую.
     private void saveTheme() {
         String title = text(etThemeTitle);
         String description = text(etThemeDescription);
@@ -202,6 +205,7 @@ public class AdminThemesActivity extends AppCompatActivity {
         });
     }
 
+    // Проверка дублирования названия темы.
     private boolean isThemeDuplicate(String title, Theme currentEditingTheme) {
         String safeTitle = normalize(title);
 
@@ -231,6 +235,7 @@ public class AdminThemesActivity extends AppCompatActivity {
         return false;
     }
 
+    // Подставляет данные темы в форму редактирования.
     private void fillThemeForm(Theme theme) {
         if (theme == null) return;
 
@@ -251,6 +256,7 @@ public class AdminThemesActivity extends AppCompatActivity {
         btnSaveTheme.setText("ОБНОВИТЬ ТЕМУ");
     }
 
+    // Открывает редактор теории выбранной темы.
     private void openTheoryEditor(Theme theme) {
         if (theme == null || theme.getId() == null) {
             toast("Тема не найдена");
@@ -263,6 +269,7 @@ public class AdminThemesActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    // Загружает и показывает список слов темы в BottomSheet.
     private void previewThemeWords(Theme theme) {
         if (theme == null || theme.getId() == null) {
             toast("Тема не найдена");
@@ -343,6 +350,7 @@ public class AdminThemesActivity extends AppCompatActivity {
         return "терминов";
     }
 
+    // Подтверждение удаления темы с предварительным подсчётом слов.
     private void confirmDeleteTheme(Theme theme) {
         if (theme == null || theme.getId() == null) {
             toast("Тема не найдена");

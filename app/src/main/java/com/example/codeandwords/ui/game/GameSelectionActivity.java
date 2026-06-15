@@ -16,8 +16,10 @@ import com.google.android.material.card.MaterialCardView;
 import java.util.ArrayList;
 import java.util.List;
 
+// Экран выбора режима игры для темы: блокирует режимы при нехватке слов
 public class GameSelectionActivity extends AppCompatActivity {
 
+    // Минимальное количество слов для запуска игрового режима
     private static final int MIN_WORDS_FOR_MODE = 5;
 
     private TextView tvThemeName;
@@ -52,13 +54,11 @@ public class GameSelectionActivity extends AppCompatActivity {
 
     private void initViews() {
         tvThemeName = findViewById(R.id.tvThemeName);
-
         cardMatching = findViewById(R.id.cardMatching);
         cardSprint = findViewById(R.id.cardSprint);
         cardWriteWord = findViewById(R.id.cardWriteWord);
         cardDictionary = findViewById(R.id.cardDictionary);
         cardTheory = findViewById(R.id.cardTheory);
-
         btnBack = findViewById(R.id.btnBack);
     }
 
@@ -83,9 +83,12 @@ public class GameSelectionActivity extends AppCompatActivity {
     private void setupListeners() {
         btnBack.setOnClickListener(v -> finish());
 
-        cardMatching.setOnClickListener(v -> openModeIfEnoughWords(MatchingGameActivity.class, false));
-        cardSprint.setOnClickListener(v -> openModeIfEnoughWords(SprintGameActivity.class, false));
-        cardWriteWord.setOnClickListener(v -> openModeIfEnoughWords(WriteWordGameActivity.class, false));
+        cardMatching.setOnClickListener(v ->
+                openModeIfEnoughWords(MatchingGameActivity.class, false));
+        cardSprint.setOnClickListener(v ->
+                openModeIfEnoughWords(SprintGameActivity.class, false));
+        cardWriteWord.setOnClickListener(v ->
+                openModeIfEnoughWords(WriteWordGameActivity.class, false));
         cardDictionary.setOnClickListener(v -> openDictionaryMode());
 
         cardTheory.setOnClickListener(v -> {
@@ -98,38 +101,7 @@ public class GameSelectionActivity extends AppCompatActivity {
         });
     }
 
-    private void loadThemeWords() {
-        if (!isThemeValid()) {
-            setModesEnabled(false);
-            return;
-        }
-
-        setModesEnabled(false);
-
-        repository.getWordsByTheme(themeId, new Repository.DataCallback<List<Word>>() {
-            @Override
-            public void onSuccess(List<Word> data) {
-                wordsLoaded = true;
-                themeWords = filterValidWords(data);
-
-                setModesEnabled(true);
-            }
-
-            @Override
-            public void onError(String error) {
-                wordsLoaded = true;
-                themeWords.clear();
-                setModesEnabled(true);
-
-                Toast.makeText(
-                        GameSelectionActivity.this,
-                        "Не удалось загрузить термины темы",
-                        Toast.LENGTH_SHORT
-                ).show();
-            }
-        });
-    }
-
+    // Проверяет минимальное количество слов перед запуском режима
     private void openModeIfEnoughWords(Class<?> targetActivity, boolean includeThemeTitle) {
         if (!isThemeValid()) return;
 
@@ -139,11 +111,10 @@ public class GameSelectionActivity extends AppCompatActivity {
         }
 
         if (themeWords.size() < MIN_WORDS_FOR_MODE) {
-            Toast.makeText(
-                    this,
-                    "Для запуска режима нужно минимум 5 терминов. Сейчас: " + themeWords.size(),
-                    Toast.LENGTH_LONG
-            ).show();
+            Toast.makeText(this,
+                    "Для запуска режима нужно минимум 5 терминов. Сейчас: "
+                            + themeWords.size(),
+                    Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -162,10 +133,10 @@ public class GameSelectionActivity extends AppCompatActivity {
             Toast.makeText(this, "Тема не выбрана", Toast.LENGTH_SHORT).show();
             return false;
         }
-
         return true;
     }
 
+    // Управляет доступностью карточек режимов и их визуальным состоянием
     private void setModesEnabled(boolean enabled) {
         cardMatching.setEnabled(enabled);
         cardSprint.setEnabled(enabled);
@@ -180,20 +151,13 @@ public class GameSelectionActivity extends AppCompatActivity {
 
     private List<Word> filterValidWords(List<Word> words) {
         List<Word> result = new ArrayList<>();
-
-        if (words == null) {
-            return result;
-        }
+        if (words == null) return result;
 
         for (Word word : words) {
             if (word == null) continue;
-
             String term = word.getTerm() == null ? "" : word.getTerm().trim();
             String translation = word.getTranslation() == null ? "" : word.getTranslation().trim();
-
-            if (!term.isEmpty() && !translation.isEmpty()) {
-                result.add(word);
-            }
+            if (!term.isEmpty() && !translation.isEmpty()) result.add(word);
         }
 
         return result;
@@ -208,10 +172,42 @@ public class GameSelectionActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    // Загружает слова темы; блокирует режимы до завершения загрузки
+    private void loadThemeWords() {
+        if (!isThemeValid()) {
+            setModesEnabled(false);
+            return;
+        }
+
+        setModesEnabled(false);
+
+        repository.getWordsByTheme(themeId, new Repository.DataCallback<List<Word>>() {
+            @Override
+            public void onSuccess(List<Word> data) {
+                // Обновляем список — может вызваться повторно со свежими данными с сервера
+                themeWords = filterValidWords(data);
+                wordsLoaded = true;
+                setModesEnabled(true);
+            }
+
+            @Override
+            public void onError(String error) {
+                // Не показываем ошибку, если локальные данные уже загружены
+                if (wordsLoaded && !themeWords.isEmpty()) return;
+
+                wordsLoaded = true;
+                themeWords.clear();
+                setModesEnabled(true);
+
+                Toast.makeText(GameSelectionActivity.this,
+                        "Не удалось загрузить термины темы", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Это важно! Иначе TTS и SoundPool остаются в памяти
         if (repository != null) {
             repository.onDestroy();
         }

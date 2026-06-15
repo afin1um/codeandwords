@@ -3,6 +3,7 @@ package com.example.codeandwords.ui;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -27,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+// Экран личного словаря: фильтрация по темам, синхронизация с сервером, сортировка и тренировка.
 public class PersonalDictionaryActivity extends AppCompatActivity {
 
     private static final String THEME_ALL = "Все темы";
@@ -72,17 +74,21 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         setupRecycler();
         setupClicks();
 
-        syncAndLoadDictionary();
+        // 1) Сразу показываем то, что уже есть локально (мгновенный отклик)
+        loadThemesAndWords();
+
+        // 2) В фоне синхронизируемся с сервером и обновляем список
+        syncDictionaryInBackground();
     }
 
     private void loadThemeColors() {
-        chipUnselectedBg     = ContextCompat.getColor(this, R.color.dict_chip_unselected_bg);
-        chipUnselectedText   = ContextCompat.getColor(this, R.color.dict_chip_unselected_text);
+        chipUnselectedBg = ContextCompat.getColor(this, R.color.dict_chip_unselected_bg);
+        chipUnselectedText = ContextCompat.getColor(this, R.color.dict_chip_unselected_text);
         chipUnselectedStroke = ContextCompat.getColor(this, R.color.dict_chip_unselected_stroke);
 
-        chipSelectedBg       = ContextCompat.getColor(this, R.color.dict_chip_selected_bg);
-        chipSelectedText     = ContextCompat.getColor(this, R.color.dict_chip_selected_text);
-        chipSelectedStroke   = ContextCompat.getColor(this, R.color.dict_chip_selected_stroke);
+        chipSelectedBg = ContextCompat.getColor(this, R.color.dict_chip_selected_bg);
+        chipSelectedText = ContextCompat.getColor(this, R.color.dict_chip_selected_text);
+        chipSelectedStroke = ContextCompat.getColor(this, R.color.dict_chip_selected_stroke);
     }
 
     private void initViews() {
@@ -118,45 +124,36 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         });
     }
 
-    private void syncAndLoadDictionary() {
+    // Фоновая синхронизация: словарь -> восстановление тем -> мягкое обновление UI
+    private void syncDictionaryInBackground() {
         repository.syncPersonalWords(new Repository.DataCallback<Void>() {
             @Override
             public void onSuccess(Void data) {
-                repairDictionaryAndLoadThemes();
+                repository.repairPersonalDictionaryThemes(new Repository.DataCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void data) {
+                        // Когда серверные данные пришли — мягко обновим список
+                        loadThemesAndWords();
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        Log.w("PersonalDict",
+                                "Ошибка восстановления тем: " + error);
+                    }
+                });
             }
 
             @Override
             public void onError(String error) {
-                Toast.makeText(
-                        PersonalDictionaryActivity.this,
-                        "Ошибка синхронизации словаря: " + error + ". Загрузка локальных данных.",
-                        Toast.LENGTH_LONG
-                ).show();
-                repairDictionaryAndLoadThemes();
+                Log.w("PersonalDict",
+                        "Ошибка синхронизации словаря: " + error);
             }
         });
     }
 
-    private void repairDictionaryAndLoadThemes() {
-        repository.repairPersonalDictionaryThemes(new Repository.DataCallback<Void>() {
-            @Override
-            public void onSuccess(Void data) {
-                loadThemesFromDatabase();
-            }
-
-            @Override
-            public void onError(String error) {
-                Toast.makeText(
-                        PersonalDictionaryActivity.this,
-                        "Ошибка восстановления тем: " + error,
-                        Toast.LENGTH_SHORT
-                ).show();
-                loadThemesFromDatabase();
-            }
-        });
-    }
-
-    private void loadThemesFromDatabase() {
+    // Загружает темы (cache-first внутри ThemeRepository) и затем слова
+    private void loadThemesAndWords() {
         repository.getThemes(new Repository.DataCallback<List<Theme>>() {
             @Override
             public void onSuccess(List<Theme> themes) {
@@ -189,15 +186,12 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
 
                 reloadCountsAndWords();
 
-                Toast.makeText(
-                        PersonalDictionaryActivity.this,
-                        "Темы не загрузились: " + error,
-                        Toast.LENGTH_SHORT
-                ).show();
+                Log.w("PersonalDict", "Темы не загрузились: " + error);
             }
         });
     }
 
+    // Загружает все слова, пересчитывает счётчики по темам и обновляет UI
     private void reloadCountsAndWords() {
         repository.getUserPersonalWords(new Repository.DataCallback<List<UserWord>>() {
             @Override

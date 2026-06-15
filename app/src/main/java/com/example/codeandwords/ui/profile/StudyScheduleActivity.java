@@ -5,6 +5,7 @@ import android.app.TimePickerDialog;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+// Экран расписания занятий: календарь с метками, добавление и удаление записей.
 public class StudyScheduleActivity extends AppCompatActivity {
 
     private View layoutAddScheduleForm;
@@ -123,6 +125,7 @@ public class StudyScheduleActivity extends AppCompatActivity {
         updateSelectedDayTitle();
     }
 
+    // Загружает список тем из локальной БД в фоновом потоке
     private void setupThemeSpinner() {
         AppDatabase.databaseWriteExecutor.execute(() -> {
             List<Theme> themes = db.themeDao().getAllThemes();
@@ -165,8 +168,8 @@ public class StudyScheduleActivity extends AppCompatActivity {
             selectedDate = date;
             tvSelectedDate.setText(formatVisibleDate(selectedDate));
             updateSelectedDayTitle();
-            refreshMonthCalendar();
-            loadScheduleForSelectedDate();
+            refreshMonthCalendarLocal();
+            loadScheduleForSelectedDateLocal();
         });
 
         recyclerMonthCalendar.setLayoutManager(new GridLayoutManager(this, 7));
@@ -195,12 +198,14 @@ public class StudyScheduleActivity extends AppCompatActivity {
 
         btnPrevMonth.setOnClickListener(v -> {
             visibleMonthCalendar.add(Calendar.MONTH, -1);
-            refreshMonthCalendar();
+            refreshMonthCalendarLocal();
+            refreshMonthCalendarFromServer();
         });
 
         btnNextMonth.setOnClickListener(v -> {
             visibleMonthCalendar.add(Calendar.MONTH, 1);
-            refreshMonthCalendar();
+            refreshMonthCalendarLocal();
+            refreshMonthCalendarFromServer();
         });
 
         tvSelectedDate.setOnClickListener(v -> showDatePicker());
@@ -215,24 +220,33 @@ public class StudyScheduleActivity extends AppCompatActivity {
             @Override
             public void onSuccess(User user) {
                 if (user == null || user.getId() == null) {
-                    Toast.makeText(StudyScheduleActivity.this, "Пользователь не найден", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(StudyScheduleActivity.this, "Пользователь не найден",
+                            Toast.LENGTH_SHORT).show();
                     finish();
                     return;
                 }
 
                 currentUserId = user.getId();
-                refreshMonthCalendar();
-                loadScheduleForSelectedDate();
+
+                // Мгновенный показ из локальной БД
+                refreshMonthCalendarLocal();
+                loadScheduleForSelectedDateLocal();
+
+                // Фоновая синхронизация с сервером
+                refreshMonthCalendarFromServer();
+                loadScheduleForSelectedDateFromServer();
             }
 
             @Override
             public void onError(String error) {
-                Toast.makeText(StudyScheduleActivity.this, "Ошибка загрузки пользователя", Toast.LENGTH_SHORT).show();
+                Toast.makeText(StudyScheduleActivity.this, "Ошибка загрузки пользователя",
+                        Toast.LENGTH_SHORT).show();
                 finish();
             }
         });
     }
 
+    // Валидирует данные и создаёт запись расписания после проверки пересечений
     private void saveScheduleToDatabase() {
         if (currentUserId <= 0) {
             Toast.makeText(this, "Пользователь не загружен", Toast.LENGTH_SHORT).show();
@@ -284,28 +298,49 @@ public class StudyScheduleActivity extends AppCompatActivity {
                 etNote.getText().toString().trim()
         );
 
-        repository.createStudySchedule(schedule, new Repository.DataCallback<StudySchedule>() {
-            @Override
-            public void onSuccess(StudySchedule data) {
+        // 1) Мгновенно сохраняем локально и обновляем UI
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            try {
+                db.studyScheduleDao().insert(schedule);
+            } catch (Exception e) {
+                Log.w("StudySchedule",
+                        "Локальный insert не удался (возможно, повторный ID): "
+                                + e.getMessage());
+            }
+
+            mainHandler.post(() -> {
                 etNote.setText("");
                 layoutAddScheduleForm.setVisibility(View.GONE);
 
-                refreshMonthCalendar();
-                loadScheduleForSelectedDate();
+                refreshMonthCalendarLocal();
+                loadScheduleForSelectedDateLocal();
 
-                Toast.makeText(StudyScheduleActivity.this, "Занятие добавлено", Toast.LENGTH_SHORT).show();
+                Toast.makeText(StudyScheduleActivity.this,
+                        "Занятие добавлено", Toast.LENGTH_SHORT).show();
+            });
+        });
+
+        // 2) В фоне — синхронизация с сервером, ошибки не мешают пользователю
+        repository.createStudySchedule(schedule, new Repository.DataCallback<StudySchedule>() {
+            @Override
+            public void onSuccess(StudySchedule data) {
+                refreshMonthCalendarFromServer();
+                loadScheduleForSelectedDateFromServer();
             }
 
             @Override
             public void onError(String error) {
-                Toast.makeText(StudyScheduleActivity.this, error, Toast.LENGTH_LONG).show();
+                Log.w("StudySchedule",
+                        "Серверная синхронизация при создании: " + error);
             }
         });
     }
 
+    // Проверяет корректность даты и времени: не в прошлом, окончание позже начала
     private boolean isSelectedDateAndTimeValid() {
         if (selectedStartTime.compareTo(selectedEndTime) >= 0) {
-            Toast.makeText(this, "Время окончания должно быть позже времени начала", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Время окончания должно быть позже времени начала",
+                    Toast.LENGTH_SHORT).show();
             return false;
         }
 
@@ -326,7 +361,8 @@ public class StudyScheduleActivity extends AppCompatActivity {
             selectedDay.set(Calendar.MILLISECOND, 0);
 
             if (selectedDay.before(todayStart)) {
-                Toast.makeText(this, "Нельзя добавить занятие на прошедшую дату", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Нельзя добавить занятие на прошедшую дату",
+                        Toast.LENGTH_SHORT).show();
                 return false;
             }
 
@@ -339,7 +375,8 @@ public class StudyScheduleActivity extends AppCompatActivity {
             selectedStartDateTime.set(Calendar.MILLISECOND, 0);
 
             if (!selectedStartDateTime.after(now)) {
-                Toast.makeText(this, "Нельзя добавить занятие на уже прошедшее время", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Нельзя добавить занятие на уже прошедшее время",
+                        Toast.LENGTH_SHORT).show();
                 return false;
             }
 
@@ -350,10 +387,9 @@ public class StudyScheduleActivity extends AppCompatActivity {
         }
     }
 
-    private void refreshMonthCalendar() {
-        if (currentUserId <= 0) {
-            return;
-        }
+    // Мгновенная перестройка календаря из локальной БД
+    private void refreshMonthCalendarLocal() {
+        if (currentUserId <= 0) return;
 
         visibleMonthCalendar.set(Calendar.DAY_OF_MONTH, 1);
 
@@ -370,12 +406,44 @@ public class StudyScheduleActivity extends AppCompatActivity {
         Calendar end = (Calendar) start.clone();
         end.add(Calendar.DAY_OF_MONTH, 41);
 
-        String startDate = dbDateFormat.format(start.getTime());
-        String endDate = dbDateFormat.format(end.getTime());
+        final String startDate = dbDateFormat.format(start.getTime());
+        final String endDate = dbDateFormat.format(end.getTime());
+        final int visibleMonth = visibleMonthCalendar.get(Calendar.MONTH);
+        final String today = dbDateFormat.format(Calendar.getInstance().getTime());
+        final Calendar startCopy = (Calendar) start.clone();
 
-        int visibleMonth = visibleMonthCalendar.get(Calendar.MONTH);
-        String today = dbDateFormat.format(Calendar.getInstance().getTime());
-        Calendar startCopy = (Calendar) start.clone();
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            List<StudySchedule> monthSchedules =
+                    db.studyScheduleDao().getByDateRange(currentUserId, startDate, endDate);
+
+            List<StudyCalendarAdapter.CalendarDay> days =
+                    buildCalendarDays(monthSchedules, startCopy, visibleMonth, today);
+
+            mainHandler.post(() -> calendarAdapter.setItems(days));
+        });
+    }
+
+    // Перестройка календаря через серверный репозиторий (фон)
+    private void refreshMonthCalendarFromServer() {
+        if (currentUserId <= 0) return;
+
+        visibleMonthCalendar.set(Calendar.DAY_OF_MONTH, 1);
+
+        Calendar start = (Calendar) visibleMonthCalendar.clone();
+        start.set(Calendar.DAY_OF_MONTH, 1);
+
+        int firstDayOfWeek = start.get(Calendar.DAY_OF_WEEK);
+        int mondayBasedOffset = firstDayOfWeek == Calendar.SUNDAY ? 6 : firstDayOfWeek - 2;
+        start.add(Calendar.DAY_OF_MONTH, -mondayBasedOffset);
+
+        Calendar end = (Calendar) start.clone();
+        end.add(Calendar.DAY_OF_MONTH, 41);
+
+        final String startDate = dbDateFormat.format(start.getTime());
+        final String endDate = dbDateFormat.format(end.getTime());
+        final int visibleMonth = visibleMonthCalendar.get(Calendar.MONTH);
+        final String today = dbDateFormat.format(Calendar.getInstance().getTime());
+        final Calendar startCopy = (Calendar) start.clone();
 
         repository.getStudyScheduleForRange(
                 currentUserId,
@@ -384,83 +452,111 @@ public class StudyScheduleActivity extends AppCompatActivity {
                 new Repository.DataCallback<List<StudySchedule>>() {
                     @Override
                     public void onSuccess(List<StudySchedule> monthSchedules) {
-                        Map<String, Integer> countByDate = new HashMap<>();
-
-                        if (monthSchedules != null) {
-                            for (StudySchedule schedule : monthSchedules) {
-                                if (schedule == null || schedule.scheduleDate == null) {
-                                    continue;
-                                }
-
-                                Integer oldCount = countByDate.get(schedule.scheduleDate);
-                                countByDate.put(schedule.scheduleDate, oldCount == null ? 1 : oldCount + 1);
-                            }
-                        }
-
-                        List<StudyCalendarAdapter.CalendarDay> days = new ArrayList<>();
-                        Calendar cursor = (Calendar) startCopy.clone();
-
-                        for (int i = 0; i < 42; i++) {
-                            String date = dbDateFormat.format(cursor.getTime());
-                            int dayNumber = cursor.get(Calendar.DAY_OF_MONTH);
-                            boolean currentMonth = cursor.get(Calendar.MONTH) == visibleMonth;
-                            boolean selected = date.equals(selectedDate);
-                            boolean isToday = date.equals(today);
-                            int eventsCount = countByDate.containsKey(date) ? countByDate.get(date) : 0;
-
-                            days.add(new StudyCalendarAdapter.CalendarDay(
-                                    date,
-                                    String.valueOf(dayNumber),
-                                    currentMonth,
-                                    selected,
-                                    isToday,
-                                    eventsCount
-                            ));
-
-                            cursor.add(Calendar.DAY_OF_MONTH, 1);
-                        }
-
+                        List<StudyCalendarAdapter.CalendarDay> days =
+                                buildCalendarDays(monthSchedules, startCopy, visibleMonth, today);
                         calendarAdapter.setItems(days);
                     }
 
                     @Override
                     public void onError(String error) {
-                        Toast.makeText(StudyScheduleActivity.this, error, Toast.LENGTH_SHORT).show();
+                        Log.w("StudySchedule",
+                                "Ошибка серверной загрузки месяца: " + error);
                     }
                 }
         );
     }
 
-    private void loadScheduleForSelectedDate() {
-        if (currentUserId <= 0) {
-            return;
+    // Собирает 42 дня сетки календаря с проставленными метками
+    private List<StudyCalendarAdapter.CalendarDay> buildCalendarDays(
+            List<StudySchedule> monthSchedules,
+            Calendar startCopy,
+            int visibleMonth,
+            String today) {
+
+        Map<String, Integer> countByDate = new HashMap<>();
+
+        if (monthSchedules != null) {
+            for (StudySchedule schedule : monthSchedules) {
+                if (schedule == null || schedule.scheduleDate == null) continue;
+
+                Integer oldCount = countByDate.get(schedule.scheduleDate);
+                countByDate.put(schedule.scheduleDate,
+                        oldCount == null ? 1 : oldCount + 1);
+            }
         }
 
-        String date = selectedDate;
+        List<StudyCalendarAdapter.CalendarDay> days = new ArrayList<>();
+        Calendar cursor = (Calendar) startCopy.clone();
 
-        repository.getStudyScheduleForDate(currentUserId, date, new Repository.DataCallback<List<StudySchedule>>() {
-            @Override
-            public void onSuccess(List<StudySchedule> schedules) {
-                scheduleAdapter.setItems(schedules);
-                updateSelectedDayTitle();
+        for (int i = 0; i < 42; i++) {
+            String date = dbDateFormat.format(cursor.getTime());
+            int dayNumber = cursor.get(Calendar.DAY_OF_MONTH);
+            boolean currentMonth = cursor.get(Calendar.MONTH) == visibleMonth;
+            boolean selected = date.equals(selectedDate);
+            boolean isToday = date.equals(today);
+            int eventsCount = countByDate.containsKey(date)
+                    ? countByDate.get(date) : 0;
 
-                if (schedules == null || schedules.isEmpty()) {
-                    tvEmptySchedule.setVisibility(View.VISIBLE);
-                    recyclerSchedule.setVisibility(View.GONE);
-                } else {
-                    tvEmptySchedule.setVisibility(View.GONE);
-                    recyclerSchedule.setVisibility(View.VISIBLE);
-                }
-            }
+            days.add(new StudyCalendarAdapter.CalendarDay(
+                    date,
+                    String.valueOf(dayNumber),
+                    currentMonth,
+                    selected,
+                    isToday,
+                    eventsCount
+            ));
 
-            @Override
-            public void onError(String error) {
-                scheduleAdapter.setItems(new ArrayList<>());
-                tvEmptySchedule.setVisibility(View.VISIBLE);
-                recyclerSchedule.setVisibility(View.GONE);
-                Toast.makeText(StudyScheduleActivity.this, error, Toast.LENGTH_SHORT).show();
-            }
+            cursor.add(Calendar.DAY_OF_MONTH, 1);
+        }
+
+        return days;
+    }
+
+    // Мгновенный показ списка занятий дня из локальной БД
+    private void loadScheduleForSelectedDateLocal() {
+        if (currentUserId <= 0) return;
+
+        final String date = selectedDate;
+
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            List<StudySchedule> schedules = db.studyScheduleDao().getByDate(currentUserId, date);
+
+            mainHandler.post(() -> applySchedulesForSelectedDay(schedules));
         });
+    }
+
+    // Фоновое обновление списка занятий дня через сервер
+    private void loadScheduleForSelectedDateFromServer() {
+        if (currentUserId <= 0) return;
+
+        final String date = selectedDate;
+
+        repository.getStudyScheduleForDate(currentUserId, date,
+                new Repository.DataCallback<List<StudySchedule>>() {
+                    @Override
+                    public void onSuccess(List<StudySchedule> schedules) {
+                        applySchedulesForSelectedDay(schedules);
+                    }
+
+                    @Override
+                    public void onError(String error) {
+                        Log.w("StudySchedule",
+                                "Ошибка серверной загрузки дня: " + error);
+                    }
+                });
+    }
+
+    private void applySchedulesForSelectedDay(List<StudySchedule> schedules) {
+        scheduleAdapter.setItems(schedules);
+        updateSelectedDayTitle();
+
+        if (schedules == null || schedules.isEmpty()) {
+            tvEmptySchedule.setVisibility(View.VISIBLE);
+            recyclerSchedule.setVisibility(View.GONE);
+        } else {
+            tvEmptySchedule.setVisibility(View.GONE);
+            recyclerSchedule.setVisibility(View.VISIBLE);
+        }
     }
 
     private void updateSelectedDayTitle() {
@@ -490,8 +586,10 @@ public class StudyScheduleActivity extends AppCompatActivity {
                     visibleMonthCalendar.set(Calendar.MONTH, month);
                     visibleMonthCalendar.set(Calendar.DAY_OF_MONTH, 1);
 
-                    refreshMonthCalendar();
-                    loadScheduleForSelectedDate();
+                    refreshMonthCalendarLocal();
+                    loadScheduleForSelectedDateLocal();
+                    refreshMonthCalendarFromServer();
+                    loadScheduleForSelectedDateFromServer();
                 },
                 calendar.get(Calendar.YEAR),
                 calendar.get(Calendar.MONTH),
@@ -535,6 +633,7 @@ public class StudyScheduleActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    // Показывает детали занятия в диалоге с возможностью удаления
     private void showScheduleDetails(StudySchedule schedule) {
         if (schedule == null) {
             return;
@@ -556,56 +655,61 @@ public class StudyScheduleActivity extends AppCompatActivity {
                 .setTitle("Информация о занятии")
                 .setMessage(message.toString())
                 .setPositiveButton("ОК", null)
-                .setNegativeButton("Удалить", (dialog, which) -> {
-                    repository.deleteStudySchedule(schedule, new Repository.DataCallback<Void>() {
-                        @Override
-                        public void onSuccess(Void data) {
-                            refreshMonthCalendar();
-                            loadScheduleForSelectedDate();
-                            Toast.makeText(StudyScheduleActivity.this, "Занятие удалено", Toast.LENGTH_SHORT).show();
-                        }
-
-                        @Override
-                        public void onError(String error) {
-                            Toast.makeText(StudyScheduleActivity.this, error, Toast.LENGTH_LONG).show();
-                        }
-                    });
-                })
+                .setNegativeButton("Удалить", (dialog, which) -> deleteSchedule(schedule))
                 .show();
     }
 
+    private void deleteSchedule(StudySchedule schedule) {
+        // 1) Мгновенно удаляем локально
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            try {
+                db.studyScheduleDao().delete(schedule);
+            } catch (Exception e) {
+                Log.w("StudySchedule",
+                        "Локальное удаление не удалось: " + e.getMessage());
+            }
+
+            mainHandler.post(() -> {
+                refreshMonthCalendarLocal();
+                loadScheduleForSelectedDateLocal();
+                Toast.makeText(StudyScheduleActivity.this,
+                        "Занятие удалено", Toast.LENGTH_SHORT).show();
+            });
+        });
+
+        // 2) В фоне удаляем на сервере
+        repository.deleteStudySchedule(schedule, new Repository.DataCallback<Void>() {
+            @Override
+            public void onSuccess(Void data) {
+                refreshMonthCalendarFromServer();
+                loadScheduleForSelectedDateFromServer();
+            }
+
+            @Override
+            public void onError(String error) {
+                Log.w("StudySchedule",
+                        "Ошибка удаления на сервере: " + error);
+            }
+        });
+    }
+
     private String getThemeTitle(Theme theme) {
-        if (theme == null) {
-            return "Без названия";
-        }
-
+        if (theme == null) return "Без названия";
         String title = theme.getTitle();
-
-        if (title == null || title.trim().isEmpty()) {
-            return "Без названия";
-        }
-
+        if (title == null || title.trim().isEmpty()) return "Без названия";
         return title.trim();
     }
 
     private long getThemeId(Theme theme) {
-        if (theme == null) {
-            return 0L;
-        }
-
+        if (theme == null) return 0L;
         Long id = theme.getId();
-
-        if (id == null) {
-            return 0L;
-        }
-
+        if (id == null) return 0L;
         return id;
     }
 
+    // Генерирует двухбуквенное сокращение из заголовка темы
     private String makeShortTitle(String title) {
-        if (title == null || title.trim().isEmpty()) {
-            return "??";
-        }
+        if (title == null || title.trim().isEmpty()) return "??";
 
         String[] words = title.trim().split("\\s+");
 
@@ -633,14 +737,12 @@ public class StudyScheduleActivity extends AppCompatActivity {
     }
 
     private String capitalize(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return "";
-        }
-
+        if (value == null || value.trim().isEmpty()) return "";
         String clean = value.trim();
         return clean.substring(0, 1).toUpperCase(new Locale("ru")) + clean.substring(1);
     }
 
+    // Проверяет пересечение нового занятия с уже существующими (в фоновом потоке)
     private boolean isTimeOverlappingBackground() {
         List<StudySchedule> existing =
                 db.studyScheduleDao().getByDate(currentUserId, selectedDate);

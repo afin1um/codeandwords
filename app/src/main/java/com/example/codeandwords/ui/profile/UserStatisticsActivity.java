@@ -28,8 +28,10 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
+// Экран детальной статистики: общие показатели, прогресс по темам, история уроков и график активности.
 public class UserStatisticsActivity extends AppCompatActivity {
 
+    // Количество строк в превью-списках
     private static final int PREVIEW_LIMIT = 5;
 
     private ImageButton btnBackStatistics;
@@ -56,6 +58,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
     private final List<ThemeProgressStats> allThemeProgressItems = new ArrayList<>();
     private final List<LessonHistory> allRecentLessonItems = new ArrayList<>();
 
+    // Форматы дат для ключей и меток графика в локальном часовом поясе
     private final SimpleDateFormat dayKeyFormat;
     private final SimpleDateFormat dayLabelFormat;
 
@@ -67,9 +70,9 @@ public class UserStatisticsActivity extends AppCompatActivity {
         dayLabelFormat.setTimeZone(java.util.TimeZone.getDefault());
     }
 
-    // Переменные для управления состоянием загрузки
+    // Счётчик параллельных запросов — прогресс-бар скрывается когда все завершились
     private int loadedRequests = 0;
-    private static final int TOTAL_REQUESTS = 4; // Overall, Themes, Lessons, Chart
+    private static final int TOTAL_REQUESTS = 4;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -132,17 +135,18 @@ public class UserStatisticsActivity extends AppCompatActivity {
         btnShowAllLessons.setOnClickListener(v -> showAllLessonsBottomSheet());
     }
 
+    // Запускает все 4 запроса параллельно и сбрасывает счётчик завершённых
     private void loadStatistics() {
         pbStatistics.setVisibility(View.VISIBLE);
-        loadedRequests = 0; // Сброс счетчика
+        loadedRequests = 0;
 
-        // Запускаем все 4 запроса параллельно
         loadOverallStats();
         loadThemeProgress();
         loadRecentLessons();
         loadActivityChart();
     }
 
+    // Загружает общую статистику и заполняет сводный блок
     private void loadOverallStats() {
         repository.getUserOverallStatistics(new Repository.DataCallback<UserOverallStats>() {
             @Override
@@ -164,7 +168,8 @@ public class UserStatisticsActivity extends AppCompatActivity {
             public void onError(String error) {
                 setEmptyOverallStats();
                 Toast.makeText(UserStatisticsActivity.this,
-                        error != null ? error : "Не удалось загрузить статистику", Toast.LENGTH_SHORT).show();
+                        error != null ? error : "Не удалось загрузить статистику",
+                        Toast.LENGTH_SHORT).show();
                 checkAllLoaded();
             }
         });
@@ -179,6 +184,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
         tvStatsLeague.setText("🥉 Бронзовая лига");
     }
 
+    // Загружает прогресс по темам и отображает превью
     private void loadThemeProgress() {
         repository.getThemeProgressStatistics(new Repository.DataCallback<List<ThemeProgressStats>>() {
             @Override
@@ -201,6 +207,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
         });
     }
 
+    // Показывает первые PREVIEW_LIMIT тем; кнопка «Показать все» видна при наличии остальных
     private void bindThemeProgressPreview() {
         if (allThemeProgressItems.isEmpty()) {
             themeProgressAdapter.setItems(new ArrayList<>());
@@ -223,6 +230,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
         }
     }
 
+    // Загружает последние 50 уроков и отображает превью
     private void loadRecentLessons() {
         repository.getRecentLessonHistory(50, new Repository.DataCallback<List<LessonHistory>>() {
             @Override
@@ -267,6 +275,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
         }
     }
 
+    // Возвращает первые limit элементов из списка
     private <T> List<T> takeFirstItems(List<T> source, int limit) {
         List<T> result = new ArrayList<>();
         if (source == null || source.isEmpty() || limit <= 0) return result;
@@ -275,15 +284,16 @@ public class UserStatisticsActivity extends AppCompatActivity {
         return result;
     }
 
-    // Метод-контроллер завершения загрузки
+    // Скрывает прогресс-бар когда все параллельные запросы завершились
     private synchronized void checkAllLoaded() {
         loadedRequests++;
         if (loadedRequests >= TOTAL_REQUESTS) {
             pbStatistics.setVisibility(View.GONE);
-            loadedRequests = 0; // Сбрасываем счетчик на всякий случай
+            loadedRequests = 0;
         }
     }
 
+    // Загружает полную историю уроков для построения столбчатого графика активности
     private void loadActivityChart() {
         repository.getLessonHistoryForStatistics(new Repository.DataCallback<List<LessonHistory>>() {
             @Override
@@ -300,6 +310,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
         });
     }
 
+    // Строит столбчатый график за последние 7 дней
     private void buildActivityChart(List<LessonHistory> history) {
         chartContainer.removeAllViews();
 
@@ -317,6 +328,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
             calendar.add(Calendar.DAY_OF_MONTH, 1);
         }
 
+        // Подсчёт уроков по дням
         if (history != null) {
             for (LessonHistory item : history) {
                 if (item == null || item.finishedAt <= 0) continue;
@@ -343,7 +355,8 @@ public class UserStatisticsActivity extends AppCompatActivity {
             itemLayout.setOrientation(LinearLayout.VERTICAL);
             itemLayout.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
 
-            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+            LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
             itemParams.setMargins(4, 0, 4, 0);
             itemLayout.setLayoutParams(itemParams);
 
@@ -377,6 +390,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    // Открывает BottomSheet с полным списком тем
     private void showAllThemesBottomSheet() {
         if (allThemeProgressItems.isEmpty()) {
             Toast.makeText(this, "Нет данных по темам", Toast.LENGTH_SHORT).show();
@@ -384,7 +398,8 @@ public class UserStatisticsActivity extends AppCompatActivity {
         }
 
         BottomSheetDialog dialog = new BottomSheetDialog(this);
-        View sheetView = LayoutInflater.from(this).inflate(R.layout.dialog_statistics_full_list, null, false);
+        View sheetView = LayoutInflater.from(this).inflate(
+                R.layout.dialog_statistics_full_list, null, false);
         TextView tvTitle = sheetView.findViewById(R.id.tvStatisticsDialogTitle);
         TextView tvSubtitle = sheetView.findViewById(R.id.tvStatisticsDialogSubtitle);
         TextView btnClose = sheetView.findViewById(R.id.btnCloseStatisticsDialog);
@@ -403,6 +418,7 @@ public class UserStatisticsActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    // Открывает BottomSheet с полной историей уроков
     private void showAllLessonsBottomSheet() {
         if (allRecentLessonItems.isEmpty()) {
             Toast.makeText(this, "История занятий пока пустая", Toast.LENGTH_SHORT).show();
@@ -410,7 +426,8 @@ public class UserStatisticsActivity extends AppCompatActivity {
         }
 
         BottomSheetDialog dialog = new BottomSheetDialog(this);
-        View sheetView = LayoutInflater.from(this).inflate(R.layout.dialog_statistics_full_list, null, false);
+        View sheetView = LayoutInflater.from(this).inflate(
+                R.layout.dialog_statistics_full_list, null, false);
         TextView tvTitle = sheetView.findViewById(R.id.tvStatisticsDialogTitle);
         TextView tvSubtitle = sheetView.findViewById(R.id.tvStatisticsDialogSubtitle);
         TextView btnClose = sheetView.findViewById(R.id.btnCloseStatisticsDialog);

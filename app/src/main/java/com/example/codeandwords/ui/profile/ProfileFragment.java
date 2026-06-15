@@ -31,6 +31,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
+// Фрагмент профиля пользователя: аватар, XP, лига, достижения и переходы в смежные экраны.
 public class ProfileFragment extends Fragment {
 
     private FragmentProfileBinding binding;
@@ -94,7 +95,6 @@ public class ProfileFragment extends Fragment {
             startActivity(intent);
         });
 
-        // ✅ НОВАЯ КНОПКА — ПОИСК ДРУЗЕЙ
         binding.btnFindFriends.setOnClickListener(v -> {
             Intent intent = new Intent(requireContext(), UserSearchActivity.class);
             startActivity(intent);
@@ -115,6 +115,7 @@ public class ProfileFragment extends Fragment {
         });
     }
 
+    // Обновляет иконку кнопки смены темы в зависимости от текущего режима
     private void updateThemeIcon() {
         if (binding == null) return;
 
@@ -133,6 +134,7 @@ public class ProfileFragment extends Fragment {
         return currentNightMode == Configuration.UI_MODE_NIGHT_YES;
     }
 
+    // Переключает тему, сохраняет настройку и пересоздаёт Activity
     private void toggleTheme() {
         int newMode = isCurrentlyDark()
                 ? AppCompatDelegate.MODE_NIGHT_NO
@@ -145,6 +147,7 @@ public class ProfileFragment extends Fragment {
         }
     }
 
+    // Применяет конфигурацию аватара к шапке профиля и окрашивает статус-бар
     private void applyAvatarToHeader() {
         if (binding == null || !isAdded()) return;
 
@@ -195,6 +198,7 @@ public class ProfileFragment extends Fragment {
         }
     }
 
+    // Автоматически открывает редактор аватара при первом входе
     private void openAvatarEditorIfNeeded() {
         if (!isAdded() || binding == null) return;
         if (avatarEditorAutoOpened) return;
@@ -206,6 +210,7 @@ public class ProfileFragment extends Fragment {
         }
     }
 
+    // Загружает данные текущего пользователя и заполняет все поля профиля
     private void loadUserData() {
         repository.getCurrentUser(new Repository.DataCallback<User>() {
             @Override
@@ -244,6 +249,7 @@ public class ProfileFragment extends Fragment {
                 loadMasteredThemesCount();
                 loadAchievements();
 
+                // Кнопка администратора видна только для роли admin
                 if ("admin".equalsIgnoreCase(user.getRole())) {
                     binding.btnOpenAdminPanel.setVisibility(View.VISIBLE);
                 } else {
@@ -302,6 +308,7 @@ public class ProfileFragment extends Fragment {
         });
     }
 
+    // Загружает достижения, сортирует их (полученные и новые — вверх) и обновляет адаптер
     private void loadAchievements() {
         repository.getAchievements(new Repository.DataCallback<List<AchievementWithProgress>>() {
             @Override
@@ -363,6 +370,7 @@ public class ProfileFragment extends Fragment {
         });
     }
 
+    // Определяет лигу пользователя по суммарному XP
     private LeagueInfo getLeagueInfo(int xp) {
         if (xp >= 2500) {
             return new LeagueInfo("Алмазная лига", "Элита Code & Words", "💎",
@@ -384,6 +392,7 @@ public class ProfileFragment extends Fragment {
                 Color.parseColor("#CD7F32"));
     }
 
+    // Выполняет выход из аккаунта и переходит на экран входа
     private void performLogout() {
         repository.logout(() -> {
             if (isAdded()) {
@@ -416,6 +425,7 @@ public class ProfileFragment extends Fragment {
         binding = null;
     }
 
+    // Модель данных для отображения лиги в UI
     private static class LeagueInfo {
         private final String title;
         private final String subtitle;

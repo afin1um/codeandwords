@@ -16,6 +16,7 @@ public interface FriendDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insert(Friend friend);
 
+    // Возвращает объекты User через JOIN с таблицей friends
     @Query("SELECT users.* FROM users " +
             "INNER JOIN friends ON users.id = friends.friend_id " +
             "WHERE friends.user_id = :userId")
@@ -24,6 +25,7 @@ public interface FriendDao {
     @Query("SELECT COUNT(*) FROM friends WHERE user_id = :userId AND friend_id = :friendId")
     int isFriendExists(int userId, int friendId);
 
+    // Полная замена списка друзей при синхронизации с сервером
     @Query("DELETE FROM friends WHERE user_id = :userId")
     void deleteFriendsByUser(int userId);
 }

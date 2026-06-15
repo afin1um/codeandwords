@@ -15,8 +15,9 @@ import java.util.List;
 @Dao
 public interface UserWordDao {
 
+    // Возвращает локальный ID вставленной записи для последующего сохранения serverId
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    long insert(UserWord word); // Возвращаем Long id для отслеживания
+    long insert(UserWord word);
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertAll(List<UserWord> words);
@@ -27,6 +28,7 @@ public interface UserWordDao {
     @Query("SELECT * FROM user_personal_words WHERE userId = :userId AND themeId = :themeId ORDER BY dateAdded DESC")
     List<UserWord> getUserWordsByThemeId(Integer userId, Long themeId);
 
+    // Слова без привязки к теме (для восстановления тем)
     @Query("SELECT * FROM user_personal_words " +
             "WHERE userId = :userId AND (themeId IS NULL OR themeTitle IS NULL OR themeTitle = 'Без темы') " +
             "ORDER BY dateAdded DESC")
@@ -41,15 +43,13 @@ public interface UserWordDao {
     @Query("DELETE FROM user_personal_words WHERE userId = :userId")
     void deleteAllUserWords(Integer userId);
 
-    // Добавлен отдельный метод для удаления всех слов конкретного пользователя
     @Query("DELETE FROM user_personal_words WHERE userId = :userId")
     void deleteAllUserWordsForUser(Integer userId);
 
     @Query("DELETE FROM user_personal_words WHERE themeId = :themeId")
     void deleteUserWordsByThemeId(Long themeId);
 
-    // ИСПРАВЛЕНИЕ ОШИБКИ КОМПИЛЯЦИИ:
-    // Добавлен userId для корректного удаления слова только у текущего пользователя
+    // Удаление по термину с учётом userId — защита от удаления слов других пользователей
     @Query("DELETE FROM user_personal_words WHERE userId = :userId AND LOWER(word) = LOWER(:term)")
     void deleteUserWordsByTerm(Integer userId, String term);
 
@@ -80,17 +80,16 @@ public interface UserWordDao {
     @Query("UPDATE user_personal_words SET themeId = :themeId, themeTitle = :themeTitle WHERE id = :userWordId")
     void updateUserWordTheme(Long userWordId, Long themeId, String themeTitle);
 
-    // Новые методы для синхронизации
     @Query("SELECT * FROM user_personal_words WHERE userId = :userId AND isSynced = 0")
     List<UserWord> getUnsyncedUserWords(Integer userId);
 
     @Query("UPDATE user_personal_words SET isSynced = :isSynced WHERE id = :localId")
     void updateUserWordIsSynced(Long localId, boolean isSynced);
 
+    // Обновляет serverId и помечает запись как синхронизированную
     @Query("UPDATE user_personal_words SET serverId = :serverId, isSynced = 1 WHERE id = :localId")
     void updateUserWordServerId(Long localId, Long serverId);
 
-    // Обновление существующего слова (например, если обновилась тема на сервере или локально)
     @Update(onConflict = OnConflictStrategy.REPLACE)
     void update(UserWord userWord);
 }

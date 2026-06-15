@@ -1,12 +1,15 @@
 package com.example.codeandwords.api;
 
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
+import java.net.SocketTimeoutException;
 
 import okhttp3.Interceptor;
 import okhttp3.Request;
 import okhttp3.Response;
 
+// Перехватчик OkHttp для повтора запросов при сбоях сети.
+// SocketTimeoutException повторяется только один раз — для решения проблемы
+// холодного старта HTTPS-соединения с Supabase.
 public class RetryInterceptor implements Interceptor {
 
     private final int maxRetries;
@@ -24,62 +27,70 @@ public class RetryInterceptor implements Interceptor {
 
         int tryCount = 0;
         Response response = null;
+        boolean timeoutRetried = false;
 
-        // Цикл попыток
         while (tryCount < maxRetries) {
             try {
                 response = chain.proceed(request);
 
-                // Если ответ успешен (код 200-299), возвращаем его
+                // Успешный ответ — возвращаем немедленно
                 if (response.isSuccessful()) {
                     return response;
                 }
 
-                // Если сервер вернул ошибку (например, 500 или 504), пытаемся повторить
-                // Но если это ошибка клиента (401, 404), лучше не повторять
+                // Серверные ошибки (5xx) и 408 допускают повтор;
+                // ошибки клиента (4xx) повторно не отправляются
                 if (response.code() >= 500 || response.code() == 408) {
                     tryCount++;
-                    if (tryCount == maxRetries) {
-                        return response; // Последняя попытка не удалась, возвращаем ошибку
+                    if (tryCount >= maxRetries) {
+                        return response;
                     }
 
-                    // 🔹 ИСПРАВЛЕНИЕ: Добавлен try-catch для Thread.sleep
-                    try {
-                        Thread.sleep(retryDelayMillis);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw new IOException("Retry interrupted", e);
-                    }
+                    // Закрываем ответ перед повтором, чтобы освободить соединение
+                    response.close();
 
+                    sleepUninterruptibly(retryDelayMillis);
                     continue;
                 }
 
-                // Для остальных ошибок (404, 401 и т.д.) возвращаем ответ без повтора
                 return response;
 
+            } catch (SocketTimeoutException e) {
+                // Таймаут повторяем только один раз — решает проблему холодного старта TLS.
+                // Дальше повторять бесполезно, только удерживаем поток впустую
+                if (!timeoutRetried) {
+                    timeoutRetried = true;
+                    lastException = e;
+                    sleepUninterruptibly(300);
+                    continue;
+                }
+                throw e;
+
             } catch (IOException e) {
-                // Ловим IOException, в которую входит SocketTimeoutException
                 lastException = e;
                 tryCount++;
 
-                if (tryCount == maxRetries) {
-                    throw e; // Закончились попытки, выбрасываем ошибку
+                if (tryCount >= maxRetries) {
+                    throw e;
                 }
 
-                // 🔹 ИСПРАВЛЕНИЕ: Добавлен try-catch для Thread.sleep
-                try {
-                    Thread.sleep(retryDelayMillis);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new IOException("Retry interrupted", ie);
-                }
+                sleepUninterruptibly(retryDelayMillis);
             }
         }
 
-        // Если мы здесь, значит что-то пошло не так
         if (lastException != null) {
             throw lastException;
         }
         return response;
+    }
+
+    // Засыпает поток, корректно обрабатывая прерывание
+    private void sleepUninterruptibly(long millis) throws IOException {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Retry interrupted", e);
+        }
     }
 }

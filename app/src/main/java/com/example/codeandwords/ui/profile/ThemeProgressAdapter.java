@@ -20,6 +20,7 @@ import com.example.codeandwords.model.ThemeProgressStats;
 import java.util.ArrayList;
 import java.util.List;
 
+// Адаптер прогресса по темам: цвет и статус определяются степенью освоения.
 public class ThemeProgressAdapter extends RecyclerView.Adapter<ThemeProgressAdapter.ThemeProgressViewHolder> {
 
     private final List<ThemeProgressStats> items = new ArrayList<>();
@@ -51,7 +52,8 @@ public class ThemeProgressAdapter extends RecyclerView.Adapter<ThemeProgressAdap
                 ? theme.getTitle().trim()
                 : "Без названия";
 
-        String difficulty = theme != null && theme.getDifficultyLevel() != null && !theme.getDifficultyLevel().trim().isEmpty()
+        String difficulty = theme != null && theme.getDifficultyLevel() != null
+                && !theme.getDifficultyLevel().trim().isEmpty()
                 ? theme.getDifficultyLevel().trim()
                 : "Easy";
 
@@ -72,39 +74,20 @@ public class ThemeProgressAdapter extends RecyclerView.Adapter<ThemeProgressAdap
         holder.tvThemeTitle.setTextColor(color(context, R.color.app_text_primary));
         holder.tvThemeProgressText.setTextColor(color(context, R.color.app_text_secondary));
         holder.tvThemeDifficulty.setTextColor(getDifficultyColor(context, difficulty));
-        holder.progressTheme.setProgressBackgroundTintList(ColorStateList.valueOf(color(context, R.color.app_divider)));
+        holder.progressTheme.setProgressBackgroundTintList(
+                ColorStateList.valueOf(color(context, R.color.app_divider)));
 
         if (total == 0) {
-            bindStatus(
-                    holder,
-                    "Нет терминов",
-                    R.color.app_text_secondary,
-                    R.color.app_card_stroke
-            );
+            bindStatus(holder, "Нет терминов", R.color.app_text_secondary, R.color.app_card_stroke);
             return;
         }
 
         if (stats.isMastered()) {
-            bindStatus(
-                    holder,
-                    "Освоена",
-                    R.color.app_green,
-                    R.color.app_green
-            );
+            bindStatus(holder, "Освоена", R.color.app_green, R.color.app_green);
         } else if (learned > 0) {
-            bindStatus(
-                    holder,
-                    "В процессе",
-                    R.color.app_blue,
-                    R.color.app_blue
-            );
+            bindStatus(holder, "В процессе", R.color.app_blue, R.color.app_blue);
         } else {
-            bindStatus(
-                    holder,
-                    "Не начата",
-                    R.color.app_text_secondary,
-                    R.color.app_card_stroke
-            );
+            bindStatus(holder, "Не начата", R.color.app_text_secondary, R.color.app_card_stroke);
         }
     }
 
@@ -124,46 +107,25 @@ public class ThemeProgressAdapter extends RecyclerView.Adapter<ThemeProgressAdap
     }
 
     private String localizeDifficulty(String difficulty) {
-        if (difficulty == null) {
-            return "Лёгкая";
-        }
-
+        if (difficulty == null) return "Лёгкая";
         String normalized = difficulty.trim().toLowerCase();
-
         switch (normalized) {
-            case "easy":
-                return "Лёгкая";
-
-            case "medium":
-                return "Средняя";
-
-            case "hard":
-                return "Сложная";
-
-            default:
-                return difficulty;
+            case "easy":   return "Лёгкая";
+            case "medium": return "Средняя";
+            case "hard":   return "Сложная";
+            default:       return difficulty;
         }
     }
 
+    // Цвет уровня сложности: зелёный, оранжевый, красный
     private int getDifficultyColor(Context context, String difficulty) {
-        if (difficulty == null) {
-            return color(context, R.color.app_text_secondary);
-        }
-
+        if (difficulty == null) return color(context, R.color.app_text_secondary);
         String normalized = difficulty.trim().toLowerCase();
-
         switch (normalized) {
-            case "easy":
-                return color(context, R.color.app_green);
-
-            case "medium":
-                return color(context, R.color.app_orange);
-
-            case "hard":
-                return color(context, R.color.app_red);
-
-            default:
-                return color(context, R.color.app_blue);
+            case "easy":   return color(context, R.color.app_green);
+            case "medium": return color(context, R.color.app_orange);
+            case "hard":   return color(context, R.color.app_red);
+            default:       return color(context, R.color.app_blue);
         }
     }
 

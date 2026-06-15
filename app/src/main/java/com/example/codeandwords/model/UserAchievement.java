@@ -7,11 +7,14 @@ import androidx.room.PrimaryKey;
 
 import com.google.gson.annotations.SerializedName;
 
+// Связь пользователя с достижением: хранит прогресс и статус разблокировки
 @Entity(
         tableName = "user_achievements",
         foreignKeys = {
-                @ForeignKey(entity = User.class, parentColumns = "id", childColumns = "user_id", onDelete = ForeignKey.CASCADE),
-                @ForeignKey(entity = Achievement.class, parentColumns = "id", childColumns = "achievement_id", onDelete = ForeignKey.CASCADE)
+                @ForeignKey(entity = User.class, parentColumns = "id",
+                        childColumns = "user_id", onDelete = ForeignKey.CASCADE),
+                @ForeignKey(entity = Achievement.class, parentColumns = "id",
+                        childColumns = "achievement_id", onDelete = ForeignKey.CASCADE)
         }
 )
 public class UserAchievement {
@@ -48,12 +51,8 @@ public class UserAchievement {
     public UserAchievement() {
     }
 
-    public UserAchievement(Long userId,
-                           Long achievementId,
-                           long dateReceived,
-                           Integer currentProgress,
-                           boolean isUnlocked,
-                           boolean isNew) {
+    public UserAchievement(Long userId, Long achievementId, long dateReceived,
+                           Integer currentProgress, boolean isUnlocked, boolean isNew) {
         this.userId = userId;
         this.achievementId = achievementId;
         this.dateReceived = dateReceived;

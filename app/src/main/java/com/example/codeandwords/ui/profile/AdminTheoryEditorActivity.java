@@ -19,6 +19,7 @@ import com.google.android.material.button.MaterialButton;
 import java.util.ArrayList;
 import java.util.List;
 
+// Экран создания новой теории или редактирования существующей.
 public class AdminTheoryEditorActivity extends AppCompatActivity {
 
     public static final String EXTRA_MODE = "extra_mode";
@@ -36,7 +37,7 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
     private TextView tvTheoryHint;
 
     private Spinner spTheoryThemes;
-    private EditText etTheoryText;          // ✅ Заменили TextInputEditText на обычный EditText
+    private EditText etTheoryText;
     private MaterialButton btnSaveTheory;
 
     private Repository repository;
@@ -70,6 +71,7 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
         }
     }
 
+    // Читает режим работы и исходные параметры из Intent.
     private void readIntent() {
         mode = getIntent().getStringExtra(EXTRA_MODE);
 
@@ -102,6 +104,7 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
         btnSaveTheory = findViewById(R.id.btnSaveTheory);
     }
 
+    // Настраивает экран в зависимости от режима: создание или редактирование.
     private void setupUiByMode() {
         if (MODE_CREATE_NEW.equals(mode)) {
             spTheoryThemes.setVisibility(View.GONE);
@@ -148,6 +151,7 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
         });
     }
 
+    // Загружает список тем и выбирает нужную тему для редактирования.
     private void loadThemesForEditing() {
         repository.getThemes(new Repository.DataCallback<List<Theme>>() {
             @Override
@@ -205,6 +209,7 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
         etTheoryText.setText(selectedTheme.getTheoryText() != null ? selectedTheme.getTheoryText() : "");
     }
 
+    // Создаёт новую тему сразу вместе с текстом теории.
     private void createThemeWithTheory() {
         if (newThemeTitle.trim().isEmpty()) {
             toast("Название темы не передано");
@@ -235,6 +240,7 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
         });
     }
 
+    // Обновляет теорию существующей темы.
     private void updateExistingTheory() {
         if (selectedTheme == null || selectedTheme.getId() == null) {
             toast("Тема не выбрана");

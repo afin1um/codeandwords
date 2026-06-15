@@ -17,6 +17,7 @@ import com.example.codeandwords.R;
 import com.example.codeandwords.ui.base.BaseBackActivity;
 import com.example.codeandwords.ui.dashboard.MainActivity;
 
+// Экран результата урока: показывает XP, точность и количество слов; управляет вибрацией
 public class GameResultActivity extends BaseBackActivity {
 
     private boolean isTraining = false;
@@ -28,12 +29,11 @@ public class GameResultActivity extends BaseBackActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game_result);
 
-        // ✅ Читаем флаг тренировки заранее — он влияет на навигацию
+        // Флаг тренировки определяет назначение всех кнопок навигации
         isTraining = getIntent().getBooleanExtra("IS_TRAINING", false);
 
         initViews();
 
-        // ✅ Крестик: тренировка → TrainingFragment, обычная игра → главный экран
         if (isTraining) {
             setupCloseToTrainingButton(R.id.btnUniClose);
         } else {
@@ -55,8 +55,7 @@ public class GameResultActivity extends BaseBackActivity {
 
         int correctWords = Math.max(0, totalWords - mistakes);
         int accuracy = (totalWords > 0)
-                ? Math.max(0, (correctWords * 100) / totalWords)
-                : 100;
+                ? Math.max(0, (correctWords * 100) / totalWords) : 100;
 
         if (isTraining) {
             tvResultTitle.setText("Тренировка завершена!");
@@ -74,7 +73,6 @@ public class GameResultActivity extends BaseBackActivity {
 
         triggerSuccessVibration();
 
-        // ✅ Кнопка «ПРОДОЛЖИТЬ»: тренировка → TrainingFragment, иначе → главный экран
         btnFinish.setOnClickListener(v -> {
             if (isTraining) {
                 goToTraining();
@@ -84,9 +82,7 @@ public class GameResultActivity extends BaseBackActivity {
         });
     }
 
-    /**
-     * ✅ Системная кнопка «Назад» ведёт туда же, куда крестик и «Продолжить».
-     */
+    // Системная кнопка «Назад» ведёт туда же, куда крестик и кнопка «Продолжить»
     @Override
     public void onBackPressed() {
         if (isTraining) {
@@ -96,6 +92,7 @@ public class GameResultActivity extends BaseBackActivity {
         }
     }
 
+    // Применяет цвета статус-бара и навигационной панели в зависимости от темы
     private void applySystemBarsTheme() {
         Window window = getWindow();
 
@@ -137,6 +134,7 @@ public class GameResultActivity extends BaseBackActivity {
         return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
     }
 
+    // Воспроизводит тактильный паттерн успеха с нарастающей амплитудой
     private void triggerSuccessVibration() {
         Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
@@ -146,14 +144,10 @@ public class GameResultActivity extends BaseBackActivity {
                 int[] amplitudes = {0, 180, 0, 255};
 
                 try {
-                    vibrator.vibrate(
-                            VibrationEffect.createWaveform(timings, amplitudes, -1)
-                    );
+                    vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1));
                 } catch (Exception e) {
                     vibrator.vibrate(VibrationEffect.createOneShot(
-                            500,
-                            VibrationEffect.DEFAULT_AMPLITUDE
-                    ));
+                            500, VibrationEffect.DEFAULT_AMPLITUDE));
                 }
             } else {
                 vibrator.vibrate(500);

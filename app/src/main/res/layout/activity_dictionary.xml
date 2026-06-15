@@ -17,7 +17,6 @@
         android:paddingTop="8dp"
         android:paddingBottom="8dp">
 
-        <!-- ✅ Единая стрелочка -->
         <include
             android:id="@+id/btnBackDict"
             layout="@layout/view_back_button"

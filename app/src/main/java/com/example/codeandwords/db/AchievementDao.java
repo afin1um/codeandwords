@@ -34,6 +34,7 @@ public interface AchievementDao {
     @Query("SELECT COUNT(*) FROM user_achievements WHERE user_id = :userId AND achievement_id = :achievementId AND is_unlocked = 1")
     int hasAchievement(int userId, int achievementId);
 
+    // Возвращает достижения с прогрессом через LEFT JOIN с user_achievements
     @Transaction
     @Query("SELECT " +
             "a.id AS id, " +

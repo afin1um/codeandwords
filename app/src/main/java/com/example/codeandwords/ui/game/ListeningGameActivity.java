@@ -1,6 +1,8 @@
 package com.example.codeandwords.ui.game;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.speech.tts.TextToSpeech;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -17,11 +19,14 @@ import com.google.android.material.card.MaterialCardView;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
+// Режим аудирования: пользователь слышит слово и выбирает перевод из вариантов
 public class ListeningGameActivity extends BaseBackActivity {
 
     private static final int OPTIONS_COUNT = 5;
     private static final int POINTS_PER_CORRECT = 10;
+
     private ProgressBar progressListening;
     private ProgressBar pbListening;
     private TextView tvListeningCounter;
@@ -48,6 +53,11 @@ public class ListeningGameActivity extends BaseBackActivity {
     private boolean currentWordAlreadyInDictionary = false;
     private boolean dictionaryStateLoading = false;
 
+    // Собственный TTS — чтобы озвучка не зависела от готовности TtsManager в Repository
+    private TextToSpeech tts;
+    private boolean ttsReady = false;
+    private String pendingSpeechText;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -57,6 +67,7 @@ public class ListeningGameActivity extends BaseBackActivity {
 
         initViews();
         setupClicks();
+        initTextToSpeech();
         loadLearnedWords();
     }
 
@@ -79,12 +90,11 @@ public class ListeningGameActivity extends BaseBackActivity {
     }
 
     private void setupClicks() {
-        // ✅ Крестик → TrainingFragment
         setupCloseToTrainingButton(R.id.btnUniClose);
 
         btnPlayListening.setOnClickListener(v -> {
             if (currentWord != null) {
-                repository.speak(currentWord.getTerm(), false);
+                speak(currentWord.getTerm());
             }
         });
 
@@ -95,6 +105,43 @@ public class ListeningGameActivity extends BaseBackActivity {
         });
     }
 
+    private void initTextToSpeech() {
+        tts = new TextToSpeech(getApplicationContext(), status -> {
+            if (status != TextToSpeech.SUCCESS) {
+                android.util.Log.e("ListeningTTS", "TTS init failed: " + status);
+                return;
+            }
+
+            int result = tts.setLanguage(Locale.US);
+
+            if (result == TextToSpeech.LANG_MISSING_DATA
+                    || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                android.util.Log.e("ListeningTTS",
+                        "Английский язык не поддерживается: " + result);
+                return;
+            }
+
+            ttsReady = true;
+
+            // Если запрос на озвучку пришёл до готовности TTS — проигрываем сейчас
+            if (pendingSpeechText != null) {
+                tts.speak(pendingSpeechText, TextToSpeech.QUEUE_FLUSH, null, "LISTENING_TTS");
+                pendingSpeechText = null;
+            }
+        });
+    }
+
+    private void speak(String text) {
+        if (text == null || text.trim().isEmpty()) return;
+
+        if (ttsReady && tts != null) {
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "LISTENING_TTS");
+        } else {
+            // TTS ещё не готов — запомним последнее слово и проиграем после инициализации
+            pendingSpeechText = text;
+        }
+    }
+
     private void loadLearnedWords() {
         pbListening.setVisibility(View.VISIBLE);
 
@@ -102,7 +149,6 @@ public class ListeningGameActivity extends BaseBackActivity {
             @Override
             public void onSuccess(List<Word> data) {
                 pbListening.setVisibility(View.GONE);
-
                 learnedWords.clear();
                 if (data != null) learnedWords.addAll(data);
 
@@ -120,8 +166,7 @@ public class ListeningGameActivity extends BaseBackActivity {
             @Override
             public void onError(String error) {
                 pbListening.setVisibility(View.GONE);
-                Toast.makeText(ListeningGameActivity.this,
-                        error, Toast.LENGTH_LONG).show();
+                Toast.makeText(ListeningGameActivity.this, error, Toast.LENGTH_LONG).show();
                 finish();
             }
         });
@@ -129,7 +174,7 @@ public class ListeningGameActivity extends BaseBackActivity {
 
     private void showNextQuestion() {
         if (currentIndex >= learnedWords.size()) {
-            finish();
+            finishTraining();
             return;
         }
 
@@ -149,7 +194,9 @@ public class ListeningGameActivity extends BaseBackActivity {
         }
 
         createOptions();
-        repository.speak(currentWord.getTerm(), false);
+
+        // Небольшая задержка, чтобы первый вызов точно прошёл после готовности TTS
+        new Handler().postDelayed(() -> speak(currentWord.getTerm()), 200);
     }
 
     private void createOptions() {
@@ -177,9 +224,7 @@ public class ListeningGameActivity extends BaseBackActivity {
             btn.setTextSize(15f);
 
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(60)
-            );
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(60));
             params.setMargins(0, 0, 0, dp(10));
             btn.setLayoutParams(params);
 
@@ -196,11 +241,10 @@ public class ListeningGameActivity extends BaseBackActivity {
                                     .getColorStateList(getResources(),
                                             R.color.listening_green, getTheme()));
 
-                    new android.os.Handler().postDelayed(() -> {
+                    new Handler().postDelayed(() -> {
                         currentIndex++;
                         showNextQuestion();
                     }, 700);
-
                 } else {
                     mistakesCount++;
                     btn.setBackgroundTintList(
@@ -208,7 +252,7 @@ public class ListeningGameActivity extends BaseBackActivity {
                                     .getColorStateList(getResources(),
                                             android.R.color.holo_red_light, getTheme()));
 
-                    new android.os.Handler().postDelayed(() -> {
+                    new Handler().postDelayed(() -> {
                         currentIndex++;
                         showNextQuestion();
                     }, 1000);
@@ -217,6 +261,24 @@ public class ListeningGameActivity extends BaseBackActivity {
 
             optionsListeningContainer.addView(btn);
         }
+    }
+
+    private void finishTraining() {
+        if (progressListening != null) {
+            progressListening.setProgress(100);
+        }
+
+        repository.recordLessonCompletion(
+                "LISTENING",
+                null,
+                score,
+                learnedWords.size(),
+                mistakesCount,
+                fixedErrorsCount,
+                false
+        );
+
+        finish();
     }
 
     private void addCurrentWordToDictionary() {
@@ -246,8 +308,7 @@ public class ListeningGameActivity extends BaseBackActivity {
                 cardListeningDictionaryState.setAlpha(1.0f);
                 tvListeningDictionaryText.setText("Добавить в словарь");
 
-                Toast.makeText(ListeningGameActivity.this,
-                        error, Toast.LENGTH_SHORT).show();
+                Toast.makeText(ListeningGameActivity.this, error, Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -258,6 +319,11 @@ public class ListeningGameActivity extends BaseBackActivity {
 
     @Override
     protected void onDestroy() {
+        if (tts != null) {
+            tts.stop();
+            tts.shutdown();
+            tts = null;
+        }
         super.onDestroy();
     }
 }

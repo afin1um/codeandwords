@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.codeandwords.R;
 import com.google.android.material.button.MaterialButton;
 
+// Экран всплывающего уведомления о разблокировке достижения.
 public class AchievementUnlockedActivity extends AppCompatActivity {
 
     private ImageView ivGlow;
@@ -56,6 +57,7 @@ public class AchievementUnlockedActivity extends AppCompatActivity {
         btnContinue = findViewById(R.id.btnContinue);
     }
 
+    // Читает данные достижения из Intent.
     private void readExtras() {
         Intent intent = getIntent();
         achievementId = intent.getLongExtra("achievement_id", -1L);
@@ -80,6 +82,7 @@ public class AchievementUnlockedActivity extends AppCompatActivity {
         ivAchievement.setImageResource(iconId != 0 ? iconId : R.drawable.ic_launcher_foreground);
     }
 
+    // Запускает анимации появления карточки и декоративных элементов.
     private void setupAnimations() {
         Animation popupIn = AnimationUtils.loadAnimation(this, R.anim.achievement_popup_in);
         Animation slowPulse = AnimationUtils.loadAnimation(this, R.anim.achievement_pulse);
@@ -101,9 +104,10 @@ public class AchievementUnlockedActivity extends AppCompatActivity {
     }
 
     private void setupClicks() {
-        // ✅ Кнопка "Продолжить" возвращает в AchievementsActivity
+        // Возврат в общий список достижений.
         btnContinue.setOnClickListener(v -> goToAchievements());
 
+        // Переход к подробной карточке достижения.
         btnDetails.setOnClickListener(v -> {
             Intent intent = new Intent(this, AchievementDetailActivity.class);
             intent.putExtra("achievement_id", achievementId);
@@ -119,13 +123,11 @@ public class AchievementUnlockedActivity extends AppCompatActivity {
         });
     }
 
-    // ✅ Перехват системной кнопки "назад"
     @Override
     public void onBackPressed() {
         goToAchievements();
     }
 
-    // ✅ Метод явного возврата
     private void goToAchievements() {
         Intent intent = new Intent(this, AchievementsActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);

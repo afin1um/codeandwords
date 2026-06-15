@@ -16,7 +16,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <!-- ✅ Единая стрелочка -->
         <include
             android:id="@+id/btnBackEditProfile"
             layout="@layout/view_back_button"

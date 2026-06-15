@@ -15,6 +15,7 @@ import com.example.codeandwords.model.TeamChallengeProgress;
 import java.util.ArrayList;
 import java.util.List;
 
+// Адаптер прогресса участников командного задания.
 public class TeamProgressAdapter extends RecyclerView.Adapter<TeamProgressAdapter.VH> {
 
     private final List<TeamChallengeProgress> items = new ArrayList<>();

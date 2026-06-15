@@ -23,8 +23,10 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+// Репозиторий авторизации: вход, регистрация, управление сессией и данными профиля
 public class AuthRepository {
 
+    // Ключи SharedPreferences для хранения данных текущего пользователя
     private static final String PREFS_NAME = "codeandwords_prefs";
     private static final String KEY_USER_ID = "current_user_id";
     private static final String KEY_USERNAME = "current_username";
@@ -42,6 +44,7 @@ public class AuthRepository {
     private final Handler mainHandler;
     private final Context appContext;
 
+    // Текущий пользователь хранится статически для доступа из любого репозитория
     private static User currentUser;
 
     private AuthListener listener;
@@ -79,8 +82,7 @@ public class AuthRepository {
         restoreCurrentUserFromPrefs();
     }
 
-    // ===== СЕССИЯ =====
-
+    // Возвращает текущего пользователя; при необходимости восстанавливает из SharedPreferences
     public User getCurrentUserSync() {
         if (currentUser == null) restoreCurrentUserFromPrefs();
         return currentUser;
@@ -98,6 +100,8 @@ public class AuthRepository {
     public void restoreCurrentUserFromPrefs() {
         restoreCurrentUserFromPrefs(false);
     }
+
+    // Восстанавливает данные пользователя из SharedPreferences; force=true игнорирует кэш
     public void restoreCurrentUserFromPrefs(boolean force) {
         if (!force && currentUser != null) return;
 
@@ -120,6 +124,7 @@ public class AuthRepository {
         currentUser = restoredUser;
     }
 
+    // Сохраняет данные пользователя в SharedPreferences и обновляет статическую ссылку
     public void saveCurrentUserToPrefs(User user) {
         if (user == null || user.getId() == null) return;
 
@@ -130,30 +135,27 @@ public class AuthRepository {
                 .putString(KEY_USERNAME, user.getUsername())
                 .putString(KEY_EMAIL, user.getEmail())
                 .putString(KEY_PASSWORD_HASH, user.getPasswordHash())
-                .putInt(KEY_CURRENT_LEVEL, user.getCurrentLevel() != null
-                        ? user.getCurrentLevel() : 1)
-                .putInt(KEY_TOTAL_XP, user.getTotalXp() != null
-                        ? user.getTotalXp() : 0)
-                .putString(KEY_ROLE, user.getRole() != null
-                        ? user.getRole() : "user")
+                .putInt(KEY_CURRENT_LEVEL, user.getCurrentLevel() != null ? user.getCurrentLevel() : 1)
+                .putInt(KEY_TOTAL_XP, user.getTotalXp() != null ? user.getTotalXp() : 0)
+                .putString(KEY_ROLE, user.getRole() != null ? user.getRole() : "user")
                 .putString(KEY_AVATAR_CONFIG, user.getAvatarConfig())
                 .apply();
     }
 
+    // Очищает данные сессии при выходе из аккаунта
     public void clearCurrentUserPrefs() {
         prefs.edit().clear().apply();
         currentUser = null;
     }
 
+    // Асинхронно кэширует пользователя в локальной БД
     public void cacheUserSafely(User user) {
         if (user == null) return;
-
         executor.execute(() -> {
             try {
                 userDao.insertUser(user);
             } catch (Exception e) {
-                Log.e("AuthRepository",
-                        "Ошибка кэширования пользователя: " + e.getMessage(), e);
+                Log.e("AuthRepository", "Ошибка кэширования пользователя: " + e.getMessage(), e);
             }
         });
     }
@@ -163,9 +165,7 @@ public class AuthRepository {
             callback.onSuccess(currentUser);
             return;
         }
-
         restoreCurrentUserFromPrefs();
-
         if (currentUser != null) {
             callback.onSuccess(currentUser);
         } else {
@@ -178,9 +178,7 @@ public class AuthRepository {
             callback.onRetrieved(currentUser.getId());
             return;
         }
-
         restoreCurrentUserFromPrefs();
-
         if (currentUser != null && currentUser.getId() != null) {
             callback.onRetrieved(currentUser.getId());
         } else {
@@ -194,8 +192,7 @@ public class AuthRepository {
         mainHandler.post(callback);
     }
 
-    // ===== АВТОРИЗАЦИЯ =====
-
+    // Хеширует пароль алгоритмом SHA-256; при ошибке возвращает исходную строку
     private String hashPassword(String password) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -212,40 +209,31 @@ public class AuthRepository {
         }
     }
 
+    // Разбирает JSON-объект пользователя из ответа сервера в модель User
     private User parseUserFromJson(JsonObject userJson) {
         User user = new User();
-
         if (userJson == null) return user;
 
         if (userJson.has("id") && !userJson.get("id").isJsonNull())
             user.setId(userJson.get("id").getAsInt());
-
         if (userJson.has("username") && !userJson.get("username").isJsonNull())
             user.setUsername(userJson.get("username").getAsString());
-
         if (userJson.has("email") && !userJson.get("email").isJsonNull())
             user.setEmail(userJson.get("email").getAsString());
-
         if (userJson.has("password_hash") && !userJson.get("password_hash").isJsonNull())
             user.setPasswordHash(userJson.get("password_hash").getAsString());
-
         if (userJson.has("current_level") && !userJson.get("current_level").isJsonNull())
             user.setCurrentLevel(userJson.get("current_level").getAsInt());
-
         if (userJson.has("total_xp") && !userJson.get("total_xp").isJsonNull())
             user.setTotalXp(userJson.get("total_xp").getAsInt());
-
         if (userJson.has("role") && !userJson.get("role").isJsonNull())
             user.setRole(userJson.get("role").getAsString());
-
         if (userJson.has("created_at") && !userJson.get("created_at").isJsonNull())
             user.setCreatedAt(userJson.get("created_at").getAsString());
-
         if (userJson.has("avatar_config") && !userJson.get("avatar_config").isJsonNull())
             user.setAvatarConfig(userJson.get("avatar_config").toString());
         else
             user.setAvatarConfig(null);
-
         if (userJson.has("gender") && !userJson.get("gender").isJsonNull())
             user.setGender(userJson.get("gender").getAsString());
 
@@ -253,190 +241,157 @@ public class AuthRepository {
     }
 
     private String getErrorBody(Response<?> response) {
-        if (listener != null) {
-            return listener.getErrorBody(response);
-        }
-
+        if (listener != null) return listener.getErrorBody(response);
         try {
-            if (response.errorBody() != null) {
-                return response.errorBody().string();
-            }
+            if (response.errorBody() != null) return response.errorBody().string();
         } catch (Exception e) {
             Log.e("AuthRepository", "Ошибка чтения errorBody: " + e.getMessage(), e);
         }
-
         return "Неизвестная ошибка";
     }
 
+    // Выполняет вход: запрашивает пользователя по email и сверяет хеш пароля
     public void login(User user, DataCallback<User> callback) {
         if (user == null) {
             callback.onError("Введите данные для входа");
             return;
         }
 
-        String cleanEmail = user.getEmail() == null
-                ? "" : user.getEmail().trim().toLowerCase();
-        String rawPassword = user.getPasswordHash() == null
-                ? "" : user.getPasswordHash().trim();
+        String cleanEmail = user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase();
+        String rawPassword = user.getPasswordHash() == null ? "" : user.getPasswordHash().trim();
 
         if (cleanEmail.isEmpty() || rawPassword.isEmpty()) {
             callback.onError("Введите email и пароль");
             return;
         }
 
-        String hashedPassword = rawPassword.length() == 64
-                ? rawPassword : hashPassword(rawPassword);
+        // Если длина 64 — уже хеш SHA-256, повторное хеширование не нужно
+        String hashedPassword = rawPassword.length() == 64 ? rawPassword : hashPassword(rawPassword);
 
-        apiService.loginByEmail("eq." + cleanEmail)
-                .enqueue(new Callback<List<JsonObject>>() {
-                    @Override
-                    public void onResponse(Call<List<JsonObject>> call,
-                                           Response<List<JsonObject>> response) {
-                        if (!response.isSuccessful()
-                                || response.body() == null
-                                || response.body().isEmpty()) {
-                            mainHandler.post(() -> callback.onError(
-                                    "Пользователь с таким email не найден"));
-                            return;
-                        }
+        apiService.loginByEmail("eq." + cleanEmail).enqueue(new Callback<List<JsonObject>>() {
+            @Override
+            public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
+                if (!response.isSuccessful()
+                        || response.body() == null
+                        || response.body().isEmpty()) {
+                    mainHandler.post(() -> callback.onError("Пользователь с таким email не найден"));
+                    return;
+                }
 
-                        User serverUser = parseUserFromJson(response.body().get(0));
+                User serverUser = parseUserFromJson(response.body().get(0));
+                String serverPassword = serverUser.getPasswordHash() == null
+                        ? "" : serverUser.getPasswordHash().trim();
 
-                        String serverPassword = serverUser.getPasswordHash() == null
-                                ? "" : serverUser.getPasswordHash().trim();
+                boolean passwordMatches = hashedPassword.equals(serverPassword)
+                        || rawPassword.equals(serverPassword);
 
-                        boolean passwordMatches =
-                                hashedPassword.equals(serverPassword)
-                                        || rawPassword.equals(serverPassword);
+                if (!passwordMatches) {
+                    Log.e("AuthRepository", "Пароль не совпал: serverPassword=" + serverPassword);
+                    mainHandler.post(() -> callback.onError("Неверный пароль"));
+                    return;
+                }
 
-                        if (!passwordMatches) {
-                            Log.e("AuthRepository",
-                                    "Пароль не совпал: serverPassword="
-                                            + serverPassword);
-                            mainHandler.post(() -> callback.onError("Неверный пароль"));
-                            return;
-                        }
+                currentUser = serverUser;
 
-                        currentUser = serverUser;
+                // Синхронизируем аватар из ответа сервера с локальными настройками
+                if (currentUser.getAvatarConfig() != null
+                        && !currentUser.getAvatarConfig().trim().isEmpty()
+                        && !currentUser.getAvatarConfig().equals("null")) {
+                    AvatarConfig serverAvatar = AvatarConfig.fromJson(currentUser.getAvatarConfig());
+                    AvatarPrefs.save(appContext, serverAvatar);
+                }
 
-                        if (currentUser.getAvatarConfig() != null
-                                && !currentUser.getAvatarConfig().trim().isEmpty()
-                                && !currentUser.getAvatarConfig().equals("null")) {
-                            AvatarConfig serverAvatar = AvatarConfig.fromJson(
-                                    currentUser.getAvatarConfig());
-                            AvatarPrefs.save(appContext, serverAvatar);
-                        }
+                saveCurrentUserToPrefs(currentUser);
+                cacheUserSafely(currentUser);
 
-                        saveCurrentUserToPrefs(currentUser);
-                        cacheUserSafely(currentUser);
+                if (listener != null) listener.recordLoginEvent();
 
-                        if (listener != null) listener.recordLoginEvent();
+                mainHandler.post(() -> callback.onSuccess(currentUser));
+            }
 
-                        mainHandler.post(() -> callback.onSuccess(currentUser));
-                    }
-
-                    @Override
-                    public void onFailure(Call<List<JsonObject>> call, Throwable t) {
-                        Log.e("AuthRepository",
-                                "Ошибка сети login: " + t.getMessage(), t);
-                        mainHandler.post(() -> callback.onError(
-                                "Ошибка сети: " + t.getMessage()));
-                    }
-                });
+            @Override
+            public void onFailure(Call<List<JsonObject>> call, Throwable t) {
+                Log.e("AuthRepository", "Ошибка сети login: " + t.getMessage(), t);
+                mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
+            }
+        });
     }
 
+    // Выполняет регистрацию: проверяет уникальность email, затем создаёт аккаунт
     public void register(User user, DataCallback<User> callback) {
         if (user == null) {
             callback.onError("Введите данные для регистрации");
             return;
         }
 
-        String rawPassword = user.getPasswordHash() == null
-                ? "" : user.getPasswordHash().trim();
-        String cleanEmail = user.getEmail() == null
-                ? "" : user.getEmail().trim().toLowerCase();
+        String rawPassword = user.getPasswordHash() == null ? "" : user.getPasswordHash().trim();
+        String cleanEmail = user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase();
 
         if (cleanEmail.isEmpty() || rawPassword.isEmpty()) {
             callback.onError("Введите email и пароль");
             return;
         }
 
-        String hashedPassword = rawPassword.length() == 64
-                ? rawPassword : hashPassword(rawPassword);
+        String hashedPassword = rawPassword.length() == 64 ? rawPassword : hashPassword(rawPassword);
 
         user.setEmail(cleanEmail);
         user.setPasswordHash(hashedPassword);
 
-        apiService.loginByEmail("eq." + cleanEmail)
-                .enqueue(new Callback<List<JsonObject>>() {
-                    @Override
-                    public void onResponse(Call<List<JsonObject>> call,
-                                           Response<List<JsonObject>> response) {
-                        if (response.isSuccessful()
-                                && response.body() != null
-                                && !response.body().isEmpty()) {
-                            mainHandler.post(() -> callback.onError(
-                                    "Пользователь с таким Email уже существует"));
-                        } else {
-                            performActualRegistration(user, callback);
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(Call<List<JsonObject>> call, Throwable t) {
-                        Log.e("AuthRepository",
-                                "Ошибка проверки почты: " + t.getMessage(), t);
-                        mainHandler.post(() -> callback.onError(
-                                "Ошибка проверки почты: " + t.getMessage()));
-                    }
-                });
-    }
-
-    private void performActualRegistration(User user, DataCallback<User> callback) {
-        apiService.register(user).enqueue(new Callback<List<JsonObject>>() {
+        // Проверяем, не занят ли email, прежде чем регистрировать
+        apiService.loginByEmail("eq." + cleanEmail).enqueue(new Callback<List<JsonObject>>() {
             @Override
-            public void onResponse(Call<List<JsonObject>> call,
-                                   Response<List<JsonObject>> response) {
+            public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
                 if (response.isSuccessful()
                         && response.body() != null
                         && !response.body().isEmpty()) {
-
-                    User regUser = parseUserFromJson(response.body().get(0));
-
-                    currentUser = regUser;
-                    saveCurrentUserToPrefs(regUser);
-                    cacheUserSafely(regUser);
-
-                    if (listener != null) listener.recordLoginEvent();
-
-                    mainHandler.post(() -> callback.onSuccess(regUser));
-
-                } else if (response.code() == 409) {
                     mainHandler.post(() -> callback.onError(
-                            "Этот аккаунт уже зарегистрирован"));
+                            "Пользователь с таким Email уже существует"));
                 } else {
-                    Log.e("AuthRepository",
-                            "Ошибка регистрации: "
-                                    + response.code() + " | "
-                                    + getErrorBody(response));
-                    mainHandler.post(() -> callback.onError(
-                            "Ошибка сервера: " + response.code()));
+                    performActualRegistration(user, callback);
                 }
             }
 
             @Override
             public void onFailure(Call<List<JsonObject>> call, Throwable t) {
-                Log.e("AuthRepository",
-                        "Сбой сети register: " + t.getMessage(), t);
-                mainHandler.post(() -> callback.onError(
-                        "Сбой сети: " + t.getMessage()));
+                Log.e("AuthRepository", "Ошибка проверки почты: " + t.getMessage(), t);
+                mainHandler.post(() -> callback.onError("Ошибка проверки почты: " + t.getMessage()));
             }
         });
     }
 
-    public void updateUsername(String username,
-                               User currentUserRef,
-                               DataCallback<User> callback) {
+    // Отправляет запрос на создание аккаунта после прохождения проверки email
+    private void performActualRegistration(User user, DataCallback<User> callback) {
+        apiService.register(user).enqueue(new Callback<List<JsonObject>>() {
+            @Override
+            public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
+                if (response.isSuccessful()
+                        && response.body() != null
+                        && !response.body().isEmpty()) {
+                    User regUser = parseUserFromJson(response.body().get(0));
+                    currentUser = regUser;
+                    saveCurrentUserToPrefs(regUser);
+                    cacheUserSafely(regUser);
+                    if (listener != null) listener.recordLoginEvent();
+                    mainHandler.post(() -> callback.onSuccess(regUser));
+                } else if (response.code() == 409) {
+                    mainHandler.post(() -> callback.onError("Этот аккаунт уже зарегистрирован"));
+                } else {
+                    Log.e("AuthRepository", "Ошибка регистрации: "
+                            + response.code() + " | " + getErrorBody(response));
+                    mainHandler.post(() -> callback.onError("Ошибка сервера: " + response.code()));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<JsonObject>> call, Throwable t) {
+                Log.e("AuthRepository", "Сбой сети register: " + t.getMessage(), t);
+                mainHandler.post(() -> callback.onError("Сбой сети: " + t.getMessage()));
+            }
+        });
+    }
+
+    // Обновляет имя пользователя на сервере и в локальной БД
+    public void updateUsername(String username, User currentUserRef, DataCallback<User> callback) {
         if (currentUserRef == null || currentUserRef.getId() == null) {
             callback.onError("Пользователь не авторизован");
             return;
@@ -465,7 +420,6 @@ public class AuthRepository {
                             currentUserRef.setUsername(safeUsername);
                             currentUser = currentUserRef;
                             saveCurrentUserToPrefs(currentUserRef);
-
                             executor.execute(() -> {
                                 try {
                                     userDao.insertUser(currentUserRef);
@@ -474,29 +428,24 @@ public class AuthRepository {
                                             "Ошибка локального обновления username: "
                                                     + e.getMessage(), e);
                                 }
-                                mainHandler.post(() ->
-                                        callback.onSuccess(currentUserRef));
+                                mainHandler.post(() -> callback.onSuccess(currentUserRef));
                             });
                         } else {
-                            Log.e("AuthRepository",
-                                    "Ошибка обновления username: "
-                                            + response.code() + " | "
-                                            + getErrorBody(response));
-                            mainHandler.post(() -> callback.onError(
-                                    "Не удалось обновить профиль"));
+                            Log.e("AuthRepository", "Ошибка обновления username: "
+                                    + response.code() + " | " + getErrorBody(response));
+                            mainHandler.post(() -> callback.onError("Не удалось обновить профиль"));
                         }
                     }
 
                     @Override
                     public void onFailure(Call<Void> call, Throwable t) {
-                        Log.e("AuthRepository",
-                                "Ошибка сети updateUsername: " + t.getMessage(), t);
-                        mainHandler.post(() -> callback.onError(
-                                "Ошибка сети: " + t.getMessage()));
+                        Log.e("AuthRepository", "Ошибка сети updateUsername: " + t.getMessage(), t);
+                        mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
                     }
                 });
     }
 
+    // Сохраняет аватар локально немедленно, затем асинхронно синхронизирует с сервером
     public void updateAvatarConfig(AvatarConfig avatarConfig,
                                    User currentUserRef,
                                    DataCallback<Void> callback) {
@@ -521,7 +470,7 @@ public class AuthRepository {
             return;
         }
 
-        // 1. СРАЗУ сохраняем локально
+        // Мгновенное локальное сохранение для отзывчивого UI
         currentUserRef.setAvatarConfig(json);
         currentUser = currentUserRef;
         saveCurrentUserToPrefs(currentUserRef);
@@ -531,57 +480,44 @@ public class AuthRepository {
             try {
                 userDao.insertUser(currentUserRef);
             } catch (Exception e) {
-                Log.e("AuthRepository",
-                        "Ошибка локального сохранения avatar_config: " + e.getMessage(), e);
+                Log.e("AuthRepository", "Ошибка локального сохранения avatar_config: "
+                        + e.getMessage(), e);
             }
         });
 
-        // 2. СРАЗУ отпускаем UI
+        // UI уведомляется сразу, не дожидаясь ответа сервера
         mainHandler.post(() -> callback.onSuccess(null));
 
-        // 3. Уже ПОТОМ синхронизируем с сервером в фоне
+        // Фоновая синхронизация с одним повтором при неудаче
         syncAvatarConfigToRemote(currentUserRef.getId(), payload, 0);
     }
+
     private void syncAvatarConfigToRemote(Integer userId, JsonObject payload, int attempt) {
-        if (userId == null || payload == null) {
-            return;
-        }
+        if (userId == null || payload == null) return;
 
-        apiService.updateAvatarConfig("eq." + userId, payload)
-                .enqueue(new Callback<Void>() {
-                    @Override
-                    public void onResponse(Call<Void> call, Response<Void> response) {
-                        if (response.isSuccessful()) {
-                            Log.d("AuthRepository", "avatar_config успешно синхронизирован с сервером");
-                            return;
-                        }
+        apiService.updateAvatarConfig("eq." + userId, payload).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Log.d("AuthRepository", "avatar_config успешно синхронизирован с сервером");
+                    return;
+                }
+                Log.e("AuthRepository", "Ошибка обновления avatar_config: "
+                        + response.code() + " | " + getErrorBody(response));
+                if (attempt < 1) {
+                    mainHandler.postDelayed(
+                            () -> syncAvatarConfigToRemote(userId, payload, attempt + 1), 1500);
+                }
+            }
 
-                        Log.e("AuthRepository",
-                                "Ошибка обновления avatar_config: "
-                                        + response.code() + " | " + getErrorBody(response));
-
-                        // Один повтор через небольшую задержку
-                        if (attempt < 1) {
-                            mainHandler.postDelayed(
-                                    () -> syncAvatarConfigToRemote(userId, payload, attempt + 1),
-                                    1500
-                            );
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(Call<Void> call, Throwable t) {
-                        Log.e("AuthRepository",
-                                "Ошибка сети updateAvatarConfig: " + t.getMessage(), t);
-
-                        // Один повтор через небольшую задержку
-                        if (attempt < 1) {
-                            mainHandler.postDelayed(
-                                    () -> syncAvatarConfigToRemote(userId, payload, attempt + 1),
-                                    1500
-                            );
-                        }
-                    }
-                });
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e("AuthRepository", "Ошибка сети updateAvatarConfig: " + t.getMessage(), t);
+                if (attempt < 1) {
+                    mainHandler.postDelayed(
+                            () -> syncAvatarConfigToRemote(userId, payload, attempt + 1), 1500);
+                }
+            }
+        });
     }
 }

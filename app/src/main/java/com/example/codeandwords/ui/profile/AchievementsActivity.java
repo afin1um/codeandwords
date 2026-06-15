@@ -7,6 +7,7 @@ import androidx.fragment.app.FragmentTransaction;
 
 import com.example.codeandwords.R;
 
+// Контейнер-активность для отображения фрагмента достижений
 public class AchievementsActivity extends AppCompatActivity {
 
     private static final String FRAGMENT_TAG = "ACHIEVEMENTS_FRAGMENT";

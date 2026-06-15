@@ -3,7 +3,6 @@ package com.example.codeandwords.api;
 import com.google.gson.GsonBuilder;
 
 import java.util.Collections;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.ConnectionPool;
@@ -14,6 +13,7 @@ import okhttp3.Request;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+// Singleton-клиент Retrofit для работы с Supabase REST API
 public class RetrofitClient {
 
     private static final String BASE_URL =
@@ -26,50 +26,44 @@ public class RetrofitClient {
 
     private RetrofitClient() {}
 
+    // Стандартный клиент: увеличенный connectTimeout для холодного старта TLS,
+    // умеренный readTimeout и одна попытка повтора
     public static synchronized ApiService getApiService() {
         if (retrofit == null) {
             retrofit = buildRetrofit(
-                    30,   // connectTimeout
-                    90,   // readTimeout    ✅ увеличен с 60 до 90
-                    60,   // writeTimeout
-                    120,  // callTimeout    ✅ увеличен с 90 до 120
-                    64,
-                    20,
-                    new RetryInterceptor(3, 2000) // ✅ 3 попытки вместо 1, пауза 2с
+                    25, 30, 30, 60, 32, 8,
+                    new RetryInterceptor(2, 800)
             );
         }
         return retrofit.create(ApiService.class);
     }
 
+    // Быстрый клиент для приоритетных запросов
     public static synchronized ApiService getFastApiService() {
         if (fastRetrofit == null) {
             fastRetrofit = buildRetrofit(
-                    15,   // connectTimeout
-                    45,   // readTimeout    ✅ увеличен с 30 до 45
-                    30,   // writeTimeout
-                    60,   // callTimeout    ✅ увеличен с 45 до 60
-                    64,
-                    20,
-                    new RetryInterceptor(2, 1500) // ✅ 2 попытки вместо 1
+                    20, 20, 20, 40, 32, 8,
+                    new RetryInterceptor(1, 500)
             );
         }
         return fastRetrofit.create(ApiService.class);
     }
 
+    // Сборка экземпляра Retrofit с заданными параметрами соединения.
+    // Dispatcher использует свой внутренний пул потоков — без передачи кастомного executor.
     private static Retrofit buildRetrofit(
             int connectTimeout, int readTimeout, int writeTimeout,
             int callTimeout, int maxRequests, int maxRequestsPerHost,
             RetryInterceptor retryInterceptor) {
 
-        Dispatcher dispatcher = new Dispatcher(Executors.newFixedThreadPool(4));
+        // Dispatcher без кастомного executor — OkHttp сам создаст пул потоков по числу запросов.
+        // Раньше был FixedThreadPool(4) — это блокировало все запросы при 4+ зависших.
+        Dispatcher dispatcher = new Dispatcher();
         dispatcher.setMaxRequests(maxRequests);
         dispatcher.setMaxRequestsPerHost(maxRequestsPerHost);
 
-        // ✅ Увеличено время жизни соединения с 30 до 60 секунд
-        // Это уменьшает вероятность "Socket closed" при медленном сервере
-        ConnectionPool connectionPool = new ConnectionPool(
-                5, 60, TimeUnit.SECONDS
-        );
+        // Пул соединений: до 8 соединений, время жизни 30 секунд
+        ConnectionPool connectionPool = new ConnectionPool(8, 30, TimeUnit.SECONDS);
 
         OkHttpClient client = new OkHttpClient.Builder()
                 .dispatcher(dispatcher)
@@ -78,20 +72,20 @@ public class RetrofitClient {
                 .readTimeout(readTimeout, TimeUnit.SECONDS)
                 .writeTimeout(writeTimeout, TimeUnit.SECONDS)
                 .callTimeout(callTimeout, TimeUnit.SECONDS)
-                .retryOnConnectionFailure(true)
+                // Отключаем встроенный ретрай OkHttp — используем только наш RetryInterceptor
+                .retryOnConnectionFailure(false)
                 .protocols(Collections.singletonList(Protocol.HTTP_1_1))
                 .addInterceptor(retryInterceptor)
+                // Добавление обязательных заголовков Supabase к каждому запросу
                 .addInterceptor(chain -> {
                     Request original = chain.request();
-
-                    // ✅ Добавляем Keep-Alive чтобы соединение не закрывалось
                     Request request = original.newBuilder()
                             .header("apikey", SUPABASE_ANON_KEY)
                             .header("Authorization", "Bearer " + SUPABASE_ANON_KEY)
                             .header("Accept", "application/json")
                             .header("Content-Type", "application/json")
                             .header("Prefer", "return=representation")
-                            .header("Connection", "keep-alive") // ✅ НОВОЕ
+                            .header("Connection", "keep-alive")
                             .build();
                     return chain.proceed(request);
                 })

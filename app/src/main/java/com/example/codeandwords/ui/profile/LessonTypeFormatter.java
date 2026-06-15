@@ -2,92 +2,50 @@ package com.example.codeandwords.ui.profile;
 
 import java.util.Locale;
 
+// Утилита для преобразования внутренних кодов типов уроков в человекочитаемые строки.
 public final class LessonTypeFormatter {
 
     private LessonTypeFormatter() {
     }
 
+    // Возвращает полный объект с заголовком, описанием и иконкой по коду типа урока.
     public static LessonTypeUi format(String rawType) {
         String normalized = normalize(rawType);
 
         switch (normalized) {
             case "SPRINT":
-                return new LessonTypeUi(
-                        "Спринт",
-                        "Скоростная тренировка",
-                        "⚡"
-                );
+                return new LessonTypeUi("Спринт", "Скоростная тренировка", "⚡");
 
             case "MATCHING":
-                return new LessonTypeUi(
-                        "Сопоставление",
-                        "Пары терминов",
-                        "⇄"
-                );
+                return new LessonTypeUi("Сопоставление", "Пары терминов", "⇄");
 
             case "WRITE_WORD":
             case "WRITING":
-                return new LessonTypeUi(
-                        "Правописание",
-                        "Ввод перевода",
-                        "Aa"
-                );
+                return new LessonTypeUi("Правописание", "Ввод перевода", "Aa");
 
             case "LISTENING":
-                return new LessonTypeUi(
-                        "Аудирование",
-                        "Выбор перевода на слух",
-                        "♪"
-                );
+                return new LessonTypeUi("Аудирование", "Выбор перевода на слух", "♪");
 
             case "THEORY":
-                return new LessonTypeUi(
-                        "Теория",
-                        "Изучение материала",
-                        "T"
-                );
+                return new LessonTypeUi("Теория", "Изучение материала", "T");
 
             case "TRAINING_LISTENING":
-                return new LessonTypeUi(
-                        "Аудирование",
-                        "Тренировка",
-                        "♪"
-                );
+                return new LessonTypeUi("Аудирование", "Тренировка", "♪");
 
             case "TRAINING_WORDS":
-                return new LessonTypeUi(
-                        "Слова",
-                        "Тренировка правописания",
-                        "Aa"
-                );
+                return new LessonTypeUi("Слова", "Тренировка правописания", "Aa");
 
             case "TRAINING_MISTAKES":
-                return new LessonTypeUi(
-                        "Ошибки",
-                        "Работа над ошибками",
-                        "↺"
-                );
+                return new LessonTypeUi("Ошибки", "Работа над ошибками", "↺");
 
             case "LEARNED_WORDS":
-                return new LessonTypeUi(
-                        "Выученные слова",
-                        "Просмотр словаря",
-                        "★"
-                );
+                return new LessonTypeUi("Выученные слова", "Просмотр словаря", "★");
 
             case "DICTIONARY":
-                return new LessonTypeUi(
-                        "Словарь",
-                        "Личный словарь",
-                        "★"
-                );
+                return new LessonTypeUi("Словарь", "Личный словарь", "★");
 
             default:
-                return new LessonTypeUi(
-                        prettifyFallback(rawType),
-                        "Занятие",
-                        "✓"
-                );
+                return new LessonTypeUi(prettifyFallback(rawType), "Занятие", "✓");
         }
     }
 
@@ -107,6 +65,7 @@ public final class LessonTypeFormatter {
         return rawType.trim().toUpperCase(Locale.ROOT);
     }
 
+    // Преобразует snake_case строку в Title Case как запасной вариант
     private static String prettifyFallback(String raw) {
         if (raw == null || raw.trim().isEmpty()) {
             return "Тренировка";
@@ -139,6 +98,7 @@ public final class LessonTypeFormatter {
         return builder.length() > 0 ? builder.toString() : "Тренировка";
     }
 
+    // DTO для отображения типа урока в UI
     public static class LessonTypeUi {
         private final String title;
         private final String subtitle;
@@ -150,16 +110,8 @@ public final class LessonTypeFormatter {
             this.icon = icon;
         }
 
-        public String getTitle() {
-            return title;
-        }
-
-        public String getSubtitle() {
-            return subtitle;
-        }
-
-        public String getIcon() {
-            return icon;
-        }
+        public String getTitle() { return title; }
+        public String getSubtitle() { return subtitle; }
+        public String getIcon() { return icon; }
     }
 }

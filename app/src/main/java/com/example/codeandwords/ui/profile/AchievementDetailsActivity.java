@@ -21,6 +21,7 @@ import com.example.codeandwords.R;
 
 import java.util.Locale;
 
+// Альтернативный экран деталей достижения с расширенной логикой отображения состояния
 public class AchievementDetailsActivity extends AppCompatActivity {
 
     private ImageButton btnBack;
@@ -55,10 +56,10 @@ public class AchievementDetailsActivity extends AppCompatActivity {
         tvCondition = findViewById(R.id.tvAchievementCondition);
         progressBar = findViewById(R.id.progressAchievementDetails);
 
-        // ✅ Переход в AchievementsActivity
         btnBack.setOnClickListener(v -> goToAchievements());
     }
 
+    // Привязывает данные и применяет визуальные стили в зависимости от статуса разблокировки
     private void bindData() {
         String title = getIntent().getStringExtra("title");
         String description = getIntent().getStringExtra("description");
@@ -131,6 +132,7 @@ public class AchievementDetailsActivity extends AppCompatActivity {
         }
     }
 
+    // Применяет фильтр обесцвечивания и затемнения для заблокированных достижений
     private void applyGrayFilter(ImageView imageView) {
         ColorMatrix matrix = new ColorMatrix();
         matrix.setSaturation(0f);
@@ -146,6 +148,7 @@ public class AchievementDetailsActivity extends AppCompatActivity {
         imageView.setColorFilter(new ColorMatrixColorFilter(matrix));
     }
 
+    // Определяет ресурс иконки по имени, типу условия или названию достижения
     @DrawableRes
     private int resolveIcon(String iconName, String conditionType, String title) {
         String normalizedIconName = normalizeResourceName(iconName);
@@ -220,13 +223,11 @@ public class AchievementDetailsActivity extends AppCompatActivity {
                 .replace(" ", "_");
     }
 
-    // ✅ Перехват системной кнопки "назад"
     @Override
     public void onBackPressed() {
         goToAchievements();
     }
 
-    // ✅ Метод явного возврата
     private void goToAchievements() {
         Intent intent = new Intent(this, AchievementsActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);

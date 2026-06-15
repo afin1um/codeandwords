@@ -23,6 +23,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+// Адаптер списка недавних уроков с отображением типа, точности, XP и бейджа результата.
 public class RecentLessonsAdapter extends RecyclerView.Adapter<RecentLessonsAdapter.RecentLessonViewHolder> {
 
     private final List<LessonHistory> items = new ArrayList<>();
@@ -30,7 +31,7 @@ public class RecentLessonsAdapter extends RecyclerView.Adapter<RecentLessonsAdap
 
     {
         dateFormat = new SimpleDateFormat("dd.MM • HH:mm", Locale.getDefault());
-        // ✅ Явно указываем локальный часовой пояс устройства (для России — GMT+3)
+        // Явно используем локальный часовой пояс устройства
         dateFormat.setTimeZone(java.util.TimeZone.getDefault());
     }
 
@@ -112,6 +113,7 @@ public class RecentLessonsAdapter extends RecyclerView.Adapter<RecentLessonsAdap
         bindBadge(holder, item, mistakes);
     }
 
+    // Назначает бейдж «Без ошибок», «Есть ошибки» или скрывает его
     private void bindBadge(RecentLessonViewHolder holder, LessonHistory item, int mistakes) {
         Context context = holder.itemView.getContext();
 
@@ -142,6 +144,7 @@ public class RecentLessonsAdapter extends RecyclerView.Adapter<RecentLessonsAdap
         holder.tvLessonBadge.setVisibility(View.GONE);
     }
 
+    // Возвращает акцентный цвет в зависимости от типа урока
     private int getLessonAccentColor(Context context, String lessonType) {
         String normalized = normalizeLessonType(lessonType);
 
@@ -200,6 +203,7 @@ public class RecentLessonsAdapter extends RecyclerView.Adapter<RecentLessonsAdap
         return lessonType.trim().toUpperCase(Locale.ROOT);
     }
 
+    // Цвет точности: зелёный ≥ 90%, оранжевый ≥ 70%, красный < 70%
     private int getAccuracyColor(Context context, int accuracy) {
         if (accuracy >= 90) {
             return color(context, R.color.app_green);

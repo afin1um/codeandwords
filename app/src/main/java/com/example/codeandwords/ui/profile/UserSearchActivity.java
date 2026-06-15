@@ -25,6 +25,7 @@ import com.example.codeandwords.model.User;
 import java.util.ArrayList;
 import java.util.Collections;
 
+// Экран поиска пользователей по нику для добавления в друзья.
 public class UserSearchActivity extends AppCompatActivity {
 
     private EditText etSearch;
@@ -83,8 +84,7 @@ public class UserSearchActivity extends AppCompatActivity {
 
         etSearch.addTextChangedListener(new TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            }
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -92,8 +92,7 @@ public class UserSearchActivity extends AppCompatActivity {
             }
 
             @Override
-            public void afterTextChanged(Editable s) {
-            }
+            public void afterTextChanged(Editable s) { }
         });
 
         etSearch.setOnEditorActionListener((v, actionId, event) -> {
@@ -113,7 +112,7 @@ public class UserSearchActivity extends AppCompatActivity {
             return;
         }
 
-        // Скрываем клавиатуру
+        // Скрываем клавиатуру перед поиском
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (imm != null) {
             imm.hideSoftInputFromWindow(etSearch.getWindowToken(), 0);
@@ -153,6 +152,7 @@ public class UserSearchActivity extends AppCompatActivity {
         tvHint.setVisibility(View.GONE);
     }
 
+    // Открывает профиль найденного пользователя с кнопкой добавления в друзья
     private void openUserProfile(User user) {
         if (user == null || user.getId() == null) {
             Toast.makeText(this, "Не удалось открыть профиль", Toast.LENGTH_SHORT).show();

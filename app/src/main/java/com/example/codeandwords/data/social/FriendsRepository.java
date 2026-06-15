@@ -21,6 +21,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+// Репозиторий социальных функций: добавление друзей, загрузка списка, поиск пользователей
 public class FriendsRepository {
 
     private static final String TAG = "FriendsRepository";
@@ -33,7 +34,7 @@ public class FriendsRepository {
     private final ExecutorService executor;
     private final Handler mainHandler;
 
-    // Защита от параллельных запросов
+    // Флаг защиты от параллельных сетевых запросов списка друзей
     private volatile boolean isFetchingFriends = false;
 
     public FriendsRepository(AppDatabase database,
@@ -52,14 +53,10 @@ public class FriendsRepository {
         this.mainHandler = mainHandler;
     }
 
-    // ===== ИНТЕРФЕЙС CALLBACK =====
-
     public interface DataCallback<T> {
         void onSuccess(T data);
         void onError(String error);
     }
-
-    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
 
     private JsonObject buildFriendPayload(int userId, int friendId) {
         JsonObject payload = new JsonObject();
@@ -68,6 +65,7 @@ public class FriendsRepository {
         return payload;
     }
 
+    // Разбирает JSON-объект пользователя из ответа сервера в модель User
     private User parseUserFromJson(JsonObject userJson) {
         User user = new User();
 
@@ -76,41 +74,32 @@ public class FriendsRepository {
         if (userJson.has("id") && !userJson.get("id").isJsonNull()) {
             user.setId(userJson.get("id").getAsInt());
         }
-
         if (userJson.has("username") && !userJson.get("username").isJsonNull()) {
             user.setUsername(userJson.get("username").getAsString());
         }
-
         if (userJson.has("email") && !userJson.get("email").isJsonNull()) {
             user.setEmail(userJson.get("email").getAsString());
         }
-
         if (userJson.has("password_hash") && !userJson.get("password_hash").isJsonNull()) {
             user.setPasswordHash(userJson.get("password_hash").getAsString());
         }
-
         if (userJson.has("current_level") && !userJson.get("current_level").isJsonNull()) {
             user.setCurrentLevel(userJson.get("current_level").getAsInt());
         }
-
         if (userJson.has("total_xp") && !userJson.get("total_xp").isJsonNull()) {
             user.setTotalXp(userJson.get("total_xp").getAsInt());
         }
-
         if (userJson.has("role") && !userJson.get("role").isJsonNull()) {
             user.setRole(userJson.get("role").getAsString());
         }
-
         if (userJson.has("created_at") && !userJson.get("created_at").isJsonNull()) {
             user.setCreatedAt(userJson.get("created_at").getAsString());
         }
-
         if (userJson.has("avatar_config") && !userJson.get("avatar_config").isJsonNull()) {
             user.setAvatarConfig(userJson.get("avatar_config").toString());
         } else {
             user.setAvatarConfig(null);
         }
-
         if (userJson.has("gender") && !userJson.get("gender").isJsonNull()) {
             user.setGender(userJson.get("gender").getAsString());
         }
@@ -129,14 +118,14 @@ public class FriendsRepository {
         return "Неизвестная ошибка";
     }
 
-    // ===== ДОБАВЛЕНИЕ ДРУГА =====
-
+    // Добавляет друга без предварительно загруженного объекта пользователя
     public void addFriend(int friendId,
                           User currentUser,
                           DataCallback<Void> callback) {
         addFriend(friendId, null, currentUser, callback);
     }
 
+    // Добавляет друга на сервер через upsert; 409 с дублирующим ключом считается успехом
     public void addFriend(int friendId,
                           User friendUser,
                           User currentUser,
@@ -163,6 +152,7 @@ public class FriendsRepository {
                         boolean isSuccess = response.isSuccessful();
                         boolean isAlreadyFriends = false;
 
+                        // Код 409 с сообщением о дубликате означает, что связь уже существует
                         if (!isSuccess && response.code() == 409) {
                             String errorBody = getErrorBody(response);
                             if (errorBody != null
@@ -182,20 +172,17 @@ public class FriendsRepository {
                                         Log.d(TAG, "Пользователь " + friendUser.getId()
                                                 + " сохранён в локальной БД");
                                     }
-
                                     friendDao.insert(new Friend(currentUserId, friendId));
                                 } catch (Exception e) {
-                                    Log.e(TAG,
-                                            "Ошибка локального сохранения друга: "
-                                                    + e.getMessage(), e);
+                                    Log.e(TAG, "Ошибка локального сохранения друга: "
+                                            + e.getMessage(), e);
                                 }
                                 mainHandler.post(() -> callback.onSuccess(null));
                             });
                         } else {
                             Log.e(TAG, "Ошибка добавления друга: "
                                     + response.code() + " | " + getErrorBody(response));
-                            mainHandler.post(() -> callback.onError(
-                                    "Не удалось добавить друга"));
+                            mainHandler.post(() -> callback.onError("Не удалось добавить друга"));
                         }
                     }
 
@@ -208,17 +195,8 @@ public class FriendsRepository {
                 });
     }
 
-    // ===== ЗАГРУЗКА ДРУЗЕЙ: CACHE-FIRST =====
-
-    /**
-     * ✅ ИСПРАВЛЕНО:
-     * 1. ВСЕГДА вызываем callback — даже если кэш пуст (пустой список).
-     *    Раньше при пустом кэше callback не вызывался, и если одновременно
-     *    isFetchingFriends == true, UI оставался пустым навсегда.
-     * 2. ВСЕГДА запускаем обновление с сервера (убрали внешнюю проверку
-     *    isFetchingFriends — она осталась только внутри refreshFriendsFromServer
-     *    для защиты от дублирующих сетевых запросов).
-     */
+    // Cache-first: всегда отдаёт кэш (в том числе пустой), затем обновляет с сервера.
+    // Гарантирует вызов callback даже при пустом локальном списке.
     public void getFriends(User currentUser,
                            DataCallback<List<User>> callback) {
         if (currentUser == null || currentUser.getId() == null) {
@@ -228,7 +206,7 @@ public class FriendsRepository {
 
         int currentUserId = currentUser.getId();
 
-        // 1. СРАЗУ показываем кэш (даже если пустой — чтобы UI не зависал)
+        // Шаг 1: немедленно отдаём локальный кэш
         executor.execute(() -> {
             List<User> localFriends = null;
             try {
@@ -237,22 +215,16 @@ public class FriendsRepository {
                 Log.e(TAG, "Ошибка локальной загрузки друзей: " + e.getMessage(), e);
             }
 
-            // ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: вызываем callback ВСЕГДА
-            final List<User> cached =
-                    localFriends != null ? localFriends : new ArrayList<>();
+            final List<User> cached = localFriends != null ? localFriends : new ArrayList<>();
             mainHandler.post(() -> callback.onSuccess(cached));
         });
 
-        // 2. ВСЕГДА обновляем с сервера (независимо от кэша)
+        // Шаг 2: обновляем список с сервера независимо от наличия кэша
         refreshFriendsFromServer(currentUserId, callback);
     }
 
-    /**
-     * ✅ ИСПРАВЛЕНО:
-     * - Убран параметр hasCachedData — кэш УЖЕ показан в getFriends,
-     *   поэтому при ошибке сервера просто логируем и не трогаем UI.
-     * - При успехе ВСЕГДА вызываем callback.onSuccess с актуальным списком.
-     */
+    // Загружает актуальный список друзей с сервера через двустороннюю выборку.
+    // При ошибке сети не трогает UI — кэш уже показан.
     private void refreshFriendsFromServer(int currentUserId,
                                           DataCallback<List<User>> callback) {
         if (isFetchingFriends) {
@@ -262,6 +234,7 @@ public class FriendsRepository {
 
         isFetchingFriends = true;
 
+        // Запрашиваем все связи, где пользователь является либо инициатором, либо другом
         String select =
                 "id,user_id,friend_id," +
                         "user:users!user_friends_user_id_fkey(" +
@@ -286,19 +259,14 @@ public class FriendsRepository {
                         try {
                             List<User> friends = parseAndSaveFriends(
                                     currentUserId, response.body());
-
-                            // ✅ Обновляем UI актуальным списком с сервера
                             mainHandler.post(() -> callback.onSuccess(friends));
                         } catch (Exception e) {
-                            Log.e(TAG, "Ошибка обработки друзей: "
-                                    + e.getMessage(), e);
-                            // Кэш уже показан — не ломаем UI
+                            Log.e(TAG, "Ошибка обработки друзей: " + e.getMessage(), e);
                         }
                     });
                 } else {
                     Log.e(TAG, "Ошибка загрузки друзей: "
                             + response.code() + " | " + getErrorBody(response));
-                    // Кэш уже показан — не ломаем UI
                 }
             }
 
@@ -306,11 +274,12 @@ public class FriendsRepository {
             public void onFailure(Call<List<JsonObject>> call, Throwable t) {
                 isFetchingFriends = false;
                 Log.e(TAG, "Ошибка сети getFriends: " + t.getMessage(), t);
-                // Кэш уже показан — не ломаем UI
             }
         });
     }
 
+    // Разбирает JSON-список связей дружбы, определяет целевого пользователя
+    // и сохраняет всё в локальную БД в одной транзакции
     private List<User> parseAndSaveFriends(int currentUserId,
                                            List<JsonObject> jsonList) {
         List<User> friends = new ArrayList<>();
@@ -328,6 +297,7 @@ public class FriendsRepository {
             JsonObject targetUserJson = null;
             int targetUserId = -1;
 
+            // Определяем, какой из двух участников связи является «другим» пользователем
             if (userId == currentUserId) {
                 targetUserId = friendId;
                 if (item.has("friend") && item.get("friend").isJsonObject()) {
@@ -354,6 +324,7 @@ public class FriendsRepository {
         }
 
         try {
+            // Полная замена локального списка друзей в одной транзакции
             database.runInTransaction(() -> {
                 friendDao.deleteFriendsByUser(currentUserId);
                 for (User friendUser : friends) {
@@ -370,8 +341,7 @@ public class FriendsRepository {
         return friends;
     }
 
-    // ===== ПОИСК ПОЛЬЗОВАТЕЛЯ =====
-
+    // Ищет пользователя по username: сначала в локальном кэше, затем на сервере
     public void findUserByUsername(String username,
                                    DataCallback<User> callback) {
         if (username == null || username.trim().isEmpty()) {
@@ -381,6 +351,7 @@ public class FriendsRepository {
 
         String cleanUsername = username.trim();
 
+        // Немедленный ответ из локального кэша (если есть)
         executor.execute(() -> {
             try {
                 User cachedUser = userDao.getUserByUsername(cleanUsername);
@@ -392,6 +363,7 @@ public class FriendsRepository {
             }
         });
 
+        // Параллельный запрос к серверу
         fastApiService.findUserByUsername(
                 "eq." + cleanUsername,
                 "id,username,email,current_level,total_xp,role,created_at,avatar_config,gender",
@@ -410,8 +382,7 @@ public class FriendsRepository {
                         try {
                             userDao.insertUser(foundUser);
                         } catch (Exception e) {
-                            Log.e(TAG, "Ошибка кэширования пользователя: "
-                                    + e.getMessage(), e);
+                            Log.e(TAG, "Ошибка кэширования пользователя: " + e.getMessage(), e);
                         }
                         mainHandler.post(() -> callback.onSuccess(foundUser));
                     });
@@ -419,11 +390,9 @@ public class FriendsRepository {
                 } else if (response.isSuccessful()) {
                     mainHandler.post(() -> callback.onError(
                             "Пользователь с таким ником не найден"));
-
                 } else {
                     String errorMsg = getErrorBody(response);
-                    Log.e(TAG, "Ошибка поиска: "
-                            + response.code() + " | " + errorMsg);
+                    Log.e(TAG, "Ошибка поиска: " + response.code() + " | " + errorMsg);
                     mainHandler.post(() -> callback.onError(
                             "Ошибка сервера: " + response.code()));
                 }
@@ -433,6 +402,7 @@ public class FriendsRepository {
             public void onFailure(Call<List<JsonObject>> call, Throwable t) {
                 Log.e(TAG, "Ошибка поиска пользователя: " + t.getMessage(), t);
 
+                // При сбое сети — fallback на локальный кэш
                 executor.execute(() -> {
                     try {
                         User cachedUser = userDao.getUserByUsername(cleanUsername);
@@ -451,6 +421,7 @@ public class FriendsRepository {
         });
     }
 
+    // Проверяет, является ли пользователь другом текущего пользователя (по локальному кэшу)
     public void isAlreadyFriend(int friendId,
                                 User currentUser,
                                 DataCallback<Boolean> callback) {
@@ -490,6 +461,7 @@ public class FriendsRepository {
         });
     }
 
+    // Сбрасывает состояние репозитория при выходе из аккаунта
     public void resetState() {
         isFetchingFriends = false;
         Log.d(TAG, "resetState: флаги FriendsRepository сброшены");

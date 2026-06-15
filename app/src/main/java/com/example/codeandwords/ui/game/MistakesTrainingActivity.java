@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+// Режим тренировки ошибок: пользователь вводит термин по переводу
 public class MistakesTrainingActivity extends BaseBackActivity {
 
     private static final int POINTS_PER_FIXED_MISTAKE = 5;
@@ -57,6 +58,7 @@ public class MistakesTrainingActivity extends BaseBackActivity {
     private int soundError;
     private boolean soundsLoaded = false;
 
+    // Цвета загружаются из ресурсов для поддержки тёмной темы
     private int colorCardDefault;
     private int colorCardAdded;
     private int colorBlue;
@@ -80,7 +82,7 @@ public class MistakesTrainingActivity extends BaseBackActivity {
         initSoundPool();
         initViews();
 
-        // ✅ Крестик → TrainingFragment
+        // Крестик возвращает в TrainingFragment
         setupCloseToTrainingButton(R.id.btnUniClose);
 
         loadMistakeWords();
@@ -135,7 +137,8 @@ public class MistakesTrainingActivity extends BaseBackActivity {
         cardMistakeDictionaryState.setOnClickListener(v -> {
             if (dictionaryStateLoading) return;
             if (currentWordAlreadyInDictionary) {
-                Toast.makeText(this, "Это слово уже есть в личном словаре", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Это слово уже есть в личном словаре",
+                        Toast.LENGTH_SHORT).show();
                 return;
             }
             addCurrentWordToDictionary();
@@ -147,6 +150,7 @@ public class MistakesTrainingActivity extends BaseBackActivity {
         });
     }
 
+    // Загружает слова с ошибками; завершает активность при таймауте LOAD_TIMEOUT_MS
     private void loadMistakeWords() {
         if (isLoading) return;
         isLoading = true;
@@ -241,6 +245,7 @@ public class MistakesTrainingActivity extends BaseBackActivity {
         showKeyboard();
     }
 
+    // Проверяет наличие слова в словаре и обновляет карточку словаря
     private void refreshDictionaryState() {
         if (currentWord == null) {
             cardMistakeDictionaryState.setVisibility(View.GONE);
@@ -360,6 +365,7 @@ public class MistakesTrainingActivity extends BaseBackActivity {
                 @Override public void onError(String error) { }
             });
 
+            // При правильном ответе помечаем слово пройденным во всех режимах
             final Word fixedWord = currentWord;
             repository.getCurrentUserId(userId -> {
                 if (userId != null && userId > 0 && fixedWord != null) {

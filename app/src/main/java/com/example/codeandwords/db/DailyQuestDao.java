@@ -26,7 +26,7 @@ public interface DailyQuestDao {
     @Update
     void updateQuest(DailyQuest quest);
 
-    // ВАЖНО: атомарная замена квестов в одной транзакции — в 5х быстрее
+    // Атомарная замена всех квестов в одной транзакции
     @Transaction
     default void replaceAll(List<DailyQuest> newQuests) {
         deleteAll();
@@ -35,7 +35,7 @@ public interface DailyQuestDao {
         }
     }
 
-    // Быстрое получение квестов по типу
+    // Возвращает активные квесты заданного типа для обновления прогресса
     @Query("SELECT * FROM daily_quests WHERE type = :type AND isCompleted = 0")
     List<DailyQuest> getActiveQuestsByType(String type);
 }

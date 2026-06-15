@@ -18,14 +18,13 @@ import com.example.codeandwords.ui.game.ListeningGameActivity;
 import com.example.codeandwords.ui.game.MistakesTrainingActivity;
 import com.example.codeandwords.ui.game.WriteWordGameActivity;
 
+// Фрагмент выбора режима тренировки с анимацией нажатия на карточки
 public class TrainingFragment extends Fragment {
 
     private static final float CARD_PRESSED_SCALE = 0.965f;
     private static final float CARD_NORMAL_SCALE = 1.0f;
-
     private static final float CARD_PRESSED_ALPHA = 0.88f;
     private static final float CARD_NORMAL_ALPHA = 1.0f;
-
     private static final long CARD_PRESS_ANIMATION_DURATION = 90L;
     private static final long CARD_RELEASE_ANIMATION_DURATION = 140L;
 
@@ -51,11 +50,8 @@ public class TrainingFragment extends Fragment {
 
     private void setupClicks() {
         binding.cardListening.setOnClickListener(v -> openListeningTraining());
-
         binding.cardMistakes.setOnClickListener(v -> openMistakesTraining());
-
         binding.cardWords.setOnClickListener(v -> openWordsTraining());
-
         binding.cardLearnedWords.setOnClickListener(v -> openLearnedWords());
     }
 
@@ -66,6 +62,7 @@ public class TrainingFragment extends Fragment {
         applyPressAnimation(binding.cardLearnedWords);
     }
 
+    // Назначает touch-слушатель для анимации нажатия (уменьшение + затемнение)
     @SuppressLint("ClickableViewAccessibility")
     private void applyPressAnimation(View card) {
         if (card == null) return;
@@ -75,16 +72,13 @@ public class TrainingFragment extends Fragment {
                 case MotionEvent.ACTION_DOWN:
                     animateCardPressed(view);
                     break;
-
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     animateCardReleased(view);
                     break;
-
                 default:
                     break;
             }
-
             return false;
         });
     }
@@ -108,13 +102,11 @@ public class TrainingFragment extends Fragment {
     }
 
     private void openListeningTraining() {
-        Intent intent = new Intent(requireContext(), ListeningGameActivity.class);
-        startActivity(intent);
+        startActivity(new Intent(requireContext(), ListeningGameActivity.class));
     }
 
     private void openMistakesTraining() {
-        Intent intent = new Intent(requireContext(), MistakesTrainingActivity.class);
-        startActivity(intent);
+        startActivity(new Intent(requireContext(), MistakesTrainingActivity.class));
     }
 
     private void openWordsTraining() {
@@ -124,8 +116,7 @@ public class TrainingFragment extends Fragment {
     }
 
     private void openLearnedWords() {
-        Intent intent = new Intent(requireContext(), LearnedWordsActivity.class);
-        startActivity(intent);
+        startActivity(new Intent(requireContext(), LearnedWordsActivity.class));
     }
 
     @Override

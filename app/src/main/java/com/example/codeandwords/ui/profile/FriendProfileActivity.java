@@ -16,6 +16,7 @@ import com.google.android.material.button.MaterialButton;
 
 import java.util.Locale;
 
+// Экран профиля друга: показывает аватар, XP, уровень и кнопку добавления в друзья.
 public class FriendProfileActivity extends AppCompatActivity {
 
     private AvatarPreviewView avatarPreview;
@@ -58,6 +59,7 @@ public class FriendProfileActivity extends AppCompatActivity {
         btnAddFriend = findViewById(R.id.btnAddFriend);
     }
 
+    // Считывает данные пользователя из Intent и заполняет экран
     private void loadDataFromIntent() {
         userId = getIntent().getIntExtra("user_id", -1);
         String username = getIntent().getStringExtra("username");
@@ -100,11 +102,8 @@ public class FriendProfileActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * ✅ Проверяем статус дружбы и настраиваем кнопку
-     */
+    // Проверяет, является ли пользователь другом, и настраивает кнопку соответствующим образом
     private void setupFriendButton() {
-        // Сначала показываем "Проверяем..." пока идёт запрос
         btnAddFriend.setEnabled(false);
         btnAddFriend.setText("ПРОВЕРКА...");
 
@@ -112,25 +111,19 @@ public class FriendProfileActivity extends AppCompatActivity {
             @Override
             public void onSuccess(Boolean isFriend) {
                 if (Boolean.TRUE.equals(isFriend)) {
-                    // ✅ Уже в друзьях — показываем неактивную кнопку
                     showAlreadyFriendState();
                 } else {
-                    // Можно добавить — активная кнопка
                     showCanAddState();
                 }
             }
 
             @Override
             public void onError(String error) {
-                // При ошибке считаем что можно добавить
                 showCanAddState();
             }
         });
     }
 
-    /**
-     * Кнопка "В ДРУЗЬЯХ" — неактивная (уже друзья)
-     */
     private void showAlreadyFriendState() {
         canAddFriend = false;
         btnAddFriend.setEnabled(false);
@@ -138,9 +131,6 @@ public class FriendProfileActivity extends AppCompatActivity {
         btnAddFriend.setOnClickListener(null);
     }
 
-    /**
-     * Кнопка "ДОБАВИТЬ В ДРУЗЬЯ" — активная
-     */
     private void showCanAddState() {
         canAddFriend = true;
         btnAddFriend.setEnabled(true);
@@ -148,6 +138,7 @@ public class FriendProfileActivity extends AppCompatActivity {
         btnAddFriend.setOnClickListener(v -> addFriend());
     }
 
+    // Добавляет друга мгновенно на стороне UI, затем отправляет запрос на сервер
     private void addFriend() {
         if (userId <= 0) {
             Toast.makeText(this, "Не удалось определить пользователя", Toast.LENGTH_SHORT).show();
@@ -158,11 +149,10 @@ public class FriendProfileActivity extends AppCompatActivity {
             return;
         }
 
-        // ✅ МГНОВЕННО показываем успех
         showAlreadyFriendState();
         Toast.makeText(this, "Друг добавлен!", Toast.LENGTH_SHORT).show();
 
-        // ✅ Собираем объект User из данных, которые у нас уже есть (из Intent)
+        // Собираем объект User из данных Intent для локального кэширования
         User friendUser = new User();
         friendUser.setId(userId);
         friendUser.setUsername(getIntent().getStringExtra("username"));
@@ -171,11 +161,9 @@ public class FriendProfileActivity extends AppCompatActivity {
         friendUser.setTotalXp(getIntent().getIntExtra("total_xp", 0));
         friendUser.setCurrentLevel(getIntent().getIntExtra("current_level", 1));
 
-        // ✅ Передаём User в addFriend для сохранения в локальной БД
         repository.addFriend(userId, friendUser, new Repository.DataCallback<Void>() {
             @Override
             public void onSuccess(Void data) {
-                // UI уже обновлён
             }
 
             @Override

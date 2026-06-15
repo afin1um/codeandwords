@@ -14,9 +14,10 @@ import com.example.codeandwords.ui.profile.ProfileFragment;
 import com.example.codeandwords.ui.profile.ThemePrefs;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
+// Главная активность: нижняя навигация, обработка deep-link через extra и фоновая синхронизация
 public class MainActivity extends AppCompatActivity {
 
-    // ✅ Ключи для открытия конкретного фрагмента извне
+    // Ключи для открытия конкретного фрагмента через Intent extra
     public static final String EXTRA_OPEN_FRAGMENT = "OPEN_FRAGMENT";
     public static final String FRAGMENT_THEMES = "themes";
     public static final String FRAGMENT_TRAINING = "training";
@@ -28,7 +29,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
         ThemePrefs.applySavedTheme(this);
 
         super.onCreate(savedInstanceState);
@@ -40,7 +40,6 @@ public class MainActivity extends AppCompatActivity {
         setupBottomNavigation();
 
         if (savedInstanceState == null) {
-            // ✅ Открываем фрагмент в зависимости от intent extra
             handleIntent(getIntent());
         }
 
@@ -54,10 +53,7 @@ public class MainActivity extends AppCompatActivity {
         handleIntent(intent);
     }
 
-    /**
-     * Обрабатывает входящий Intent: если есть extra OPEN_FRAGMENT — открывает нужный фрагмент
-     * и обновляет состояние нижней навигации. Иначе — открывает ThemesFragment по умолчанию.
-     */
+    // Открывает нужный фрагмент по extra или ThemesFragment по умолчанию
     private void handleIntent(Intent intent) {
         String fragmentToOpen = null;
         if (intent != null) {
@@ -71,7 +67,6 @@ public class MainActivity extends AppCompatActivity {
         } else if (FRAGMENT_PROFILE.equals(fragmentToOpen)) {
             navView.setSelectedItemId(R.id.navigation_profile);
         } else {
-            // По умолчанию — темы
             getSupportFragmentManager()
                     .beginTransaction()
                     .replace(R.id.nav_host_fragment, new ThemesFragment())
@@ -84,10 +79,11 @@ public class MainActivity extends AppCompatActivity {
         navView = findViewById(R.id.nav_view);
     }
 
+    // Запускает фоновую синхронизацию данных в отдельном потоке
     private void triggerBackgroundSync() {
         new Thread(() -> {
             try {
-                Log.d("MainActivity", "🔄 Запуск фоновой синхронизации");
+                Log.d("MainActivity", "Запуск фоновой синхронизации");
                 repository.syncAllDataFromServer();
             } catch (Exception e) {
                 Log.e("MainActivity", "Ошибка фоновой синхронизации: " + e.getMessage(), e);
@@ -96,11 +92,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupBottomNavigation() {
-
         navView.setOnItemSelectedListener(item -> {
-
             Fragment selectedFragment = null;
-
             int itemId = item.getItemId();
 
             if (itemId == R.id.navigation_themes) {

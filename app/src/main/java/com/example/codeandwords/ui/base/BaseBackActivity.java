@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.codeandwords.ui.dashboard.MainActivity;
 
+// Базовая активность с единой логикой навигации назад, к главному экрану и в TrainingFragment
 public abstract class BaseBackActivity extends AppCompatActivity {
 
     protected void setupBackButton(@IdRes int buttonId) {
@@ -30,10 +31,7 @@ public abstract class BaseBackActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * ✅ Универсальный setter для кнопки, которая должна возвращать
-     * в TrainingFragment через MainActivity.
-     */
+    // Назначает кнопку, которая возвращает в TrainingFragment через MainActivity
     protected void setupCloseToTrainingButton(@IdRes int buttonId) {
         View btn = findViewById(buttonId);
         if (btn != null) {
@@ -59,10 +57,7 @@ public abstract class BaseBackActivity extends AppCompatActivity {
         finish();
     }
 
-    /**
-     * ✅ Возврат в TrainingFragment через MainActivity.
-     * Используется в активити, запущенных из режима «Тренировка».
-     */
+    // Открывает MainActivity с extra для навигации в TrainingFragment
     protected void goToTraining() {
         Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra(MainActivity.EXTRA_OPEN_FRAGMENT, MainActivity.FRAGMENT_TRAINING);

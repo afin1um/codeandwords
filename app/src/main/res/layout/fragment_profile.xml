@@ -339,7 +339,6 @@
                 app:strokeColor="@color/app_green"
                 app:strokeWidth="2dp" />
 
-            <!-- ✅ НОВАЯ КНОПКА — НАЙТИ ДРУЗЕЙ -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnFindFriends"
                 android:layout_width="match_parent"

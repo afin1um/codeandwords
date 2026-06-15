@@ -15,6 +15,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+// Экран детальной информации о достижении: прогресс, условия, дата получения
 public class AchievementDetailActivity extends AppCompatActivity {
 
     private ImageButton btnBack;
@@ -35,7 +36,6 @@ public class AchievementDetailActivity extends AppCompatActivity {
 
         initViews();
         bindData();
-        // ✅ Переход в AchievementsActivity
         btnBack.setOnClickListener(v -> goToAchievements());
     }
 
@@ -52,6 +52,7 @@ public class AchievementDetailActivity extends AppCompatActivity {
         progressBar = findViewById(R.id.progressBar);
     }
 
+    // Привязывает данные из Intent к UI-элементам
     private void bindData() {
         String title = getIntent().getStringExtra("title");
         String description = getIntent().getStringExtra("description");
@@ -95,42 +96,30 @@ public class AchievementDetailActivity extends AppCompatActivity {
         ivAchievement.setImageResource(iconId != 0 ? iconId : R.drawable.ic_launcher_foreground);
     }
 
+    // Формирует человекочитаемое описание условия достижения
     private String getConditionText(String type, int value) {
         if (type == null) return "Неизвестно";
 
         switch (type) {
-            case "LOGIN_STREAK":
-                return "Заходить " + value + " дней подряд";
-            case "MAX_XP_DAY":
-                return "Набрать " + value + " XP за день";
-            case "PERFECT_STREAK":
-                return "Пройти " + value + " уроков подряд без ошибок";
-            case "EARLY_BIRD":
-                return "Пройти " + value + " уроков до 9 утра";
-            case "ERROR_FIXER":
-                return "Исправить " + value + " ошибок";
-            case "TASK_MASTER":
-                return "Выполнить " + value + " заданий";
-            case "NIGHT_OWL":
-                return "Пройти " + value + " уроков после 22:00";
-            case "TOTAL_XP":
-                return "Набрать " + value + " общего XP";
-            case "PERFECT_TOTAL":
-                return "Пройти " + value + " уроков без ошибок";
-            case "SPRINT_XP":
-                return "Набрать " + value + " XP в режиме Спринт";
-            default:
-                return type + ": " + value;
+            case "LOGIN_STREAK": return "Заходить " + value + " дней подряд";
+            case "MAX_XP_DAY": return "Набрать " + value + " XP за день";
+            case "PERFECT_STREAK": return "Пройти " + value + " уроков подряд без ошибок";
+            case "EARLY_BIRD": return "Пройти " + value + " уроков до 9 утра";
+            case "ERROR_FIXER": return "Исправить " + value + " ошибок";
+            case "TASK_MASTER": return "Выполнить " + value + " заданий";
+            case "NIGHT_OWL": return "Пройти " + value + " уроков после 22:00";
+            case "TOTAL_XP": return "Набрать " + value + " общего XP";
+            case "PERFECT_TOTAL": return "Пройти " + value + " уроков без ошибок";
+            case "SPRINT_XP": return "Набрать " + value + " XP в режиме Спринт";
+            default: return type + ": " + value;
         }
     }
 
-    // ✅ Перехват системной кнопки "назад"
     @Override
     public void onBackPressed() {
         goToAchievements();
     }
 
-    // ✅ Метод явного возврата
     private void goToAchievements() {
         Intent intent = new Intent(this, AchievementsActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);

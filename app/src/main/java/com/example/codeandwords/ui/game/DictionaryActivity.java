@@ -22,6 +22,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+// Экран словаря темы: список терминов с произношением и добавлением в личный словарь
 public class DictionaryActivity extends BaseBackActivity {
 
     private RecyclerView recyclerView;
@@ -58,6 +59,7 @@ public class DictionaryActivity extends BaseBackActivity {
     protected void onResume() {
         super.onResume();
 
+        // Обновляем состояние кнопок словаря при возврате на экран
         if (wordsLoadedOnce) {
             loadAddedPersonalWords();
         }
@@ -68,7 +70,7 @@ public class DictionaryActivity extends BaseBackActivity {
         progressBar = findViewById(R.id.pbDictionary);
         tvTitle = findViewById(R.id.tvDictTitle);
 
-        // ✅ Кнопка назад → возврат в GameSelectionActivity текущей темы
+        // Кнопка назад возвращает в GameSelectionActivity текущей темы
         View btnBack = findViewById(R.id.btnBackDict);
         if (btnBack != null) {
             btnBack.setOnClickListener(v -> goBackToGameSelection());
@@ -80,9 +82,7 @@ public class DictionaryActivity extends BaseBackActivity {
         goBackToGameSelection();
     }
 
-    /**
-     * ✅ Возврат в GameSelectionActivity текущей темы.
-     */
+    // Возвращает в GameSelectionActivity, сохраняя контекст темы
     private void goBackToGameSelection() {
         Intent intent = new Intent(this, GameSelectionActivity.class);
         intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
@@ -108,8 +108,7 @@ public class DictionaryActivity extends BaseBackActivity {
                     public void onSuccess(Void data) {
                         adapter.markWordAsAdded(word);
                         Toast.makeText(DictionaryActivity.this,
-                                "Слово добавлено в личный словарь",
-                                Toast.LENGTH_SHORT).show();
+                                "Слово добавлено в личный словарь", Toast.LENGTH_SHORT).show();
                     }
 
                     @Override
@@ -139,8 +138,7 @@ public class DictionaryActivity extends BaseBackActivity {
 
                 if (validWords.isEmpty()) {
                     Toast.makeText(DictionaryActivity.this,
-                            "В этой теме пока нет терминов",
-                            Toast.LENGTH_LONG).show();
+                            "В этой теме пока нет терминов", Toast.LENGTH_LONG).show();
                     adapter.setWords(validWords);
                     return;
                 }
@@ -152,17 +150,18 @@ public class DictionaryActivity extends BaseBackActivity {
             @Override
             public void onError(String error) {
                 progressBar.setVisibility(View.GONE);
-                Toast.makeText(DictionaryActivity.this, "Ошибка: " + error, Toast.LENGTH_SHORT).show();
+                Toast.makeText(DictionaryActivity.this, "Ошибка: " + error,
+                        Toast.LENGTH_SHORT).show();
                 finish();
             }
         });
     }
 
+    // Загружает термины личного словаря для подсветки уже добавленных слов
     private void loadAddedPersonalWords() {
         repository.getUserPersonalWords(new Repository.DataCallback<List<UserWord>>() {
             @Override
             public void onSuccess(List<UserWord> data) {
-
                 Set<String> addedTerms = new HashSet<>();
 
                 if (data != null) {
@@ -182,6 +181,7 @@ public class DictionaryActivity extends BaseBackActivity {
         });
     }
 
+    // Извлекает термин из UserWord через рефлексию для совместимости с разными версиями модели
     private String extractUserWordTerm(UserWord userWord) {
         if (userWord == null) return "";
 
@@ -216,15 +216,12 @@ public class DictionaryActivity extends BaseBackActivity {
 
     private List<Word> preparePlayableWords(List<Word> words) {
         List<Word> result = new ArrayList<>();
-
         if (words == null) return result;
 
         for (Word word : words) {
             if (word == null) continue;
-
             String term = word.getTerm();
             String translation = word.getTranslation();
-
             if (term != null && translation != null
                     && !term.trim().isEmpty()
                     && !translation.trim().isEmpty()) {
@@ -235,14 +232,13 @@ public class DictionaryActivity extends BaseBackActivity {
         return result;
     }
 
-    /**
-     * ✅ ИСПРАВЛЕНО: Используем TtsManager из Repository.
-     */
+    // Использует TtsManager из Repository; не создаёт собственный экземпляр TTS
     private void speakWord(String text, boolean isSlow) {
         if (text == null || text.trim().isEmpty()) return;
 
         if (!repository.isTtsReady()) {
-            Toast.makeText(this, "Ожидание загрузки голосового движка...", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Ожидание загрузки голосового движка...",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -252,6 +248,6 @@ public class DictionaryActivity extends BaseBackActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // НЕ уничтожаем TTS здесь — он управляется Repository
+        // TTS управляется через Repository — здесь не уничтожаем
     }
 }

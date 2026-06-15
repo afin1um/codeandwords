@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+// Экран редактора аватара: выбор цветов и стилей по категориям.
 public class AvatarEditorActivity extends AppCompatActivity {
 
     private View headerContainer;
@@ -104,6 +105,7 @@ public class AvatarEditorActivity extends AppCompatActivity {
         selectCategory("skin");
     }
 
+    // Приводит значения конфигурации к допустимым границам.
     private void clampConfigValues() {
         if (currentConfig == null) {
             currentConfig = new AvatarConfig();
@@ -176,6 +178,7 @@ public class AvatarEditorActivity extends AppCompatActivity {
         btnDone.setOnClickListener(v -> saveAvatar());
     }
 
+    // Сохраняет аватар локально и отправляет на сервер, затем открывает главный экран.
     private void saveAvatar() {
         currentConfig.gender = normalizeGender(currentConfig.gender);
         currentConfig.facialHairStyle = 0;
@@ -186,7 +189,7 @@ public class AvatarEditorActivity extends AppCompatActivity {
 
         Repository repository = Repository.getInstance(AvatarEditorActivity.this);
 
-        // Прогреваем темы заранее, пока обновляется аватар на сервере
+        // Прогрев данных тем в фоне.
         repository.getThemes(new Repository.DataCallback<java.util.List<com.example.codeandwords.model.Theme>>() {
             @Override
             public void onSuccess(java.util.List<com.example.codeandwords.model.Theme> data) {
@@ -196,7 +199,6 @@ public class AvatarEditorActivity extends AppCompatActivity {
             }
         });
 
-        // Сохраняем аватар
         repository.updateAvatarConfig(currentConfig, new Repository.DataCallback<Void>() {
             @Override
             public void onSuccess(Void data) {
@@ -217,6 +219,7 @@ public class AvatarEditorActivity extends AppCompatActivity {
         finish();
     }
 
+    // Настраивает отступы с учётом системных баров.
     private void applyWindowInsets() {
         final int headerBaseHeight = dp(64);
         final int previewBaseHeight = dp(310);
@@ -224,7 +227,7 @@ public class AvatarEditorActivity extends AppCompatActivity {
         final int headerPaddingStart = dp(12);
         final int headerPaddingEnd = dp(12);
         final int headerPaddingBottom = dp(4);
-        final int extraTopOffset = dp(4); // небольшой дополнительный отступ от статус-бара
+        final int extraTopOffset = dp(4);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -256,6 +259,7 @@ public class AvatarEditorActivity extends AppCompatActivity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    // Настраивает два адаптера: для цветов и для стилей.
     private void setupAdapters() {
         primaryAdapter = new AvatarOptionAdapter(new AvatarOptionAdapter.OnOptionClickListener() {
             @Override
@@ -336,6 +340,7 @@ public class AvatarEditorActivity extends AppCompatActivity {
         recyclerSecondary.setAdapter(secondaryAdapter);
     }
 
+    // Обновляет вторичный список стилей для текущей категории.
     private void refreshSecondaryAdapter() {
         switch (currentCategory) {
             case "skin":
@@ -393,6 +398,7 @@ public class AvatarEditorActivity extends AppCompatActivity {
                 break;
         }
     }
+
     private void setupClicks() {
         findViewById(R.id.tabSkin).setOnClickListener(v -> selectCategory("skin"));
         findViewById(R.id.tabFace).setOnClickListener(v -> selectCategory("face"));
@@ -414,6 +420,7 @@ public class AvatarEditorActivity extends AppCompatActivity {
         secondaryAdapter.setStyleMode(category, indexes, selectedIndex, config);
     }
 
+    // Переключает текущую категорию настроек аватара.
     private void selectCategory(String category) {
         currentCategory = category;
         resetCategoryState();
@@ -518,6 +525,7 @@ public class AvatarEditorActivity extends AppCompatActivity {
         }
     }
 
+    // Сбрасывает выделение всех вкладок категорий.
     private void resetCategoryState() {
         List<ImageView> icons = Arrays.asList(
                 ivSkin,

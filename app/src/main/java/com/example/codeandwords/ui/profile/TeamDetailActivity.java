@@ -23,11 +23,11 @@ import com.google.android.material.button.MaterialButton;
 
 import java.util.List;
 
+// Экран деталей команды: задание, прогресс участников с автообновлением каждые 5 секунд.
 public class TeamDetailActivity extends AppCompatActivity {
 
     private static final String TAG = "TeamDetailActivity";
 
-    // Автообновление каждые 5 секунд
     private static final long AUTO_REFRESH_INTERVAL_MS = 5000L;
 
     private Repository repository;
@@ -56,7 +56,6 @@ public class TeamDetailActivity extends AppCompatActivity {
         @Override
         public void run() {
             if (!isFinishing() && !isDestroyed() && currentChallenge != null) {
-                // Тихо запрашиваем прогресс (кэш + сервер)
                 requestProgress(currentChallenge, true);
                 refreshHandler.postDelayed(this, AUTO_REFRESH_INTERVAL_MS);
             }
@@ -82,7 +81,6 @@ public class TeamDetailActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (currentChallenge != null) {
-            // При возврате обновляем данные и запускаем таймер
             requestProgress(currentChallenge, true);
             startAutoRefresh();
         }
@@ -102,7 +100,6 @@ public class TeamDetailActivity extends AppCompatActivity {
 
     private void initViews() {
         ImageButton btnBack = findViewById(R.id.btnBackTeamDetail);
-        // ✅ Переход в TeamActivity
         btnBack.setOnClickListener(v -> goToTeamActivity());
 
         tvTeamName = findViewById(R.id.tvTeamDetailName);
@@ -144,6 +141,7 @@ public class TeamDetailActivity extends AppCompatActivity {
         tvErrorMessage.setText(message != null ? "Ошибка: " + message : "Не удалось загрузить данные");
     }
 
+    // Загружает задание команды; при успехе запрашивает прогресс и запускает автообновление
     private void loadChallenge() {
         if (teamId <= 0) {
             Toast.makeText(this, "Команда не найдена", Toast.LENGTH_SHORT).show();
@@ -173,7 +171,6 @@ public class TeamDetailActivity extends AppCompatActivity {
                 tvChallengeTarget.setText("Цель: " + challenge.targetValue + unit);
                 progressTeam.setMax(Math.max(challenge.targetValue, 1));
 
-                // Первичный запрос прогресса (с показом лоадера)
                 requestProgress(challenge, false);
             }
 
@@ -186,44 +183,47 @@ public class TeamDetailActivity extends AppCompatActivity {
         });
     }
 
+    // Запрашивает прогресс: isSilent = true не показывает лоадер и ошибки в UI
     private void requestProgress(TeamChallenge challenge, boolean isSilent) {
-        repository.getTeamProgress(challenge.id, new Repository.DataCallback<List<TeamChallengeProgress>>() {
-            @Override
-            public void onSuccess(List<TeamChallengeProgress> data) {
-                if (isFinishing() || isDestroyed()) return;
+        repository.getTeamProgress(challenge.id,
+                new Repository.DataCallback<List<TeamChallengeProgress>>() {
+                    @Override
+                    public void onSuccess(List<TeamChallengeProgress> data) {
+                        if (isFinishing() || isDestroyed()) return;
 
-                isLoading = false;
-                showContent();
+                        isLoading = false;
+                        showContent();
 
-                int maxProgress = 0;
-                if (data != null) {
-                    for (TeamChallengeProgress p : data) {
-                        if (p != null && p.progress > maxProgress) {
-                            maxProgress = p.progress;
+                        int maxProgress = 0;
+                        if (data != null) {
+                            for (TeamChallengeProgress p : data) {
+                                if (p != null && p.progress > maxProgress) {
+                                    maxProgress = p.progress;
+                                }
+                            }
+                        }
+
+                        progressTeam.setProgress(Math.min(maxProgress,
+                                Math.max(challenge.targetValue, 1)));
+                        adapter.setItems(data, challenge.targetValue);
+
+                        if (!isSilent) {
+                            startAutoRefresh();
                         }
                     }
-                }
 
-                progressTeam.setProgress(Math.min(maxProgress, Math.max(challenge.targetValue, 1)));
-                adapter.setItems(data, challenge.targetValue);
+                    @Override
+                    public void onError(String error) {
+                        if (isFinishing() || isDestroyed()) return;
 
-                if (!isSilent) {
-                    startAutoRefresh();
-                }
-            }
-
-            @Override
-            public void onError(String error) {
-                if (isFinishing() || isDestroyed()) return;
-
-                if (!isSilent) {
-                    isLoading = false;
-                    showError(error);
-                } else {
-                    Log.w(TAG, "Ошибка тихого обновления: " + error);
-                }
-            }
-        });
+                        if (!isSilent) {
+                            isLoading = false;
+                            showError(error);
+                        } else {
+                            Log.w(TAG, "Ошибка тихого обновления: " + error);
+                        }
+                    }
+                });
     }
 
     private void startAutoRefresh() {
@@ -237,13 +237,12 @@ public class TeamDetailActivity extends AppCompatActivity {
         refreshHandler.removeCallbacks(autoRefreshRunnable);
     }
 
-    // ✅ Перехват системной кнопки "назад"
     @Override
     public void onBackPressed() {
         goToTeamActivity();
     }
 
-    // ✅ Метод явного возврата в TeamActivity
+    // Возврат в TeamActivity с сохранением стека
     private void goToTeamActivity() {
         Intent intent = new Intent(this, TeamActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);

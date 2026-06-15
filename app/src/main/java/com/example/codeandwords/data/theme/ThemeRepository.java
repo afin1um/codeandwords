@@ -14,6 +14,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+// Репозиторий тем: cache-first загрузка с фоновым обновлением с сервера
 public class ThemeRepository {
 
     private final ThemeDao themeDao;
@@ -31,29 +32,34 @@ public class ThemeRepository {
         this.mainHandler = mainHandler;
     }
 
+    // Cache-first: сначала отдаёт локальные темы, затем обновляет с сервера
     public void getThemes(DataCallback<List<Theme>> callback) {
-        // 1. СНАЧАЛА быстро отдаём локальные данные
         executor.execute(() -> {
+            boolean hadLocal = false;
+            int localCount = 0;
+
             try {
                 List<Theme> localThemes = themeDao.getAllThemes();
 
                 if (localThemes != null && !localThemes.isEmpty()) {
+                    hadLocal = true;
+                    localCount = localThemes.size();
                     mainHandler.post(() -> callback.onSuccess(localThemes));
                 }
 
-                // 2. ПОТОМ в фоне обновляем с сервера
-                refreshThemesFromServer(localThemes, callback);
+                refreshThemesFromServer(hadLocal, localCount, callback);
 
             } catch (Exception e) {
                 Log.e("ThemeRepository",
                         "Ошибка локальной загрузки тем: " + e.getMessage(), e);
-                // Если локальные данные не загрузились — пробуем сервер
-                refreshThemesFromServer(null, callback);
+                refreshThemesFromServer(false, 0, callback);
             }
         });
     }
 
-    private void refreshThemesFromServer(List<Theme> localThemes,
+    // Загружает темы с сервера, заменяет локальный кэш и уведомляет UI
+    private void refreshThemesFromServer(boolean hadLocal,
+                                         int localCount,
                                          DataCallback<List<Theme>> callback) {
         apiService.getThemes("*", "id.asc").enqueue(new Callback<List<Theme>>() {
             @Override
@@ -73,12 +79,8 @@ public class ThemeRepository {
                                     "Ошибка сохранения тем локально: " + e.getMessage(), e);
                         }
 
-                        // Обновляем UI только если данные с сервера отличаются
-                        // или локальных данных не было
-                        if (localThemes == null || localThemes.isEmpty()) {
-                            mainHandler.post(() -> callback.onSuccess(remoteThemes));
-                        } else {
-                            // Тихо обновляем локальные — UI уже показал данные
+                        // Если локально уже отдавали столько же тем — повторно не дёргаем UI
+                        if (!hadLocal || remoteThemes.size() != localCount) {
                             mainHandler.post(() -> callback.onSuccess(remoteThemes));
                         }
                     });
@@ -87,8 +89,7 @@ public class ThemeRepository {
                             "Supabase не загрузил themes: "
                                     + response.code() + " | " + getErrorBody(response));
 
-                    // Если локальных данных не было — отдаём ошибку
-                    if (localThemes == null || localThemes.isEmpty()) {
+                    if (!hadLocal) {
                         mainHandler.post(() -> callback.onError("Темы не найдены"));
                     }
                 }
@@ -98,8 +99,7 @@ public class ThemeRepository {
             public void onFailure(Call<List<Theme>> call, Throwable t) {
                 Log.e("ThemeRepository", "Ошибка сети getThemes: " + t.getMessage(), t);
 
-                // Если локальных данных не было — отдаём ошибку
-                if (localThemes == null || localThemes.isEmpty()) {
+                if (!hadLocal) {
                     mainHandler.post(() -> callback.onError(
                             "Ошибка загрузки тем: " + t.getMessage()));
                 }
@@ -107,6 +107,7 @@ public class ThemeRepository {
         });
     }
 
+    // Возвращает темы только из локальной БД без сетевого запроса
     public void loadThemesLocal(DataCallback<List<Theme>> callback) {
         executor.execute(() -> {
             try {
@@ -125,6 +126,7 @@ public class ThemeRepository {
         });
     }
 
+    // Возвращает тему по ID из локальной БД
     public void getThemeById(long themeId, DataCallback<Theme> callback) {
         executor.execute(() -> {
             try {
@@ -155,8 +157,6 @@ public class ThemeRepository {
         }
         return "Неизвестная ошибка";
     }
-
-    // ===== ИНТЕРФЕЙС CALLBACK =====
 
     public interface DataCallback<T> {
         void onSuccess(T data);

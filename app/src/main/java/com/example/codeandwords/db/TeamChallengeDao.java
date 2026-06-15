@@ -15,6 +15,7 @@ public interface TeamChallengeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     long insert(TeamChallenge challenge);
 
+    // Возвращает последнее созданное задание команды для cache-first отображения
     @Query("SELECT * FROM team_challenges WHERE team_id = :teamId ORDER BY id DESC LIMIT 1")
     TeamChallenge getLatestByTeamId(int teamId);
 
@@ -24,15 +25,12 @@ public interface TeamChallengeDao {
     @Query("SELECT * FROM team_challenges WHERE id = :challengeId LIMIT 1")
     TeamChallenge getById(int challengeId);
 
-    // ДОБАВЛЕНО: удалить все челленджи команды — ИСПРАВЛЕНИЕ ОШИБКИ
     @Query("DELETE FROM team_challenges WHERE team_id = :teamId")
     void deleteByTeamId(int teamId);
 
-    // ДОБАВЛЕНО: удалить конкретный челлендж по id
     @Query("DELETE FROM team_challenges WHERE id = :challengeId")
     void deleteById(int challengeId);
 
-    // ДОБАВЛЕНО: удалить все
     @Query("DELETE FROM team_challenges")
     void deleteAll();
 }

@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey;
 import com.google.gson.annotations.SerializedName;
 import java.io.Serializable;
 
+// Термин из словаря темы: хранится локально и синхронизируется с Supabase
 @Entity(tableName = "words")
 public class Word implements Serializable {
 
@@ -37,8 +38,6 @@ public class Word implements Serializable {
     @SerializedName("example_sentence")
     private String exampleSentence;
 
-    // --- Конструкторы ---
-
     public Word() {
     }
 
@@ -53,31 +52,23 @@ public class Word implements Serializable {
         this.exampleSentence = exampleSentence;
     }
 
-    // --- Геттеры и сеттеры ---
-
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-
     public Long getThemeId() { return themeId; }
     public void setThemeId(Long themeId) { this.themeId = themeId; }
-
     public String getTerm() { return term; }
     public void setTerm(String term) { this.term = term; }
-
     public String getTranslation() { return translation; }
     public void setTranslation(String translation) { this.translation = translation; }
-
     public String getDefinition() { return definition; }
     public void setDefinition(String definition) { this.definition = definition; }
-
     public String getTranscription() { return transcription; }
     public void setTranscription(String transcription) { this.transcription = transcription; }
-
     public String getExampleSentence() { return exampleSentence; }
     public void setExampleSentence(String exampleSentence) { this.exampleSentence = exampleSentence; }
 
     @Override
     public String toString() {
-        return "Word{" + "term='" + term + '\'' + '}';
+        return "Word{term='" + term + '\'' + '}';
     }
 }

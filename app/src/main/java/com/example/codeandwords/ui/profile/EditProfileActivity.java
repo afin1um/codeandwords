@@ -15,6 +15,7 @@ import com.example.codeandwords.model.User;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 
+// Экран редактирования профиля: изменение имени пользователя и переход в редактор аватара.
 public class EditProfileActivity extends AppCompatActivity {
 
     private ImageButton btnBack;
@@ -57,6 +58,7 @@ public class EditProfileActivity extends AppCompatActivity {
         btnSaveProfile.setOnClickListener(v -> saveProfile());
     }
 
+    // Загружает текущего пользователя; email недоступен для редактирования
     private void loadUser() {
         repository.getCurrentUser(new Repository.DataCallback<User>() {
             @Override
@@ -72,7 +74,8 @@ public class EditProfileActivity extends AppCompatActivity {
 
             @Override
             public void onError(String error) {
-                Toast.makeText(EditProfileActivity.this, "Не удалось загрузить профиль", Toast.LENGTH_SHORT).show();
+                Toast.makeText(EditProfileActivity.this,
+                        "Не удалось загрузить профиль", Toast.LENGTH_SHORT).show();
                 finish();
             }
         });
@@ -99,7 +102,8 @@ public class EditProfileActivity extends AppCompatActivity {
             @Override
             public void onSuccess(User user) {
                 btnSaveProfile.setEnabled(true);
-                Toast.makeText(EditProfileActivity.this, "Профиль обновлён", Toast.LENGTH_SHORT).show();
+                Toast.makeText(EditProfileActivity.this, "Профиль обновлён",
+                        Toast.LENGTH_SHORT).show();
                 finish();
             }
 

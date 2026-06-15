@@ -9,6 +9,7 @@ import com.google.gson.annotations.SerializedName;
 
 import java.io.Serializable;
 
+// Модель пользователя: хранится локально и синхронизируется с Supabase
 @Entity(
         tableName = "users",
         indices = {
@@ -71,7 +72,6 @@ public class User implements Serializable {
         this.gender = "female";
     }
 
-    // Геттеры и сеттеры — оставляем без изменений
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
     public String getUsername() { return username; }

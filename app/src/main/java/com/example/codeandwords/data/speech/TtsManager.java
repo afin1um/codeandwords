@@ -6,6 +6,7 @@ import android.util.Log;
 
 import java.util.Locale;
 
+// Менеджер синтеза речи: инициализация TTS, озвучивание текста и освобождение ресурсов
 public class TtsManager {
 
     private final Context appContext;
@@ -17,6 +18,7 @@ public class TtsManager {
         initTtsIfNeeded();
     }
 
+    // Инициализирует TTS-движок с локалью US; повторная инициализация игнорируется
     private void initTtsIfNeeded() {
         if (tts != null) return;
 
@@ -26,7 +28,6 @@ public class TtsManager {
                 isTtsReady = result != TextToSpeech.LANG_MISSING_DATA
                         && result != TextToSpeech.LANG_NOT_SUPPORTED;
 
-                // ✅ ЛОГ ДЛЯ ОТЛАДКИ
                 Log.d("TtsManager", "TTS инициализирован: " + isTtsReady
                         + ", lang_result=" + result);
             } else {
@@ -36,6 +37,7 @@ public class TtsManager {
         });
     }
 
+    // Озвучивает текст; isSlow=true уменьшает скорость речи вдвое
     public void speak(String text, boolean isSlow) {
         if (tts == null || !isTtsReady || text == null || text.trim().isEmpty()) {
             Log.w("TtsManager", "speak() пропущен: tts=" + (tts != null)
@@ -47,11 +49,11 @@ public class TtsManager {
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "WORD_TTS");
     }
 
-    // ✅ ДОБАВЛЕН МЕТОД
     public boolean isReady() {
         return isTtsReady;
     }
 
+    // Останавливает воспроизведение и освобождает ресурсы TTS
     public void destroy() {
         if (tts != null) {
             try {

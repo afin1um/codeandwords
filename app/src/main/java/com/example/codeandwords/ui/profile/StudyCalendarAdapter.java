@@ -21,6 +21,8 @@ import com.example.codeandwords.R;
 import java.util.ArrayList;
 import java.util.List;
 
+// Адаптер сетки-календаря расписания занятий.
+// Поддерживает выделение выбранного дня, подсветку сегодняшней даты и счётчик занятий.
 public class StudyCalendarAdapter extends RecyclerView.Adapter<StudyCalendarAdapter.CalendarViewHolder> {
 
     private static final float PRESSED_SCALE = 0.94f;
@@ -33,6 +35,7 @@ public class StudyCalendarAdapter extends RecyclerView.Adapter<StudyCalendarAdap
         void onDayClick(String date);
     }
 
+    // Модель одного дня в сетке
     public static class CalendarDay {
         public String date;
         public String dayText;
@@ -101,6 +104,7 @@ public class StudyCalendarAdapter extends RecyclerView.Adapter<StudyCalendarAdap
         bindPressAnimation(holder);
     }
 
+    // Строит фон ячейки: выбранный день — синий, сегодня — голубой контур, с занятиями — зелёный
     private GradientDrawable buildDayBackground(View view, CalendarDay item, int eventsCount) {
         Context context = view.getContext();
 
@@ -161,6 +165,7 @@ public class StudyCalendarAdapter extends RecyclerView.Adapter<StudyCalendarAdap
         holder.tvDayNumber.setTypeface(null, Typeface.NORMAL);
     }
 
+    // Показывает бейдж с количеством занятий; скрывает если 0
     private void bindEventsBadge(CalendarViewHolder holder, CalendarDay item, int eventsCount) {
         Context context = holder.itemView.getContext();
 
@@ -219,6 +224,7 @@ public class StudyCalendarAdapter extends RecyclerView.Adapter<StudyCalendarAdap
         return String.valueOf(count);
     }
 
+    // Дни других месяцев отображаются полупрозрачными
     private void bindAlpha(CalendarViewHolder holder, CalendarDay item) {
         holder.itemView.setAlpha(item.isCurrentMonth ? 1f : 0.55f);
     }
@@ -231,6 +237,7 @@ public class StudyCalendarAdapter extends RecyclerView.Adapter<StudyCalendarAdap
         });
     }
 
+    // Анимация нажатия: масштабирование вниз при касании и восстановление при отпускании
     @SuppressLint("ClickableViewAccessibility")
     private void bindPressAnimation(CalendarViewHolder holder) {
         holder.itemView.setOnTouchListener((view, event) -> {

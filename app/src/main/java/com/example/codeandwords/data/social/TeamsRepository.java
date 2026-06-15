@@ -28,10 +28,12 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+// Репозиторий командной функциональности: создание команд, управление челленджами и прогрессом
 public class TeamsRepository {
 
     private static final String TAG = "TeamsRepository";
 
+    // Поля выборки для запросов челленджей и прогресса
     private static final String CHALLENGE_SELECT =
             "id,team_id,title,condition_type,target_value," +
                     "xp_first,xp_second,xp_other,is_completed,created_at";
@@ -53,6 +55,7 @@ public class TeamsRepository {
 
     private TeamRewardListener rewardListener;
 
+    // Флаг защиты от параллельных запросов челленджа
     private volatile boolean isFetchingChallenge = false;
 
     public TeamsRepository(TeamDao teamDao,
@@ -73,8 +76,7 @@ public class TeamsRepository {
         this.mainHandler = mainHandler;
     }
 
-    // ===== ИНТЕРФЕЙС ДЛЯ НАГРАД =====
-
+    // Интерфейс для делегирования выдачи XP и отметки победителя во ViewModel
     public interface TeamRewardListener {
         void onGrantXp(int xpReward);
         void onMarkWinner(int challengeId);
@@ -85,8 +87,7 @@ public class TeamsRepository {
         this.rewardListener = listener;
     }
 
-    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
-
+    // Разбирает JSON-объект команды в модель Team
     private Team parseTeamFromJson(JsonObject item) {
         if (item == null) return null;
 
@@ -101,6 +102,7 @@ public class TeamsRepository {
         return team;
     }
 
+    // Разбирает JSON-объект участника команды; возвращает null при невалидных данных
     private TeamMember parseTeamMemberFromJson(JsonObject item) {
         if (item == null) return null;
 
@@ -114,8 +116,7 @@ public class TeamsRepository {
             member.userId = item.get("user_id").getAsInt();
         }
 
-        // На сервере поле называется joined_at,
-        // а локально в модели TeamMember сейчас createdAt
+        // На сервере поле называется joined_at, локально — createdAt
         if (item.has("joined_at") && !item.get("joined_at").isJsonNull()) {
             member.createdAt = item.get("joined_at").getAsString();
         }
@@ -127,6 +128,7 @@ public class TeamsRepository {
         return member;
     }
 
+    // Разбирает JSON-объект командного задания в модель TeamChallenge
     private TeamChallenge parseTeamChallenge(JsonObject item) {
         TeamChallenge c = new TeamChallenge();
 
@@ -152,6 +154,7 @@ public class TeamsRepository {
         return c;
     }
 
+    // Разбирает JSON-объект прогресса участника; включает username из вложенного объекта user
     private TeamChallengeProgress parseTeamProgress(JsonObject item) {
         TeamChallengeProgress p = new TeamChallengeProgress();
 
@@ -184,6 +187,7 @@ public class TeamsRepository {
         return p;
     }
 
+    // Добавляет команду в список только если команда с таким ID ещё не присутствует
     private void addTeamIfNotExists(List<Team> teams, Team newTeam) {
         if (teams == null || newTeam == null || newTeam.id <= 0) return;
         for (Team team : teams) {
@@ -192,6 +196,7 @@ public class TeamsRepository {
         teams.add(newTeam);
     }
 
+    // Асинхронно сохраняет список команд в локальную БД
     private void cacheTeamsLocal(List<Team> teams) {
         if (teams == null || teams.isEmpty()) return;
         executor.execute(() -> {
@@ -205,6 +210,8 @@ public class TeamsRepository {
         });
     }
 
+    // Синхронизирует локальный кэш команд с данными сервера:
+    // удаляет устаревшие записи, сохраняет актуальные команды и участия
     private void syncLocalTeamsWithServer(int userId,
                                           List<Team> serverTeams,
                                           List<TeamMember> serverMemberships) {
@@ -216,7 +223,7 @@ public class TeamsRepository {
                 List<TeamMember> safeServerMemberships =
                         serverMemberships != null ? serverMemberships : new ArrayList<>();
 
-                // ID команд, которые сервер считает актуальными для пользователя
+                // Собираем ID команд, актуальных для пользователя на сервере
                 Set<Integer> serverTeamIds = new HashSet<>();
 
                 for (Team t : safeServerTeams) {
@@ -231,7 +238,7 @@ public class TeamsRepository {
                     }
                 }
 
-                // Удаляем локальные owned-команды, которых больше нет на сервере
+                // Удаляем локальные owned-команды, которых нет на сервере
                 List<Team> localOwned = teamDao.getOwnedTeams(userId);
                 if (localOwned != null) {
                     for (Team localTeam : localOwned) {
@@ -251,7 +258,7 @@ public class TeamsRepository {
                     }
                 }
 
-                // Удаляем локальные участия пользователя, которых больше нет на сервере
+                // Удаляем локальные участия, которых нет на сервере
                 List<TeamMember> localMemberships = teamMemberDao.getByUserId(userId);
                 if (localMemberships != null) {
                     for (TeamMember localMember : localMemberships) {
@@ -278,12 +285,10 @@ public class TeamsRepository {
                     try {
                         teamDao.insert(team);
                     } catch (Exception e) {
-                        Log.e(TAG, "Ошибка сохранения команды: "
-                                + e.getMessage(), e);
+                        Log.e(TAG, "Ошибка сохранения команды: " + e.getMessage(), e);
                     }
 
-                    // Если пользователь владелец команды — гарантируем локальное членство
-                    // Это полезно для стабильного cache-first отображения.
+                    // Гарантируем локальное членство владельца для стабильного cache-first
                     if (team.ownerId == userId) {
                         try {
                             teamMemberDao.insert(new TeamMember(team.id, userId));
@@ -291,7 +296,7 @@ public class TeamsRepository {
                     }
                 }
 
-                // Сохраняем актуальные участия пользователя
+                // Сохраняем актуальные участия
                 for (TeamMember member : safeServerMemberships) {
                     if (member == null || member.teamId <= 0 || member.userId <= 0) {
                         continue;
@@ -300,8 +305,7 @@ public class TeamsRepository {
                     try {
                         teamMemberDao.insert(member);
                     } catch (Exception e) {
-                        Log.e(TAG, "Ошибка сохранения участия: "
-                                + e.getMessage(), e);
+                        Log.e(TAG, "Ошибка сохранения участия: " + e.getMessage(), e);
                     }
                 }
 
@@ -316,6 +320,7 @@ public class TeamsRepository {
         });
     }
 
+    // Возвращает XP-награду в зависимости от занятого места
     private int getTeamChallengeRewardByPlace(JsonObject challengeJson, int place) {
         int xpFirst = 120, xpSecond = 80, xpOther = 50;
 
@@ -342,8 +347,7 @@ public class TeamsRepository {
         return "Неизвестная ошибка";
     }
 
-    // ===== КОМАНДЫ: СОЗДАНИЕ (ПРОСТОЕ) =====
-
+    // Создаёт команду без участников (простой сценарий)
     public void createTeam(String teamName, User currentUser,
                            DataCallback<Integer> callback) {
         if (currentUser == null || currentUser.getId() == null) {
@@ -405,20 +409,8 @@ public class TeamsRepository {
         });
     }
 
-    // ===== КОМАНДЫ: СОЗДАНИЕ С ДРУЗЬЯМИ (ОПТИМИЗИРОВАНО) =====
-
-    /**
-     * ✅ ОПТИМИЗИРОВАНО: было 4 последовательных запроса (~4-12 сек),
-     * стало 1 + 2 параллельных + 1 фоновый (~2-3 сек).
-     *
-     * Схема:
-     * 1. Создаём команду на сервере (нужен teamId для всего остального)
-     * 2. ПАРАЛЛЕЛЬНО:
-     *    2a. Создаём участников
-     *    2b. Создаём челлендж
-     * 3. Когда ОБА завершились → callback.onSuccess(teamId)
-     * 4. В ФОНЕ (не блокируя UI): создаём прогресс участников
-     */
+    // Создаёт команду с друзьями и заданием за три параллельных шага:
+    // 1) создание команды, 2) параллельно: участники + задание, 3) прогресс в фоне
     public void createTeamWithFriends(String teamName,
                                       List<User> selectedFriends,
                                       String challengeType,
@@ -442,7 +434,7 @@ public class TeamsRepository {
 
         int ownerId = currentUser.getId();
 
-        // Собираем ID участников заранее
+        // Собираем ID всех участников заранее
         List<Integer> memberIds = new ArrayList<>();
         memberIds.add(ownerId);
         for (User friend : friends) {
@@ -452,7 +444,7 @@ public class TeamsRepository {
             }
         }
 
-        // ===== ШАГ 1: Создаём команду =====
+        // Шаг 1: создаём команду на сервере
         JsonObject teamPayload = new JsonObject();
         teamPayload.addProperty("team_name", teamName.trim());
         teamPayload.addProperty("owner_id", ownerId);
@@ -473,7 +465,7 @@ public class TeamsRepository {
                 int teamId = response.body().get(0).get("id").getAsInt();
                 Log.d(TAG, "Команда создана, teamId=" + teamId);
 
-                // Кэшируем команду локально (не блокируя)
+                // Кэшируем команду локально, не блокируя следующие шаги
                 executor.execute(() -> {
                     try {
                         Team createdTeam = new Team();
@@ -484,7 +476,7 @@ public class TeamsRepository {
                     } catch (Exception ignored) {}
                 });
 
-                // ===== ШАГ 2: Параллельно создаём участников + челлендж =====
+                // Шаг 2: параллельно создаём участников и задание
                 launchParallelCreation(teamId, memberIds, challengeType, targetValue, callback);
             }
 
@@ -496,11 +488,8 @@ public class TeamsRepository {
         });
     }
 
-    /**
-     * ✅ Запускает создание участников и челленджа ПАРАЛЛЕЛЬНО.
-     * Когда ОБА завершились — вызывает callback и запускает
-     * создание прогресса в фоне.
-     */
+    // Запускает создание участников и задания параллельно;
+    // когда оба завершились — создаёт прогресс и вызывает callback
     private void launchParallelCreation(int teamId,
                                         List<Integer> memberIds,
                                         String challengeType,
@@ -511,29 +500,27 @@ public class TeamsRepository {
         AtomicReference<Integer> challengeIdRef = new AtomicReference<>(-1);
         AtomicBoolean errorReported = new AtomicBoolean(false);
 
-        // ✅ Когда ОБА (members + challenge) завершились → создаём прогресс
+        // После завершения обоих шагов — создаём прогресс и уведомляем UI
         Runnable onPartCompleted = () -> {
             if (remaining.decrementAndGet() == 0) {
                 int challengeId = challengeIdRef.get();
                 if (challengeId > 0) {
-                    // ✅ ЖДЁМ создания прогресса перед callback
                     createProgressAndFinish(teamId, challengeId, memberIds,
                             callback, errorReported);
                 } else {
-                    // Челлендж не создался — всё равно переходим
                     Log.w(TAG, "Челлендж не создан, переходим без прогресса");
                     mainHandler.post(() -> callback.onSuccess(teamId));
                 }
             }
         };
 
-        // Запускаем параллельно
         createMembersParallel(teamId, memberIds, onPartCompleted,
                 errorReported, callback);
         createChallengeParallel(teamId, memberIds, challengeType, targetValue,
                 challengeIdRef, onPartCompleted, errorReported, callback);
     }
 
+    // Создаёт записи прогресса для всех участников, затем уведомляет UI
     private void createProgressAndFinish(int teamId,
                                          int challengeId,
                                          List<Integer> memberIds,
@@ -557,11 +544,11 @@ public class TeamsRepository {
                     public void onResponse(Call<Void> call,
                                            Response<Void> response) {
                         if (response.isSuccessful()) {
-                            Log.d(TAG, "✅ Прогресс создан для challengeId="
+                            Log.d(TAG, "Прогресс создан для challengeId="
                                     + challengeId + ", участников: "
                                     + memberIds.size());
 
-                            // ✅ Callback ПОСЛЕ кэширования
+                            // Кэшируем прогресс локально перед вызовом callback
                             executor.execute(() -> {
                                 for (Integer userId : memberIds) {
                                     try {
@@ -584,8 +571,7 @@ public class TeamsRepository {
                             Log.e(TAG, "Ошибка создания прогресса: "
                                     + response.code() + " | "
                                     + getErrorBody(response));
-
-                            // Переходим — TeamDetailActivity повторит запрос
+                            // TeamDetailActivity повторит запрос при открытии
                             mainHandler.post(
                                     () -> callback.onSuccess(teamId));
                         }
@@ -595,16 +581,12 @@ public class TeamsRepository {
                     public void onFailure(Call<Void> call, Throwable t) {
                         Log.e(TAG, "Ошибка сети создания прогресса: "
                                 + t.getMessage(), t);
-
-                        // Переходим — TeamDetailActivity повторит запрос
                         mainHandler.post(() -> callback.onSuccess(teamId));
                     }
                 });
     }
 
-    /**
-     * ✅ Создание участников (часть параллельного шага).
-     */
+    // Создаёт участников команды (параллельный шаг 2a)
     private void createMembersParallel(int teamId,
                                        List<Integer> memberIds,
                                        Runnable onDone,
@@ -625,7 +607,7 @@ public class TeamsRepository {
                         if (response.isSuccessful()) {
                             Log.d(TAG, "Участники созданы для teamId=" + teamId);
 
-                            // ✅ onDone ПОСЛЕ кэширования
+                            // Кэшируем участников локально перед вызовом onDone
                             executor.execute(() -> {
                                 for (Integer userId : memberIds) {
                                     try {
@@ -659,9 +641,7 @@ public class TeamsRepository {
                 });
     }
 
-    /**
-     * ✅ Создание челленджа (часть параллельного шага).
-     */
+    // Создаёт командное задание (параллельный шаг 2b)
     private void createChallengeParallel(int teamId,
                                          List<Integer> memberIds,
                                          String challengeType,
@@ -698,10 +678,9 @@ public class TeamsRepository {
                                     && !created.get("id").isJsonNull()) {
                                 int challengeId = created.get("id").getAsInt();
                                 challengeIdRef.set(challengeId);
-                                Log.d(TAG, "Челлендж создан, id="
-                                        + challengeId);
+                                Log.d(TAG, "Челлендж создан, id=" + challengeId);
 
-                                // ✅ onDone ПОСЛЕ кэширования
+                                // Кэшируем задание локально перед вызовом onDone
                                 executor.execute(() -> {
                                     try {
                                         TeamChallenge tc = new TeamChallenge();
@@ -720,7 +699,7 @@ public class TeamsRepository {
                                     onDone.run();
                                 });
                             } else {
-                                // id не найден — всё равно продолжаем
+                                // id не пришёл — продолжаем без задания
                                 onDone.run();
                             }
                         } else {
@@ -746,7 +725,8 @@ public class TeamsRepository {
                     }
                 });
     }
-    // ===== КОМАНДЫ: ЗАГРУЗКА (cache-first + sync) =====
+
+    // Cache-first: сначала отдаёт локальный список команд, затем обновляет с сервера
     public void getMyTeams(User currentUser, DataCallback<List<Team>> callback) {
         if (currentUser == null || currentUser.getId() == null) {
             callback.onError("Пользователь не авторизован");
@@ -778,12 +758,11 @@ public class TeamsRepository {
                     }
                 }
 
-                // Показываем локальный кэш сразу.
-                // Даже если пусто — экран не будет висеть.
+                // Мгновенно отдаём кэш, даже если пустой
                 List<Team> cached = new ArrayList<>(localTeams);
                 mainHandler.post(() -> callback.onSuccess(cached));
 
-                // Потом обновляем с сервера.
+                // Фоновое обновление с сервера
                 refreshTeamsFromServer(userId, localTeams, callback);
 
             } catch (Exception e) {
@@ -794,6 +773,8 @@ public class TeamsRepository {
         });
     }
 
+    // Загружает команды с сервера в три шага:
+    // 1) owned-команды, 2) memberships, 3) команды по team_id из memberships
     private void refreshTeamsFromServer(int userId,
                                         List<Team> localTeams,
                                         DataCallback<List<Team>> callback) {
@@ -809,17 +790,14 @@ public class TeamsRepository {
                 List<Team> result = new ArrayList<>();
                 List<TeamMember> serverMemberships = new ArrayList<>();
 
-                // 1. Команды, где пользователь владелец
+                // Шаг 1: команды, где пользователь владелец
                 if (ownedResponse.isSuccessful() && ownedResponse.body() != null) {
                     for (JsonObject item : ownedResponse.body()) {
                         Team team = parseTeamFromJson(item);
 
                         if (team != null && team.id > 0) {
                             addTeamIfNotExists(result, team);
-
-                            // Гарантируем membership владельца локально
-                            TeamMember ownerMember = new TeamMember(team.id, userId);
-                            serverMemberships.add(ownerMember);
+                            serverMemberships.add(new TeamMember(team.id, userId));
                         }
                     }
                 } else if (!ownedResponse.isSuccessful()) {
@@ -833,16 +811,8 @@ public class TeamsRepository {
                     return;
                 }
 
-                /*
-                 * 2. Команды, где пользователь участник.
-                 *
-                 * ВАЖНО:
-                 * На сервере team_members НЕ содержит колонку id.
-                 * Поэтому нельзя писать "id,team_id,user_id".
-                 *
-                 * Правильно:
-                 * "team_id,user_id,joined_at"
-                 */
+                // Шаг 2: команды, где пользователь участник.
+                // ВАЖНО: team_members не содержит колонку id — запрашиваем только team_id,user_id,joined_at
                 fastApiService.getMyTeamMembersRaw(
                         "eq." + userId,
                         "team_id,user_id,joined_at"
@@ -878,8 +848,7 @@ public class TeamsRepository {
                             }
                         }
 
-                        // Если пользователь не участник ни одной команды,
-                        // показываем только owned-команды.
+                        // Нет участий — показываем только owned-команды
                         if (teamIds.isEmpty()) {
                             syncLocalTeamsWithServer(userId, result, serverMemberships);
                             mainHandler.post(() -> callback.onSuccess(result));
@@ -895,7 +864,7 @@ public class TeamsRepository {
 
                         idsFilter.append(")");
 
-                        // 3. Загружаем сами команды по team_id из team_members
+                        // Шаг 3: загружаем данные команд по собранным team_id
                         fastApiService.getTeamsByIdsRaw(
                                 idsFilter.toString(),
                                 "id,team_name,owner_id",
@@ -919,10 +888,7 @@ public class TeamsRepository {
                                 }
 
                                 syncLocalTeamsWithServer(
-                                        userId,
-                                        result,
-                                        serverMemberships
-                                );
+                                        userId, result, serverMemberships);
 
                                 mainHandler.post(() -> callback.onSuccess(result));
                             }
@@ -935,10 +901,7 @@ public class TeamsRepository {
 
                                 if (!result.isEmpty()) {
                                     syncLocalTeamsWithServer(
-                                            userId,
-                                            result,
-                                            serverMemberships
-                                    );
+                                            userId, result, serverMemberships);
                                     mainHandler.post(() -> callback.onSuccess(result));
                                 } else if (localTeams == null || localTeams.isEmpty()) {
                                     mainHandler.post(() ->
@@ -977,6 +940,8 @@ public class TeamsRepository {
             }
         });
     }
+
+    // Возвращает список команд только из локальной БД без сетевого запроса
     public void loadMyTeamsLocal(int userId, DataCallback<List<Team>> callback) {
         executor.execute(() -> {
             try {
@@ -1003,8 +968,7 @@ public class TeamsRepository {
         });
     }
 
-    // ===== ЧЕЛЛЕНДЖИ: ЗАГРУЗКА (cache-first) =====
-
+    // Cache-first: отдаёт кэш задания, затем тихо обновляет с сервера
     public void getTeamChallenge(int teamId, DataCallback<TeamChallenge> callback) {
         executor.execute(() -> {
             try {
@@ -1028,6 +992,7 @@ public class TeamsRepository {
         });
     }
 
+    // Загружает актуальное задание с сервера; при ошибке уведомляет UI только если кэша не было
     private void refreshTeamChallengeFromServer(int teamId,
                                                 boolean hasCachedData,
                                                 DataCallback<TeamChallenge> callback) {
@@ -1094,6 +1059,7 @@ public class TeamsRepository {
         });
     }
 
+    // Тихое фоновое обновление кэша задания без уведомления UI
     private void silentRefreshTeamChallenge(int teamId) {
         if (isFetchingChallenge) return;
         isFetchingChallenge = true;
@@ -1130,15 +1096,12 @@ public class TeamsRepository {
             }
         });
     }
+
     private void silentRefreshTeamProgress(int challengeId) {
         silentRefreshTeamProgress(challengeId, null);
     }
 
-    /**
-     * ✅ ИСПРАВЛЕНО:
-     * Теперь после серверной загрузки прогресса мы не только обновляем Room,
-     * но и сразу отдаём свежий список в UI через callback.
-     */
+    // Загружает свежий прогресс с сервера, обновляет кэш и уведомляет UI через callback если задан
     private void silentRefreshTeamProgress(int challengeId,
                                            DataCallback<List<TeamChallengeProgress>> callback) {
         fastApiService.getTeamProgressRaw(
@@ -1175,7 +1138,7 @@ public class TeamsRepository {
                                     + e.getMessage(), e);
                         }
 
-                        // ✅ ВАЖНО: сразу обновляем UI свежими данными
+                        // Обновляем UI свежими данными если callback передан
                         if (callback != null) {
                             mainHandler.post(() -> callback.onSuccess(fresh));
                         }
@@ -1195,8 +1158,7 @@ public class TeamsRepository {
         });
     }
 
-    // ===== УДАЛЕНИЕ КОМАНДЫ =====
-
+    // Удаляет команду на сервере, затем очищает локальные данные
     public void deleteTeam(int teamId, int userId, DataCallback<Void> callback) {
         fastApiService.deleteTeamRaw("eq." + teamId).enqueue(new Callback<Void>() {
             @Override
@@ -1232,14 +1194,7 @@ public class TeamsRepository {
         void onError(String error);
     }
 
-    // ===== ПРОГРЕСС КОМАНДЫ: ЗАГРУЗКА =====
-
-    /**
-     * Загружает прогресс.
-     * Сначала мгновенно вызывает callback с данными из кэша (если есть).
-     * Затем скачивает свежие данные с сервера, обновляет кэш
-     * и ЕЩЁ РАЗ вызывает callback.
-     */
+    // Cache-first: сначала отдаёт кэш прогресса, затем загружает актуальные данные с сервера
     public void getTeamProgress(int challengeId,
                                 DataCallback<List<TeamChallengeProgress>> callback) {
         executor.execute(() -> {
@@ -1250,22 +1205,18 @@ public class TeamsRepository {
 
                 if (cached != null && !cached.isEmpty()) {
                     hasCachedData = true;
-                    // 1. Показываем кэш мгновенно
                     mainHandler.post(() -> callback.onSuccess(cached));
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Ошибка чтения кэша прогресса: " + e.getMessage(), e);
             }
 
-            // 2. Обновляем с сервера и снова уведомляем UI
+            // Загружаем с сервера и снова уведомляем UI актуальными данными
             fetchProgressFromServerAndNotify(challengeId, hasCachedData, callback);
         });
     }
 
-    /**
-     * Фоновое обновление. Скачивает данные, обновляет БД, и (если передан callback)
-     * возвращает свежие данные в UI.
-     */
+    // Загружает прогресс с сервера, обновляет локальный кэш и уведомляет UI
     private void fetchProgressFromServerAndNotify(int challengeId,
                                                   boolean hasCachedData,
                                                   DataCallback<List<TeamChallengeProgress>> callback) {
@@ -1289,7 +1240,7 @@ public class TeamsRepository {
 
                     executor.execute(() -> {
                         try {
-                            // Очищаем старый кэш и пишем новый
+                            // Полная замена кэша прогресса
                             teamChallengeProgressDao.deleteByChallengeId(challengeId);
                             for (TeamChallengeProgress p : fresh) {
                                 teamChallengeProgressDao.insert(p);
@@ -1299,7 +1250,6 @@ public class TeamsRepository {
                             Log.e(TAG, "Ошибка обновления кэша прогресса: " + e.getMessage(), e);
                         }
 
-                        // ✅ ВАЖНО: Отдаём свежие данные в UI
                         if (callback != null) {
                             mainHandler.post(() -> callback.onSuccess(fresh));
                         }
@@ -1324,8 +1274,7 @@ public class TeamsRepository {
         });
     }
 
-    // ===== ОБНОВЛЕНИЕ ПРОГРЕССА ПОСЛЕ УРОКА =====
-
+    // Обновляет прогресс по всем активным командным заданиям пользователя после завершения урока
     public void updateTeamChallengeProgressAfterLesson(int userId, int earnedXp) {
         String select =
                 "id,challenge_id,team_id,user_id,progress,is_completed,awarded_xp,place," +
@@ -1355,6 +1304,7 @@ public class TeamsRepository {
                 });
     }
 
+    // Вычисляет новый прогресс по заданию и либо обновляет его, либо завершает выполнение
     private void processSingleTeamProgress(JsonObject progressJson, int earnedXp) {
         if (progressJson == null) return;
         if (!progressJson.has("id") || progressJson.get("id").isJsonNull()) return;
@@ -1375,6 +1325,7 @@ public class TeamsRepository {
         String conditionType = challengeJson.get("condition_type").getAsString();
         int targetValue = challengeJson.get("target_value").getAsInt();
 
+        // XP-задание увеличивает прогресс на заработанный XP; LESSONS — на 1 за урок
         int addProgress;
         if ("XP".equals(conditionType)) addProgress = earnedXp;
         else if ("LESSONS".equals(conditionType)) addProgress = 1;
@@ -1383,6 +1334,7 @@ public class TeamsRepository {
         int newProgress = oldProgress + addProgress;
 
         if (newProgress >= targetValue) {
+            // Цель достигнута — завершаем задание
             finishTeamChallengeProgress(progressId, challengeId, challengeJson, newProgress);
         } else {
             JsonObject payload = new JsonObject();
@@ -1394,7 +1346,7 @@ public class TeamsRepository {
                         public void onResponse(Call<Void> call, Response<Void> response) {
                             if (response.isSuccessful()) {
                                 Log.d(TAG, "Прогресс команды обновлён (progressId=" + progressId + ")");
-                                // ✅ Сразу скачиваем и кэшируем свежие данные, чтобы UI подтянул их быстрее
+                                // Обновляем кэш, чтобы UI подтянул свежие данные быстрее
                                 fetchProgressFromServerAndNotify(challengeId, true, null);
                             } else {
                                 Log.e(TAG, "Не удалось обновить прогресс: " + response.code());
@@ -1409,8 +1361,10 @@ public class TeamsRepository {
         }
     }
 
+    // Завершает выполнение задания: определяет место, начисляет XP, обновляет запись на сервере
     private void finishTeamChallengeProgress(int progressId, int challengeId,
                                              JsonObject challengeJson, int finalProgress) {
+        // Проверяем, не завершено ли задание уже (защита от двойного завершения)
         fastApiService.getTeamProgressByIdRaw("eq." + progressId, "id,is_completed,awarded_xp,place", 1)
                 .enqueue(new Callback<List<JsonObject>>() {
                     @Override
@@ -1423,6 +1377,7 @@ public class TeamsRepository {
                                 && currentProgress.get("is_completed").getAsBoolean();
                         if (alreadyCompleted) return;
 
+                        // Считаем уже завершивших участников для определения места
                         fastApiService.getCompletedTeamProgressRaw("eq." + challengeId, "eq.true", "completed_at.asc")
                                 .enqueue(new Callback<List<JsonObject>>() {
                                     @Override
@@ -1434,7 +1389,8 @@ public class TeamsRepository {
                                         int place = completedCount + 1;
                                         int rewardXp = getTeamChallengeRewardByPlace(challengeJson, place);
 
-                                        String timestamp = rewardListener != null ? rewardListener.toSqlTimestamp(System.currentTimeMillis()) : "";
+                                        String timestamp = rewardListener != null
+                                                ? rewardListener.toSqlTimestamp(System.currentTimeMillis()) : "";
 
                                         JsonObject payload = new JsonObject();
                                         payload.addProperty("progress", finalProgress);
@@ -1450,7 +1406,7 @@ public class TeamsRepository {
                                                         if (r.isSuccessful()) {
                                                             Log.d(TAG, "Командный прогресс завершён (progressId=" + progressId + ")");
 
-                                                            // ✅ Обновляем кэш локально
+                                                            // Обновляем кэш и выдаём награду
                                                             fetchProgressFromServerAndNotify(challengeId, true, null);
 
                                                             if (rewardListener != null) {
@@ -1483,6 +1439,7 @@ public class TeamsRepository {
                 });
     }
 
+    // Сбрасывает состояние репозитория при выходе из аккаунта
     public void resetState() {
         isFetchingChallenge = false;
         Log.d(TAG, "resetState: флаги TeamsRepository сброшены");

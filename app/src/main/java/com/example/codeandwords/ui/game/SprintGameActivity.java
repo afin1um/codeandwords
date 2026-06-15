@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+// Режим спринта: проверка знания перевода на время с последующей работой над ошибками
 public class SprintGameActivity extends BaseBackActivity {
 
     private static final long GAME_DURATION = 15000;
@@ -77,6 +78,7 @@ public class SprintGameActivity extends BaseBackActivity {
     private String displayedTranslation;
     private boolean isCorrectPair;
 
+    // Ошибки сохраняются для последующего исправления
     private final List<SprintQuestion> mistakeQuestions = new ArrayList<>();
     private final List<SprintQuestion> correctionQuestions = new ArrayList<>();
     private int correctionIndex = 0;
@@ -106,9 +108,7 @@ public class SprintGameActivity extends BaseBackActivity {
         goBackToGameSelection();
     }
 
-    /**
-     * ✅ Возврат в GameSelectionActivity текущей темы.
-     */
+    // Возврат в экран выбора режима текущей темы
     private void goBackToGameSelection() {
         Intent intent = new Intent(this, GameSelectionActivity.class);
         intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
@@ -138,7 +138,6 @@ public class SprintGameActivity extends BaseBackActivity {
         tvSprintDictionaryIcon = findViewById(R.id.tvSprintDictionaryIcon);
         tvSprintDictionaryText = findViewById(R.id.tvSprintDictionaryText);
 
-        // ✅ Крестик → GameSelectionActivity текущей темы
         View btnClose = findViewById(R.id.btnUniClose);
         if (btnClose != null) {
             btnClose.setOnClickListener(v -> goBackToGameSelection());
@@ -175,6 +174,7 @@ public class SprintGameActivity extends BaseBackActivity {
         updateCorrectionUi();
     }
 
+    // Переключает интерфейс между основным режимом и режимом исправления ошибок
     private void updateCorrectionUi() {
         if (isCorrectionMode) {
             correctionBannerCard.setVisibility(View.VISIBLE);
@@ -220,6 +220,7 @@ public class SprintGameActivity extends BaseBackActivity {
         });
     }
 
+    // Инициализирует игровые параметры и запускает таймер
     private void startGame(List<Word> allWords) {
         List<Word> shuffledWords = new ArrayList<>(allWords);
         Collections.shuffle(shuffledWords);
@@ -260,6 +261,7 @@ public class SprintGameActivity extends BaseBackActivity {
         return result;
     }
 
+    // Запускает обратный отсчёт; по завершении переходит к фазе исправления ошибок
     private void startTimer() {
         progressBarTimer.setMax((int) GAME_DURATION / 1000);
         progressBarTimer.setProgress((int) GAME_DURATION / 1000);
@@ -279,6 +281,7 @@ public class SprintGameActivity extends BaseBackActivity {
         }.start();
     }
 
+    // Отображает следующее слово; с вероятностью 50% показывает верный или неверный перевод
     private void showNextWord() {
         if (currentWordIndex >= gameWords.size()) {
             finishMainPhase();
@@ -326,6 +329,7 @@ public class SprintGameActivity extends BaseBackActivity {
         refreshDictionaryState();
     }
 
+    // Проверяет наличие текущего слова в личном словаре и обновляет состояние карточки
     private void refreshDictionaryState() {
         if (currentWord == null) {
             cardSprintDictionaryState.setVisibility(View.GONE);
@@ -432,6 +436,7 @@ public class SprintGameActivity extends BaseBackActivity {
         }
     }
 
+    // Обрабатывает ответ в основном режиме: начисляет очки или сохраняет ошибку
     private void handleMainGameAnswer(boolean userSaidCorrect) {
         if (userSaidCorrect == isCorrectPair) {
             correctAnswers++;
@@ -454,6 +459,7 @@ public class SprintGameActivity extends BaseBackActivity {
         showNextWord();
     }
 
+    // Обрабатывает ответ в режиме исправления: уменьшает счётчик ошибок или повторяет попытку
     private void handleCorrectionAnswer(boolean userSaidCorrect) {
         if (userSaidCorrect == isCorrectPair) {
             fixedErrorsCount++;
@@ -479,6 +485,7 @@ public class SprintGameActivity extends BaseBackActivity {
         }
     }
 
+    // Завершает основную фазу игры и инициирует работу над ошибками при их наличии
     private void finishMainPhase() {
         if (!isGameActive) return;
         isGameActive = false;
@@ -502,6 +509,7 @@ public class SprintGameActivity extends BaseBackActivity {
         showCorrectionQuestion();
     }
 
+    // Завершает игру, рассчитывает XP, воспроизводит анимацию и переходит к экрану результатов
     private void finishGame() {
         isGameActive = false;
         if (timer != null) timer.cancel();
@@ -527,7 +535,6 @@ public class SprintGameActivity extends BaseBackActivity {
         intent.putExtra("SCORE", totalXp);
         intent.putExtra("TOTAL_WORDS", initialTotalWords);
         intent.putExtra("MISTAKES_COUNT", mistakeQuestions.size());
-        // ✅ Передаём тему, чтобы из результата возврат шёл в GameSelection текущей темы
         intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
         intent.putExtra("THEME_TITLE", themeTitle);
         startActivity(intent);

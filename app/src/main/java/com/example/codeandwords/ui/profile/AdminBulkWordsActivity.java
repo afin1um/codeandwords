@@ -18,6 +18,7 @@ import com.google.android.material.button.MaterialButton;
 import java.util.ArrayList;
 import java.util.List;
 
+// Экран массового импорта терминов администратором.
 public class AdminBulkWordsActivity extends AppCompatActivity {
 
     private ImageButton btnBack;
@@ -54,6 +55,7 @@ public class AdminBulkWordsActivity extends AppCompatActivity {
         btnSave.setOnClickListener(v -> saveBulkWords());
     }
 
+    // Загружает список тем для выбора целевой темы.
     private void loadThemes() {
         repository.getThemes(new Repository.DataCallback<List<Theme>>() {
             @Override
@@ -86,6 +88,7 @@ public class AdminBulkWordsActivity extends AppCompatActivity {
         });
     }
 
+    // Сохраняет распарсенный список слов в выбранную тему.
     private void saveBulkWords() {
         int position = spinnerTheme.getSelectedItemPosition();
 
@@ -122,6 +125,8 @@ public class AdminBulkWordsActivity extends AppCompatActivity {
         });
     }
 
+    // Разбирает многострочный ввод формата:
+    // term;translation;transcription;definition;exampleSentence
     private List<Word> parseWords(String rawText) {
         List<Word> result = new ArrayList<>();
 

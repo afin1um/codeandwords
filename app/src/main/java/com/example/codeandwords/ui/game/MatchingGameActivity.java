@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+// Режим сопоставления терминов и переводов: поддерживает аудио-режим и работу над ошибками
 public class MatchingGameActivity extends BaseBackActivity {
 
     private static final int MAX_PAIRS_COUNT = 5;
@@ -65,7 +66,6 @@ public class MatchingGameActivity extends BaseBackActivity {
     private int score = 0;
     private int totalPairs = 0;
     private int pairsFound = 0;
-    private int mistakesCount = 0;
     private int initialTotalPairs = 0;
     private int fixedErrorsCount = 0;
 
@@ -88,6 +88,9 @@ public class MatchingGameActivity extends BaseBackActivity {
     private List<Word> roundWords = new ArrayList<>();
 
     private final List<String> solvedMatchIds = new ArrayList<>();
+
+    // Слова с ошибками сохраняются в LinkedHashMap для воспроизведения в порядке появления.
+    // Используется также для подсчёта уникальных слов с ошибкой (mistakenWordsMap.size())
     private final Map<String, Word> mistakenWordsMap = new LinkedHashMap<>();
 
     @Override
@@ -116,9 +119,7 @@ public class MatchingGameActivity extends BaseBackActivity {
         goBackToGameSelection();
     }
 
-    /**
-     * ✅ Возврат в GameSelectionActivity текущей темы.
-     */
+    // Возвращает в GameSelectionActivity, передавая контекст темы
     private void goBackToGameSelection() {
         Intent intent = new Intent(this, GameSelectionActivity.class);
         intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
@@ -143,7 +144,7 @@ public class MatchingGameActivity extends BaseBackActivity {
         tvMatchingDictionaryIcon = findViewById(R.id.tvMatchingDictionaryIcon);
         tvMatchingDictionaryText = findViewById(R.id.tvMatchingDictionaryText);
 
-        // ✅ Крестик → GameSelectionActivity текущей темы
+        // Крестик возвращает в GameSelectionActivity текущей темы
         View btnClose = findViewById(R.id.btnUniClose);
         if (btnClose != null) {
             btnClose.setOnClickListener(v -> goBackToGameSelection());
@@ -159,7 +160,8 @@ public class MatchingGameActivity extends BaseBackActivity {
             }
 
             if (selectedWordAlreadyInDictionary) {
-                Toast.makeText(this, "Это слово уже есть в личном словаре", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Это слово уже есть в личном словаре",
+                        Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -198,6 +200,7 @@ public class MatchingGameActivity extends BaseBackActivity {
         });
     }
 
+    // Загружает неизученные слова темы и инициализирует первый раунд
     private void loadGameData() {
         loadingIndicator.setVisibility(View.VISIBLE);
 
@@ -219,16 +222,13 @@ public class MatchingGameActivity extends BaseBackActivity {
                 Collections.shuffle(playableWords);
 
                 int pairCount = Math.min(playableWords.size(), MAX_PAIRS_COUNT);
-                currentLevelWords = new ArrayList<>(
-                        playableWords.subList(0, pairCount));
-
+                currentLevelWords = new ArrayList<>(playableWords.subList(0, pairCount));
                 roundWords = new ArrayList<>(currentLevelWords);
 
                 totalPairs = currentLevelWords.size();
                 initialTotalPairs = totalPairs;
                 pairsFound = 0;
                 score = 0;
-                mistakesCount = 0;
                 fixedErrorsCount = 0;
                 isCorrectionMode = false;
 
@@ -260,13 +260,12 @@ public class MatchingGameActivity extends BaseBackActivity {
             if (word == null) continue;
             String term = word.getTerm() == null ? "" : word.getTerm().trim();
             String translation = word.getTranslation() == null ? "" : word.getTranslation().trim();
-            if (!term.isEmpty() && !translation.isEmpty()) {
-                result.add(word);
-            }
+            if (!term.isEmpty() && !translation.isEmpty()) result.add(word);
         }
         return result;
     }
 
+    // Обновляет заголовок и баннер в зависимости от режима (обычный / работа над ошибками)
     private void updateCorrectionUi() {
         if (isCorrectionMode) {
             tvTitle.setText("Исправьте пары");
@@ -291,8 +290,7 @@ public class MatchingGameActivity extends BaseBackActivity {
 
         for (Word word : currentLevelWords) {
             if (!solvedMatchIds.contains(makeMatchId(word))) {
-                columnTerms.addView(createWordButton(
-                        word.getTerm(), makeMatchId(word), true));
+                columnTerms.addView(createWordButton(word.getTerm(), makeMatchId(word), true));
             }
         }
 
@@ -305,14 +303,15 @@ public class MatchingGameActivity extends BaseBackActivity {
         Collections.shuffle(shuffledTranslations);
 
         for (Word word : shuffledTranslations) {
-            columnTranslations.addView(createWordButton(
-                    word.getTranslation(), makeMatchId(word), false));
+            columnTranslations.addView(
+                    createWordButton(word.getTranslation(), makeMatchId(word), false));
         }
 
         updateProgress();
         updateCorrectionUi();
     }
 
+    // Уникальный ключ пары: по ID если есть, иначе по составному term_translation
     private String makeMatchId(Word word) {
         if (word == null) return "";
         if (word.getId() != null) return String.valueOf(word.getId());
@@ -321,6 +320,7 @@ public class MatchingGameActivity extends BaseBackActivity {
         return term + "_" + translation;
     }
 
+    // Плавный переход между аудио-режимом и текстовым режимом
     private void startFadeTransition() {
         AlphaAnimation fadeOut = new AlphaAnimation(1.0f, 0.0f);
         fadeOut.setDuration(300);
@@ -344,6 +344,7 @@ public class MatchingGameActivity extends BaseBackActivity {
         btn.setTextColor(ContextCompat.getColor(this, R.color.duo_text_white));
         btn.setBackgroundResource(R.drawable.bg_word_chip);
 
+        // В аудио-режиме термин скрывается — показывается только иконка динамика
         if (isTerm && isAudioMode && !isCorrectionMode) {
             btn.setText("");
             btn.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_speaker, 0, 0, 0);
@@ -394,6 +395,7 @@ public class MatchingGameActivity extends BaseBackActivity {
         checkMatch();
     }
 
+    // Проверяет наличие слова в личном словаре и обновляет состояние карточки
     private void refreshDictionaryState() {
         if (selectedDictionaryWord == null) {
             cardMatchingDictionaryState.setVisibility(View.GONE);
@@ -518,7 +520,6 @@ public class MatchingGameActivity extends BaseBackActivity {
 
     private void handleCorrectMatch(String matchId) {
         soundPool.play(soundSuccess, 1f, 1f, 1, 0, 1f);
-
         pairsFound++;
 
         Word matchedWord = findWordByMatchId(matchId);
@@ -528,12 +529,12 @@ public class MatchingGameActivity extends BaseBackActivity {
 
             if (matchedWord != null) {
                 final Word w = matchedWord;
-
                 repository.resolveWordMistake(w, new Repository.DataCallback<Void>() {
                     @Override public void onSuccess(Void data) { }
                     @Override public void onError(String error) { }
                 });
 
+                // Помечаем слово как пройденное в режиме сопоставления
                 repository.getCurrentUserId(userId -> {
                     if (userId != null && userId > 0) {
                         repository.markMatchingPassed(userId, w.getId());
@@ -582,12 +583,13 @@ public class MatchingGameActivity extends BaseBackActivity {
         }, 400);
     }
 
+    // Обрабатывает неверное сопоставление: регистрирует слово как ошибочное (без дублирования)
     private void handleWrongMatch(String termMatchId) {
         soundPool.play(soundError, 1f, 1f, 1, 0, 1f);
-        mistakesCount++;
 
         Word mistakenWord = findWordByMatchId(termMatchId);
 
+        // Сохраняем слово в map ошибок; повторные ошибки на том же слове не дублируются
         if (mistakenWord != null) {
             mistakenWordsMap.put(makeMatchId(mistakenWord), mistakenWord);
             repository.recordWordMistake(mistakenWord);
@@ -612,6 +614,7 @@ public class MatchingGameActivity extends BaseBackActivity {
         }, 600);
     }
 
+    // После первого раунда запускает работу над ошибками; при их отсутствии — завершает игру
     private void onRoundCompleted() {
         if (!isCorrectionMode && !mistakenWordsMap.isEmpty()) {
             startCorrectionMode();
@@ -636,6 +639,7 @@ public class MatchingGameActivity extends BaseBackActivity {
         btn.setBackgroundResource(R.drawable.bg_word_chip);
     }
 
+    // Анимирует прогресс-бар с замедлением в конце
     private void updateProgress() {
         if (totalPairs == 0) {
             progressBar.setProgress(0);
@@ -649,15 +653,15 @@ public class MatchingGameActivity extends BaseBackActivity {
         animation.start();
     }
 
+    // Завершает игру; mistakesCount = количество уникальных слов с ошибкой (не попыток)
     private void finishGame() {
         repository.recordLessonCompletion("MATCHING", themeId, score,
-                initialTotalPairs, mistakesCount, fixedErrorsCount, false);
+                initialTotalPairs, mistakenWordsMap.size(), fixedErrorsCount, false);
 
         Intent intent = new Intent(this, GameResultActivity.class);
         intent.putExtra("SCORE", score);
         intent.putExtra("TOTAL_WORDS", initialTotalPairs);
-        intent.putExtra("MISTAKES_COUNT", mistakesCount);
-        // ✅ Передаём тему, чтобы GameResultActivity знал, куда возвращать пользователя
+        intent.putExtra("MISTAKES_COUNT", mistakenWordsMap.size());
         intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
         intent.putExtra("THEME_TITLE", themeTitle);
         startActivity(intent);

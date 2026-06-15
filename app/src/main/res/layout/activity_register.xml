@@ -17,7 +17,6 @@
         android:paddingEnd="24dp"
         android:paddingBottom="32dp">
 
-        <!-- ✅ Единая стрелочка назад -->
         <include
             android:id="@+id/btnUniBack"
             layout="@layout/view_back_button"
@@ -215,7 +214,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/genderButtonsContainer" />
 
-        <!-- Оставляем, как ты выбрала: стрелочка сверху + кнопка снизу -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnBackToLogin"
             style="@style/Widget.MaterialComponents.Button.TextButton"

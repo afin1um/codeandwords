@@ -2,6 +2,7 @@ package com.example.codeandwords.model;
 
 import androidx.room.ColumnInfo;
 
+// DTO для JOIN-запроса достижений с прогрессом пользователя из AchievementDao
 public class AchievementWithProgress {
 
     @ColumnInfo(name = "id")

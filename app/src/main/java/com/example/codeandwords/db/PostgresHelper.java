@@ -5,25 +5,23 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+// Вспомогательный класс для прямого подключения к PostgreSQL через JDBC.
+// Используется только для отладки на эмуляторе (10.0.2.2 = localhost хоста).
+// На реальном устройстве требуется замена HOST на IP компьютера.
 public class PostgresHelper {
 
-    // Адрес для ЭМУЛЯТОРА.
-    // Если запускаете на реальном телефоне, здесь нужен IP компьютера (например, 192.168.1.X)
     private static final String HOST = "10.0.2.2";
     private static final String PORT = "5432";
-    private static final String DB_NAME = "postgres"; // Имя БД со скриншота
-    private static final String USER = "postgres";    // Пользователь со скриншота
-    private static final String PASS = "postgres";    // Ваш пароль
+    private static final String DB_NAME = "postgres";
+    private static final String USER = "postgres";
+    private static final String PASS = "postgres";
 
     public static Connection connect() {
         Connection connection = null;
         String connectionString = "jdbc:postgresql://" + HOST + ":" + PORT + "/" + DB_NAME;
 
         try {
-            // Загружаем драйвер
             Class.forName("org.postgresql.Driver");
-
-            // Пытаемся подключиться
             connection = DriverManager.getConnection(connectionString, USER, PASS);
             Log.d("PostgresConnection", "Успешное подключение к PostgreSQL!");
 

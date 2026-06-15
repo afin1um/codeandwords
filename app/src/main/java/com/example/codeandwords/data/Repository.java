@@ -87,6 +87,8 @@ import com.example.codeandwords.data.stats.StatsRepository;
 import com.example.codeandwords.data.progress.WordProgressRepository;
 import com.example.codeandwords.data.admin.AdminRepository;
 
+// Фасад (Singleton) над всеми специализированными репозиториями.
+// Предоставляет единую точку доступа к данным для ViewModel и Activity.
 public class Repository {
 
     private static final String PREFS_NAME = "codeandwords_prefs";
@@ -123,6 +125,8 @@ public class Repository {
     private final TeamMemberDao teamMemberDao;
     private final ExecutorService networkExecutor;
     private static volatile Repository INSTANCE;
+
+    // Специализированные репозитории
     private final AuthRepository authRepository;
     private final PersonalDictionaryRepository personalDictionaryRepository;
     private final ThemeRepository themeRepository;
@@ -135,8 +139,12 @@ public class Repository {
     private final WordProgressRepository wordProgressRepository;
     private final AdminRepository adminRepository;
 
+    // Текущий авторизованный пользователь; static для доступа из вложенных репозиториев
     private static User currentUser;
+
+    // Счётчик сессии для защиты от устаревших сетевых ответов при смене аккаунта
     private volatile int authSessionVersion = 0;
+
     public boolean isTtsReady() {
         return ttsManager.isReady();
     }
@@ -155,6 +163,7 @@ public class Repository {
 
         AppDatabase db = AppDatabase.getDatabase(appContext);
 
+        // Инициализация DAO
         this.userDao = db.userDao();
         this.themeDao = db.themeDao();
         this.wordDao = db.wordDao();
@@ -179,6 +188,7 @@ public class Repository {
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 
+        // Инициализация репозитория авторизации с делегированием событий входа
         this.authRepository = new AuthRepository(
                 appContext, userDao, apiService, executor, mainHandler);
 
@@ -197,30 +207,23 @@ public class Repository {
         this.ttsManager = new TtsManager(appContext);
 
         this.personalDictionaryRepository = new PersonalDictionaryRepository(
-                userWordDao,
-                wordDao,
-                themeDao,
-                apiService,
-                executor,
-                mainHandler
-        );
+                userWordDao, wordDao, themeDao, apiService, executor, mainHandler);
+
         this.themeRepository = new ThemeRepository(themeDao, apiService, executor, mainHandler);
         this.wordRepository = new WordRepository(wordDao, apiService, executor, mainHandler);
 
         this.scheduleRepository = new ScheduleRepository(
-                studyScheduleDao,
-                scheduleApiService,
-                executor,
-                mainHandler
-        );
+                studyScheduleDao, scheduleApiService, executor, mainHandler);
+
         this.friendsRepository = new FriendsRepository(
-                db,
-                friendDao, userDao, apiService, scheduleApiService, executor, mainHandler);
+                db, friendDao, userDao, apiService, scheduleApiService, executor, mainHandler);
+
         teamsRepository = new TeamsRepository(
                 teamDao, teamMemberDao, teamChallengeDao,
                 teamChallengeProgressDao, apiService, scheduleApiService,
-                executor, mainHandler
-        );
+                executor, mainHandler);
+
+        // Делегируем выдачу XP и отметку победителя в Repository
         this.teamsRepository.setRewardListener(new TeamsRepository.TeamRewardListener() {
             @Override
             public void onGrantXp(int xpReward) {
@@ -238,17 +241,11 @@ public class Repository {
             }
         });
 
-        // ✅ ИСПРАВЛЕНИЕ: Удален userWordProgressDao из параметров StatsRepository
         this.statsRepository = new StatsRepository(
-                userDao,
-                userStatsDao,
-                lessonHistoryDao,
-                achievementDao,
-                dailyQuestDao,
-                apiService,
-                executor,
-                mainHandler);
+                userDao, userStatsDao, lessonHistoryDao,
+                achievementDao, dailyQuestDao, apiService, executor, mainHandler);
 
+        // Делегируем вспомогательные операции StatsRepository обратно в Repository
         this.statsRepository.setListener(new StatsRepository.StatsListener() {
             @Override
             public String toSqlTimestamp(long millis) {
@@ -318,9 +315,9 @@ public class Repository {
         });
 
         this.achievementRepository = new AchievementRepository(
-                db,
-                achievementDao, userDao, apiService);
+                db, achievementDao, userDao, apiService);
 
+        // Делегируем вспомогательные операции AchievementRepository обратно в Repository
         this.achievementRepository.setListener(new AchievementRepository.AchievementListener() {
             @Override
             public int safeInt(Integer value) {
@@ -350,6 +347,7 @@ public class Repository {
 
         this.wordProgressRepository = new WordProgressRepository(apiService, mainHandler);
 
+        // Делегируем загрузку слов по ID и теме в локальные репозитории
         this.wordProgressRepository.setListener(new WordProgressRepository.WordProgressListener() {
             @Override
             public void loadWordsByIds(List<Long> ids,
@@ -375,9 +373,9 @@ public class Repository {
         });
 
         this.adminRepository = new AdminRepository(
-                db,
-                themeDao, wordDao, userWordDao, apiService, executor, mainHandler);
+                db, themeDao, wordDao, userWordDao, apiService, executor, mainHandler);
 
+        // Делегируем вспомогательные операции AdminRepository обратно в Repository
         this.adminRepository.setListener(new AdminRepository.AdminListener() {
             @Override
             public String normalizeText(String value) {
@@ -413,6 +411,7 @@ public class Repository {
         restoreCurrentUserFromPrefs();
     }
 
+    // Singleton с двойной проверкой блокировки
     public static Repository getInstance(Context context) {
         if (INSTANCE == null) {
             synchronized (Repository.class) {
@@ -454,6 +453,7 @@ public class Repository {
         return value == null ? 0 : value;
     }
 
+    // Форматирует Unix-время в строку "yyyy-MM-dd HH:mm:ss" для Supabase
     private String toSqlTimestamp(long millis) {
         if (millis <= 0) {
             millis = System.currentTimeMillis();
@@ -483,15 +483,8 @@ public class Repository {
         return "empty error body";
     }
 
-    /**
-     * Полный сброс кэшей и флагов загрузки при смене аккаунта.
-     *
-     * Это важно, потому что Repository — singleton, а вложенные репозитории
-     * могут хранить:
-     * - кэши старого пользователя;
-     * - флаги isFetching...;
-     * - списки достижений/слов старого аккаунта.
-     */
+    // Сбрасывает кэши и флаги всех вложенных репозиториев при смене аккаунта.
+    // Критично для singleton-репозитория: предотвращает утечку данных между аккаунтами.
     private void resetAllRepositoryStates() {
         try {
             wordProgressRepository.clearLearnedIdsCache();
@@ -526,13 +519,12 @@ public class Repository {
         Log.d("Repository", "Все кэши и флаги репозиториев сброшены");
     }
 
+    // Сбрасывает состояние всех репозиториев, очищает данные пользователя и вызывает callback
     public void logout(Runnable callback) {
         authSessionVersion++;
 
-        // Сначала сбрасываем кэши и флаги вложенных репозиториев
         resetAllRepositoryStates();
 
-        // Потом очищаем пользователя
         authRepository.logout(() -> {
             currentUser = null;
             authRepository.setCurrentUser(null);
@@ -603,60 +595,40 @@ public class Repository {
         themeRepository.getThemes(
                 new ThemeRepository.DataCallback<List<Theme>>() {
                     @Override
-                    public void onSuccess(List<Theme> data) {
-                        callback.onSuccess(data);
-                    }
+                    public void onSuccess(List<Theme> data) { callback.onSuccess(data); }
                     @Override
-                    public void onError(String error) {
-                        callback.onError(error);
-                    }
-                }
-        );
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
 
     private void loadThemesLocal(DataCallback<List<Theme>> callback) {
         themeRepository.loadThemesLocal(
                 new ThemeRepository.DataCallback<List<Theme>>() {
                     @Override
-                    public void onSuccess(List<Theme> data) {
-                        callback.onSuccess(data);
-                    }
+                    public void onSuccess(List<Theme> data) { callback.onSuccess(data); }
                     @Override
-                    public void onError(String error) {
-                        callback.onError(error);
-                    }
-                }
-        );
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
 
     public void getThemeById(long themeId, DataCallback<Theme> callback) {
         themeRepository.getThemeById(themeId,
                 new ThemeRepository.DataCallback<Theme>() {
                     @Override
-                    public void onSuccess(Theme data) {
-                        callback.onSuccess(data);
-                    }
+                    public void onSuccess(Theme data) { callback.onSuccess(data); }
                     @Override
-                    public void onError(String error) {
-                        callback.onError(error);
-                    }
-                }
-        );
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
 
     private void loadWordsLocal(Long themeId, DataCallback<List<Word>> callback) {
         wordRepository.loadWordsLocal(themeId,
                 new WordRepository.DataCallback<List<Word>>() {
                     @Override
-                    public void onSuccess(List<Word> data) {
-                        callback.onSuccess(data);
-                    }
+                    public void onSuccess(List<Word> data) { callback.onSuccess(data); }
                     @Override
-                    public void onError(String error) {
-                        callback.onError(error);
-                    }
-                }
-        );
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
 
     private void refreshAchievementsSync(User user, UserStats stats) {
@@ -709,6 +681,7 @@ public class Repository {
         ttsManager.speak(text, isSlow);
     }
 
+    // Освобождает ресурсы TTS при уничтожении компонента
     public void onDestroy() {
         ttsManager.destroy();
     }
@@ -723,9 +696,7 @@ public class Repository {
                 });
     }
 
-    /**
-     * ✅ Новая версия — с передачей данных пользователя
-     */
+    // Добавляет друга с передачей объекта пользователя для локального кэширования
     public void addFriend(int friendId, User friendUser, DataCallback<Void> callback) {
         if (currentUser == null) restoreCurrentUserFromPrefs();
 
@@ -737,7 +708,6 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
-
 
     public void getFriends(DataCallback<List<User>> callback) {
         if (currentUser == null) restoreCurrentUserFromPrefs();
@@ -751,13 +721,14 @@ public class Repository {
                 });
     }
 
+    // Добавляет участников команды на сервере, затем создаёт задание
     private void createTeamMembersRemote(
             int teamId,
             List<Integer> memberIds,
             String challengeType,
             int targetValue,
-            DataCallback<Integer> callback
-    ) {
+            DataCallback<Integer> callback) {
+
         List<JsonObject> membersPayload = new ArrayList<>();
 
         for (Integer userId : memberIds) {
@@ -773,7 +744,8 @@ public class Repository {
                 if (!response.isSuccessful()) {
                     Log.e("Repository", "Ошибка добавления участников: "
                             + response.code() + " | " + getErrorBody(response));
-                    mainHandler.post(() -> callback.onError("Команда создана, но участников добавить не удалось"));
+                    mainHandler.post(() -> callback.onError(
+                            "Команда создана, но участников добавить не удалось"));
                     return;
                 }
 
@@ -788,13 +760,14 @@ public class Repository {
         });
     }
 
+    // Создаёт командное задание на сервере; при таймауте ищет созданное задание с задержкой
     private void createTeamChallengeRemote(
             int teamId,
             List<Integer> memberIds,
             String challengeType,
             int targetValue,
-            DataCallback<Integer> callback
-    ) {
+            DataCallback<Integer> callback) {
+
         String title = "LESSONS".equals(challengeType)
                 ? "Пройти " + targetValue + " уроков"
                 : "Заработать " + targetValue + " XP";
@@ -826,6 +799,7 @@ public class Repository {
             public void onFailure(Call<Void> call, Throwable t) {
                 Log.e("Repository", "Timeout/сеть createTeamChallengeRemote: " + t.getMessage(), t);
 
+                // При таймауте задание могло всё-таки создаться — ищем с задержкой
                 mainHandler.postDelayed(() -> {
                     findCreatedTeamChallengeAndCreateProgress(teamId, memberIds, callback);
                 }, 1200);
@@ -833,12 +807,13 @@ public class Repository {
         });
     }
 
+    // Создаёт записи прогресса для всех участников командного задания
     private void createTeamChallengeProgressRemote(
             int teamId,
             int challengeId,
             List<Integer> memberIds,
-            DataCallback<Integer> callback
-    ) {
+            DataCallback<Integer> callback) {
+
         List<JsonObject> progressPayload = new ArrayList<>();
 
         for (Integer userId : memberIds) {
@@ -860,18 +835,21 @@ public class Repository {
                 } else {
                     Log.e("Repository", "Ошибка создания прогресса команды: "
                             + response.code() + " | " + getErrorBody(response));
-                    mainHandler.post(() -> callback.onError("Задание создано, но прогресс участников не создан"));
+                    mainHandler.post(() -> callback.onError(
+                            "Задание создано, но прогресс участников не создан"));
                 }
             }
 
             @Override
             public void onFailure(Call<Void> call, Throwable t) {
-                Log.e("Repository", "Ошибка сети createTeamChallengeProgressRemote: " + t.getMessage(), t);
+                Log.e("Repository", "Ошибка сети createTeamChallengeProgressRemote: "
+                        + t.getMessage(), t);
                 mainHandler.post(() -> callback.onError("Ошибка сети при создании прогресса"));
             }
         });
     }
 
+    // Разбирает JSON-объект командного задания в модель TeamChallenge
     private TeamChallenge parseTeamChallenge(JsonObject item) {
         TeamChallenge c = new TeamChallenge();
 
@@ -888,6 +866,7 @@ public class Repository {
         return c;
     }
 
+    // Обрабатывает одну запись прогресса: увеличивает счётчик или завершает задание при достижении цели
     private void processSingleTeamProgress(JsonObject progressJson, int earnedXp) {
         if (progressJson == null) return;
 
@@ -933,8 +912,7 @@ public class Repository {
             payload.addProperty("progress", newProgress);
 
             scheduleApiService.updateTeamChallengeProgressRaw(
-                    "eq." + progressId,
-                    payload
+                    "eq." + progressId, payload
             ).enqueue(new Callback<Void>() {
                 @Override
                 public void onResponse(Call<Void> call, Response<Void> response) {
@@ -952,19 +930,20 @@ public class Repository {
         }
     }
 
+    // Завершает командное задание: проверяет дубли, определяет место, начисляет XP
     private void finishTeamChallengeProgress(
             int progressId,
             int challengeId,
             JsonObject challengeJson,
-            int finalProgress
-    ) {
+            int finalProgress) {
+
+        // Проверяем, не завершена ли запись уже (защита от двойного начисления)
         scheduleApiService.getTeamProgressByIdRaw(
-                "eq." + progressId,
-                "id,is_completed,awarded_xp,place",
-                1
+                "eq." + progressId, "id,is_completed,awarded_xp,place", 1
         ).enqueue(new Callback<List<JsonObject>>() {
             @Override
-            public void onResponse(Call<List<JsonObject>> checkCall, Response<List<JsonObject>> checkResponse) {
+            public void onResponse(Call<List<JsonObject>> checkCall,
+                                   Response<List<JsonObject>> checkResponse) {
                 if (!checkResponse.isSuccessful()
                         || checkResponse.body() == null
                         || checkResponse.body().isEmpty()) {
@@ -981,17 +960,18 @@ public class Repository {
                                 && currentProgress.get("is_completed").getAsBoolean();
 
                 if (alreadyCompleted) {
-                    Log.d("Repository", "Командная награда уже была начислена. progressId=" + progressId);
+                    Log.d("Repository", "Командная награда уже была начислена. progressId="
+                            + progressId);
                     return;
                 }
 
+                // Считаем завершивших участников для определения места
                 scheduleApiService.getCompletedTeamProgressRaw(
-                        "eq." + challengeId,
-                        "eq.true",
-                        "completed_at.asc"
+                        "eq." + challengeId, "eq.true", "completed_at.asc"
                 ).enqueue(new Callback<List<JsonObject>>() {
                     @Override
-                    public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
+                    public void onResponse(Call<List<JsonObject>> call,
+                                           Response<List<JsonObject>> response) {
                         int alreadyCompletedCount = 0;
 
                         if (response.isSuccessful() && response.body() != null) {
@@ -1004,16 +984,17 @@ public class Repository {
                         JsonObject payload = new JsonObject();
                         payload.addProperty("progress", finalProgress);
                         payload.addProperty("is_completed", true);
-                        payload.addProperty("completed_at", toSqlTimestamp(System.currentTimeMillis()));
+                        payload.addProperty("completed_at",
+                                toSqlTimestamp(System.currentTimeMillis()));
                         payload.addProperty("place", place);
                         payload.addProperty("awarded_xp", rewardXp);
 
                         scheduleApiService.updateTeamChallengeProgressRaw(
-                                "eq." + progressId,
-                                payload
+                                "eq." + progressId, payload
                         ).enqueue(new Callback<Void>() {
                             @Override
-                            public void onResponse(Call<Void> call, Response<Void> updateResponse) {
+                            public void onResponse(Call<Void> call,
+                                                   Response<Void> updateResponse) {
                                 if (updateResponse.isSuccessful()) {
                                     grantTeamChallengeXp(rewardXp);
 
@@ -1021,32 +1002,39 @@ public class Repository {
                                         markTeamChallengeWinner(challengeId);
                                     }
                                 } else {
-                                    Log.e("Repository", "Не удалось завершить командный прогресс: "
-                                            + updateResponse.code() + " | " + getErrorBody(updateResponse));
+                                    Log.e("Repository",
+                                            "Не удалось завершить командный прогресс: "
+                                                    + updateResponse.code() + " | "
+                                                    + getErrorBody(updateResponse));
                                 }
                             }
 
                             @Override
                             public void onFailure(Call<Void> call, Throwable t) {
-                                Log.e("Repository", "Ошибка сети finishTeamChallengeProgress update: " + t.getMessage(), t);
+                                Log.e("Repository",
+                                        "Ошибка сети finishTeamChallengeProgress update: "
+                                                + t.getMessage(), t);
                             }
                         });
                     }
 
                     @Override
                     public void onFailure(Call<List<JsonObject>> call, Throwable t) {
-                        Log.e("Repository", "Ошибка получения мест команды: " + t.getMessage(), t);
+                        Log.e("Repository", "Ошибка получения мест команды: "
+                                + t.getMessage(), t);
                     }
                 });
             }
 
             @Override
             public void onFailure(Call<List<JsonObject>> checkCall, Throwable t) {
-                Log.e("Repository", "Ошибка проверки progressId перед начислением: " + t.getMessage(), t);
+                Log.e("Repository", "Ошибка проверки progressId перед начислением: "
+                        + t.getMessage(), t);
             }
         });
     }
 
+    // Возвращает XP-награду по занятому месту из JSON-объекта задания
     private int getTeamChallengeRewardByPlace(JsonObject challengeJson, int place) {
         int xpFirst = 120;
         int xpSecond = 80;
@@ -1055,11 +1043,9 @@ public class Repository {
         if (challengeJson.has("xp_first") && !challengeJson.get("xp_first").isJsonNull()) {
             xpFirst = challengeJson.get("xp_first").getAsInt();
         }
-
         if (challengeJson.has("xp_second") && !challengeJson.get("xp_second").isJsonNull()) {
             xpSecond = challengeJson.get("xp_second").getAsInt();
         }
-
         if (challengeJson.has("xp_other") && !challengeJson.get("xp_other").isJsonNull()) {
             xpOther = challengeJson.get("xp_other").getAsInt();
         }
@@ -1069,6 +1055,7 @@ public class Repository {
         return xpOther;
     }
 
+    // Начисляет XP за командное задание текущему пользователю
     private void grantTeamChallengeXp(int xpReward) {
         if (currentUser == null) {
             restoreCurrentUserFromPrefs();
@@ -1093,11 +1080,13 @@ public class Repository {
                 syncUserProgressToRemote(currentUser);
 
             } catch (Exception e) {
-                Log.e("Repository", "Ошибка начисления XP за командное задание: " + e.getMessage(), e);
+                Log.e("Repository", "Ошибка начисления XP за командное задание: "
+                        + e.getMessage(), e);
             }
         });
     }
 
+    // Отмечает текущего пользователя победителем командного задания на сервере
     private void markTeamChallengeWinner(int challengeId) {
         if (currentUser == null || currentUser.getId() == null) {
             return;
@@ -1108,8 +1097,7 @@ public class Repository {
         payload.addProperty("completed_at", toSqlTimestamp(System.currentTimeMillis()));
 
         scheduleApiService.updateTeamChallengeRaw(
-                "eq." + challengeId,
-                payload
+                "eq." + challengeId, payload
         ).enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
@@ -1121,16 +1109,18 @@ public class Repository {
 
             @Override
             public void onFailure(Call<Void> call, Throwable t) {
-                Log.e("Repository", "Ошибка сети markTeamChallengeWinner: " + t.getMessage(), t);
+                Log.e("Repository", "Ошибка сети markTeamChallengeWinner: "
+                        + t.getMessage(), t);
             }
         });
     }
 
+    // Ищет последнее созданное задание команды и создаёт для него прогресс (устаревший метод)
     private void findCreatedChallengeAndCreateProgress(
             int teamId,
             List<Integer> memberIds,
-            DataCallback<Integer> callback
-    ) {
+            DataCallback<Integer> callback) {
+
         scheduleApiService.getTeamChallengeRaw(
                 "eq." + teamId,
                 "id,team_id,title,condition_type,target_value," +
@@ -1139,30 +1129,36 @@ public class Repository {
                 1
         ).enqueue(new Callback<List<JsonObject>>() {
             @Override
-            public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
-                if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
+            public void onResponse(Call<List<JsonObject>> call,
+                                   Response<List<JsonObject>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && !response.body().isEmpty()) {
                     int challengeId = response.body().get(0).get("id").getAsInt();
                     createTeamChallengeProgressRemote(teamId, challengeId, memberIds, callback);
                 } else {
                     Log.e("Repository", "Задание команды не найдено после создания: "
                             + response.code() + " | " + getErrorBody(response));
-                    mainHandler.post(() -> callback.onError("Команда создана, но задание не найдено. Откройте экран команды позже."));
+                    mainHandler.post(() -> callback.onError(
+                            "Команда создана, но задание не найдено. Откройте экран команды позже."));
                 }
             }
 
             @Override
             public void onFailure(Call<List<JsonObject>> call, Throwable t) {
-                Log.e("Repository", "Ошибка поиска задания команды после timeout: " + t.getMessage(), t);
-                mainHandler.post(() -> callback.onError("Команда создана, но задание пока не загрузилось"));
+                Log.e("Repository", "Ошибка поиска задания команды после timeout: "
+                        + t.getMessage(), t);
+                mainHandler.post(() -> callback.onError(
+                        "Команда создана, но задание пока не загрузилось"));
             }
         });
     }
 
+    // Ищет последнее созданное задание команды и создаёт для него прогресс
     private void findCreatedTeamChallengeAndCreateProgress(
             int teamId,
             List<Integer> memberIds,
-            DataCallback<Integer> callback
-    ) {
+            DataCallback<Integer> callback) {
+
         scheduleApiService.getTeamChallengeRaw(
                 "eq." + teamId,
                 "id,team_id,title,condition_type,target_value," +
@@ -1171,14 +1167,17 @@ public class Repository {
                 1
         ).enqueue(new Callback<List<JsonObject>>() {
             @Override
-            public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
-                if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
+            public void onResponse(Call<List<JsonObject>> call,
+                                   Response<List<JsonObject>> response) {
+                if (response.isSuccessful() && response.body() != null
+                        && !response.body().isEmpty()) {
                     int challengeId = response.body().get(0).get("id").getAsInt();
                     createTeamChallengeProgressRemote(teamId, challengeId, memberIds, callback);
                 } else {
                     Log.e("Repository", "Задание команды не найдено после создания: "
                             + response.code() + " | " + getErrorBody(response));
-                    mainHandler.post(() -> callback.onError("Команда создана, но задание не найдено"));
+                    mainHandler.post(() -> callback.onError(
+                            "Команда создана, но задание не найдено"));
                 }
             }
 
@@ -1191,20 +1190,16 @@ public class Repository {
     }
 
     private Team parseTeamFromJson(JsonObject item) {
-        if (item == null) {
-            return null;
-        }
+        if (item == null) return null;
 
         Team team = new Team();
 
         if (item.has("id") && !item.get("id").isJsonNull()) {
             team.id = item.get("id").getAsInt();
         }
-
         if (item.has("team_name") && !item.get("team_name").isJsonNull()) {
             team.teamName = item.get("team_name").getAsString();
         }
-
         if (item.has("owner_id") && !item.get("owner_id").isJsonNull()) {
             team.ownerId = item.get("owner_id").getAsInt();
         }
@@ -1212,36 +1207,33 @@ public class Repository {
         return team;
     }
 
+    // Добавляет команду в список, если она ещё не присутствует (по ID)
     private void addTeamIfNotExists(List<Team> teams, Team newTeam) {
-        if (teams == null || newTeam == null || newTeam.id <= 0) {
-            return;
-        }
+        if (teams == null || newTeam == null || newTeam.id <= 0) return;
 
         for (Team team : teams) {
-            if (team != null && team.id == newTeam.id) {
-                return;
-            }
+            if (team != null && team.id == newTeam.id) return;
         }
 
         teams.add(newTeam);
     }
 
     private void cacheTeamsLocal(List<Team> teams) {
-        if (teams == null || teams.isEmpty()) {
-            return;
-        }
+        if (teams == null || teams.isEmpty()) return;
 
         executor.execute(() -> {
             for (Team team : teams) {
                 try {
                     teamDao.insert(team);
                 } catch (Exception e) {
-                    Log.e("Repository", "Ошибка локального сохранения команды: " + e.getMessage(), e);
+                    Log.e("Repository", "Ошибка локального сохранения команды: "
+                            + e.getMessage(), e);
                 }
             }
         });
     }
 
+    // Возвращает список команд пользователя из локальной БД
     private void loadMyTeamsLocal(int userId, DataCallback<List<Team>> callback) {
         executor.execute(() -> {
             try {
@@ -1278,18 +1270,13 @@ public class Repository {
         wordRepository.loadWordsByIds(ids,
                 new WordRepository.DataCallback<List<Word>>() {
                     @Override
-                    public void onSuccess(List<Word> data) {
-                        callback.onSuccess(data);
-                    }
-
+                    public void onSuccess(List<Word> data) { callback.onSuccess(data); }
                     @Override
-                    public void onError(String error) {
-                        callback.onError(error);
-                    }
-                }
-        );
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
 
+    // Добавляет слово без темы в личный словарь текущего пользователя
     public void addUserWord(String word,
                             String translation,
                             String transcription,
@@ -1300,25 +1287,16 @@ public class Repository {
         }
 
         personalDictionaryRepository.addUserWord(
-                word,
-                translation,
-                transcription,
-                notes,
-                currentUser,
+                word, translation, transcription, notes, currentUser,
                 new PersonalDictionaryRepository.DataCallback<Void>() {
                     @Override
-                    public void onSuccess(Void data) {
-                        callback.onSuccess(data);
-                    }
-
+                    public void onSuccess(Void data) { callback.onSuccess(data); }
                     @Override
-                    public void onError(String error) {
-                        callback.onError(error);
-                    }
-                }
-        );
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
 
+    // Добавляет слово с привязкой к теме в личный словарь текущего пользователя
     public void addUserWord(Long themeId,
                             String themeTitle,
                             String word,
@@ -1331,25 +1309,13 @@ public class Repository {
         }
 
         personalDictionaryRepository.addUserWord(
-                themeId,
-                themeTitle,
-                word,
-                translation,
-                transcription,
-                notes,
-                currentUser,
+                themeId, themeTitle, word, translation, transcription, notes, currentUser,
                 new PersonalDictionaryRepository.DataCallback<Void>() {
                     @Override
-                    public void onSuccess(Void data) {
-                        callback.onSuccess(data);
-                    }
-
+                    public void onSuccess(Void data) { callback.onSuccess(data); }
                     @Override
-                    public void onError(String error) {
-                        callback.onError(error);
-                    }
-                }
-        );
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
 
     public void getUserPersonalWords(DataCallback<List<UserWord>> callback) {
@@ -1386,6 +1352,7 @@ public class Repository {
                 });
     }
 
+    // Восстанавливает привязку к темам у слов личного словаря, у которых она утрачена
     public void repairPersonalDictionaryThemes(DataCallback<Void> callback) {
         personalDictionaryRepository.repairPersonalDictionaryThemes(
                 currentUser,
@@ -1405,17 +1372,15 @@ public class Repository {
         if (theme == null || theme.getTitle() == null || theme.getTitle().trim().isEmpty()) {
             return "Без темы";
         }
-
         return theme.getTitle().trim();
     }
 
+    // Ищет тему слова локально по термину и переводу через wordDao
     private Theme findThemeForWordLocally(String term, String translation) {
         String safeTerm = normalizeText(term);
         String safeTranslation = normalizeText(translation);
 
-        if (safeTerm.isEmpty()) {
-            return null;
-        }
+        if (safeTerm.isEmpty()) return null;
 
         try {
             Word sourceWord = null;
@@ -1428,9 +1393,7 @@ public class Repository {
                 sourceWord = wordDao.getWordByTerm(safeTerm);
             }
 
-            if (sourceWord == null || sourceWord.getThemeId() == null) {
-                return null;
-            }
+            if (sourceWord == null || sourceWord.getThemeId() == null) return null;
 
             return themeDao.getThemeById(sourceWord.getThemeId());
         } catch (Exception e) {
@@ -1439,6 +1402,7 @@ public class Repository {
         }
     }
 
+    // Строит PostgREST-фильтр "in.(...)" из списка ID
     private String buildIdsFilter(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return "in.(-1)";
@@ -1447,10 +1411,7 @@ public class Repository {
         StringBuilder builder = new StringBuilder("in.(");
 
         for (int i = 0; i < ids.size(); i++) {
-            if (i > 0) {
-                builder.append(",");
-            }
-
+            if (i > 0) builder.append(",");
             builder.append(ids.get(i));
         }
 
@@ -1458,12 +1419,11 @@ public class Repository {
         return builder.toString();
     }
 
+    // Извлекает список ID из списка слов
     private List<Long> extractWordIds(List<Word> words) {
         List<Long> ids = new ArrayList<>();
 
-        if (words == null) {
-            return ids;
-        }
+        if (words == null) return ids;
 
         for (Word word : words) {
             if (word != null && word.getId() != null) {
@@ -1485,6 +1445,7 @@ public class Repository {
                 });
     }
 
+    // Подсчитывает количество полностью освоенных тем (все слова изучены)
     public void getMasteredThemesCount(DataCallback<Integer> callback) {
         getThemes(new DataCallback<List<Theme>>() {
             @Override
@@ -1511,19 +1472,16 @@ public class Repository {
                     }
 
                     @Override
-                    public void onError(String error) {
-                        callback.onError(error);
-                    }
+                    public void onError(String error) { callback.onError(error); }
                 });
             }
 
             @Override
-            public void onError(String error) {
-                callback.onError(error);
-            }
+            public void onError(String error) { callback.onError(error); }
         });
     }
 
+    // Параллельно проверяет каждую тему на освоенность через AtomicInteger-счётчик
     private void calculateMasteredThemesCount(List<Theme> themes,
                                               List<Long> learnedWordIds,
                                               DataCallback<Integer> callback) {
@@ -1539,11 +1497,9 @@ public class Repository {
         for (Theme theme : themes) {
             if (theme == null || theme.getId() == null) {
                 completedRequests[0]++;
-
                 if (completedRequests[0] == totalThemes) {
                     callback.onSuccess(masteredCount[0]);
                 }
-
                 continue;
             }
 
@@ -1553,9 +1509,7 @@ public class Repository {
                     if (isThemeMastered(words, learnedWordIds)) {
                         masteredCount[0]++;
                     }
-
                     completedRequests[0]++;
-
                     if (completedRequests[0] == totalThemes) {
                         callback.onSuccess(masteredCount[0]);
                     }
@@ -1564,7 +1518,6 @@ public class Repository {
                 @Override
                 public void onError(String error) {
                     completedRequests[0]++;
-
                     if (completedRequests[0] == totalThemes) {
                         callback.onSuccess(masteredCount[0]);
                     }
@@ -1573,31 +1526,18 @@ public class Repository {
         }
     }
 
+    // Возвращает true если все слова темы присутствуют в списке изученных
     private boolean isThemeMastered(List<Word> words, List<Long> learnedWordIds) {
-        if (words == null || words.isEmpty()) {
-            return false;
-        }
-
-        if (learnedWordIds == null || learnedWordIds.isEmpty()) {
-            return false;
-        }
+        if (words == null || words.isEmpty()) return false;
+        if (learnedWordIds == null || learnedWordIds.isEmpty()) return false;
 
         for (Word word : words) {
-            if (word == null || word.getId() == null) {
-                return false;
-            }
-
-            if (!learnedWordIds.contains(word.getId())) {
-                return false;
-            }
+            if (word == null || word.getId() == null) return false;
+            if (!learnedWordIds.contains(word.getId())) return false;
         }
 
         return true;
     }
-
-    // ✅ ИСПРАВЛЕНИЕ: Удален ошибочный метод getLearnedWordIdsForCurrentUser,
-    // который использовал несуществующий DAO. Теперь мы делегируем этот
-    // запрос в StatsRepository, который корректно всё кэширует.
 
     public void syncPersonalWords(DataCallback<Void> callback) {
         personalDictionaryRepository.syncPersonalWords(
@@ -1625,32 +1565,20 @@ public class Repository {
         scheduleRepository.createStudySchedule(schedule,
                 new ScheduleRepository.DataCallback<StudySchedule>() {
                     @Override
-                    public void onSuccess(StudySchedule data) {
-                        callback.onSuccess(data);
-                    }
-
+                    public void onSuccess(StudySchedule data) { callback.onSuccess(data); }
                     @Override
-                    public void onError(String error) {
-                        callback.onError(error);
-                    }
-                }
-        );
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
 
     public void deleteStudySchedule(StudySchedule schedule, DataCallback<Void> callback) {
         scheduleRepository.deleteStudySchedule(schedule,
                 new ScheduleRepository.DataCallback<Void>() {
                     @Override
-                    public void onSuccess(Void data) {
-                        callback.onSuccess(data);
-                    }
-
+                    public void onSuccess(Void data) { callback.onSuccess(data); }
                     @Override
-                    public void onError(String error) {
-                        callback.onError(error);
-                    }
-                }
-        );
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
 
     public void getStudyScheduleForDate(int userId, String date,
@@ -1675,20 +1603,15 @@ public class Repository {
                 });
     }
 
-    private void loadLocalStudyScheduleForRange(int userId, String startDate, String endDate, DataCallback<List<StudySchedule>> callback) {
+    private void loadLocalStudyScheduleForRange(int userId, String startDate, String endDate,
+                                                DataCallback<List<StudySchedule>> callback) {
         scheduleRepository.loadLocalStudyScheduleForRange(userId, startDate, endDate,
                 new ScheduleRepository.DataCallback<List<StudySchedule>>() {
                     @Override
-                    public void onSuccess(List<StudySchedule> data) {
-                        callback.onSuccess(data);
-                    }
-
+                    public void onSuccess(List<StudySchedule> data) { callback.onSuccess(data); }
                     @Override
-                    public void onError(String error) {
-                        callback.onError(error);
-                    }
-                }
-        );
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
 
     public void createTeam(String teamName, DataCallback<Integer> callback) {
@@ -1757,7 +1680,9 @@ public class Repository {
         teamsRepository.getTeamProgress(challengeId,
                 new TeamsRepository.DataCallback<List<TeamChallengeProgress>>() {
                     @Override
-                    public void onSuccess(List<TeamChallengeProgress> data) { callback.onSuccess(data); }
+                    public void onSuccess(List<TeamChallengeProgress> data) {
+                        callback.onSuccess(data);
+                    }
                     @Override
                     public void onError(String error) { callback.onError(error); }
                 });
@@ -1853,8 +1778,7 @@ public class Repository {
                 });
     }
 
-    public void getRecentLessonHistory(int limit,
-                                       DataCallback<List<LessonHistory>> callback) {
+    public void getRecentLessonHistory(int limit, DataCallback<List<LessonHistory>> callback) {
         if (currentUser == null) restoreCurrentUserFromPrefs();
 
         statsRepository.getRecentLessonHistory(limit, currentUser,
@@ -1926,10 +1850,10 @@ public class Repository {
                 word, currentUser != null ? currentUser.getId() : null);
     }
 
+    // Обёртка для обратной совместимости: делегирует в incrementWordProgress и recordWordMistake
     private void upsertWordProgress(Long userId, Long wordId,
                                     boolean markLearned, boolean addMistake,
                                     DataCallback<Void> callback) {
-
         if (userId == null || wordId == null) {
             if (callback != null) {
                 mainHandler.post(() -> callback.onError("Некорректные параметры"));
@@ -1937,18 +1861,10 @@ public class Repository {
             return;
         }
 
-        // ✅ ИСПРАВЛЕНИЕ: Вызов с передачей callback для правильной работы в WordProgressRepository
-        // Этот метод вызывается в некоторых специфических местах.
-        // В WordProgressRepository.java (который мы обновили) метод upsertWordProgress был заменен на
-        // incrementWordProgress и recordWordMistake.
-        // Если вы все еще хотите оставить эту обертку для обратной совместимости,
-        // вызовем нужные методы:
-
         if (markLearned) {
             wordProgressRepository.incrementWordProgress(userId.intValue(), wordId);
         }
         if (addMistake) {
-            // Для совместимости, нужно создать пустой объект Word, так как recordWordMistake требует Word
             Word tempWord = new Word();
             tempWord.setId(wordId);
             wordProgressRepository.recordWordMistake(tempWord, userId.intValue());
@@ -2007,9 +1923,14 @@ public class Repository {
     }
 
     public void getWordsByTheme(Long themeId, DataCallback<List<Word>> callback) {
-        loadWordsLocal(themeId, callback);
+        wordRepository.getWordsByThemeCacheFirst(themeId,
+                new WordRepository.DataCallback<List<Word>>() {
+                    @Override
+                    public void onSuccess(List<Word> data) { callback.onSuccess(data); }
+                    @Override
+                    public void onError(String error) { callback.onError(error); }
+                });
     }
-
     public boolean isCurrentUserAdmin() {
         return adminRepository.isCurrentUserAdmin();
     }
@@ -2084,6 +2005,9 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
+    // Выполняет вход: сбрасывает состояние, отправляет запрос, отпускает UI немедленно,
+    // затем запускает фоновую синхронизацию данных нового аккаунта
     public void login(User user, DataCallback<User> callback) {
         if (user == null) {
             callback.onError("Введите данные для входа");
@@ -2091,12 +2015,9 @@ public class Repository {
         }
 
         String cleanEmail = user.getEmail() == null
-                ? ""
-                : user.getEmail().trim().toLowerCase();
-
+                ? "" : user.getEmail().trim().toLowerCase();
         String rawPassword = user.getPasswordHash() == null
-                ? ""
-                : user.getPasswordHash().trim();
+                ? "" : user.getPasswordHash().trim();
 
         if (cleanEmail.isEmpty() || rawPassword.isEmpty()) {
             callback.onError("Введите email и пароль");
@@ -2104,18 +2025,9 @@ public class Repository {
         }
 
         String hashedPassword = rawPassword.length() == 64
-                ? rawPassword
-                : hashPassword(rawPassword);
+                ? rawPassword : hashPassword(rawPassword);
 
-        /*
-         * ВАЖНО:
-         * Перед входом сбрасываем состояние старого аккаунта.
-         * Это защищает от ситуации:
-         * - вышли из аккаунта A;
-         * - старые запросы/кэши ещё живы;
-         * - вошли в аккаунт B;
-         * - профиль B получает часть данных A или зависает на старых флагах.
-         */
+        // Сбрасываем кэши до входа — защита от утечки данных между аккаунтами
         resetAllRepositoryStates();
 
         final int loginSession = ++authSessionVersion;
@@ -2125,10 +2037,7 @@ public class Repository {
                     @Override
                     public void onResponse(Call<List<JsonObject>> call,
                                            Response<List<JsonObject>> response) {
-                        /*
-                         * Если за время запроса пользователь успел выйти
-                         * или начать другой логин — игнорируем старый ответ.
-                         */
+                        // Игнорируем ответ если сессия устарела (пользователь сменился)
                         if (loginSession != authSessionVersion) {
                             Log.w("RepositoryLogin", "Игнорируем устаревший ответ login");
                             return;
@@ -2145,36 +2054,31 @@ public class Repository {
                         User serverUser = parseUserFromJson(response.body().get(0));
 
                         String serverPassword = serverUser.getPasswordHash() == null
-                                ? ""
-                                : serverUser.getPasswordHash().trim();
+                                ? "" : serverUser.getPasswordHash().trim();
 
                         boolean passwordMatches =
                                 hashedPassword.equals(serverPassword)
                                         || rawPassword.equals(serverPassword);
 
                         if (!passwordMatches) {
-                            Log.e("RepositoryLogin",
-                                    "Пароль не совпал. serverPassword=" + serverPassword);
+                            Log.e("RepositoryLogin", "Пароль не совпал. serverPassword="
+                                    + serverPassword);
                             mainHandler.post(() -> callback.onError("Неверный пароль"));
                             return;
                         }
 
                         if (serverUser.getId() == null) {
-                            mainHandler.post(() -> callback.onError("Некорректные данные пользователя"));
+                            mainHandler.post(() -> callback.onError(
+                                    "Некорректные данные пользователя"));
                             return;
                         }
 
-                        /*
-                         * Новый пользователь становится текущим.
-                         */
                         currentUser = serverUser;
                         authRepository.setCurrentUser(serverUser);
                         saveCurrentUserToPrefs(serverUser);
                         cacheUserSafely(serverUser);
 
-                        /*
-                         * Аватар нового пользователя.
-                         */
+                        // Применяем аватар из ответа сервера
                         if (serverUser.getAvatarConfig() != null
                                 && !serverUser.getAvatarConfig().trim().isEmpty()
                                 && !"null".equals(serverUser.getAvatarConfig().trim())) {
@@ -2183,28 +2087,17 @@ public class Repository {
                                         AvatarConfig.fromJson(serverUser.getAvatarConfig());
                                 AvatarPrefs.save(appContext, serverAvatar);
                             } catch (Exception e) {
-                                Log.e("RepositoryLogin",
-                                        "Ошибка применения avatar_config: " + e.getMessage(), e);
+                                Log.e("RepositoryLogin", "Ошибка применения avatar_config: "
+                                        + e.getMessage(), e);
                             }
                         }
 
                         Integer uid = serverUser.getId();
 
-                        /*
-                         * UI отпускаем сразу.
-                         * Профиль откроется быстро, а данные подтянутся в фоне.
-                         */
+                        // Немедленно отпускаем UI; фоновая синхронизация запускается после
                         mainHandler.post(() -> callback.onSuccess(serverUser));
 
-                        /*
-                         * Фоновая синхронизация нового аккаунта.
-                         * Запускаем после callback, чтобы вход не казался зависшим.
-                         */
                         syncAllDataFromServerForUser(uid, loginSession);
-
-                        /*
-                         * Записываем событие входа уже после установки currentUser.
-                         */
                         recordLoginEvent();
                     }
 
@@ -2216,16 +2109,13 @@ public class Repository {
                         }
 
                         Log.e("RepositoryLogin", "Ошибка сети login: " + t.getMessage(), t);
-                        mainHandler.post(() ->
-                                callback.onError("Ошибка сети: " + t.getMessage()));
+                        mainHandler.post(() -> callback.onError("Ошибка сети: " + t.getMessage()));
                     }
                 });
     }
 
-    /**
-     * Синхронизация строго для конкретного userId и конкретной версии сессии.
-     * Это защищает от старых запросов, которые могли вернуться после смены аккаунта.
-     */
+    // Запускает фоновую синхронизацию всех данных для конкретного пользователя и сессии.
+    // Проверяет актуальность сессии перед каждым шагом.
     private void syncAllDataFromServerForUser(Integer uid, int sessionVersion) {
         if (uid == null || uid <= 0) {
             Log.d("RepositorySync", "syncAllDataFromServerForUser: некорректный uid");
@@ -2242,13 +2132,14 @@ public class Repository {
         if (userSnapshot == null
                 || userSnapshot.getId() == null
                 || !uid.equals(userSnapshot.getId())) {
-            Log.w("RepositorySync", "syncAllDataFromServerForUser: currentUser уже другой");
+            Log.w("RepositorySync",
+                    "syncAllDataFromServerForUser: currentUser уже другой");
             return;
         }
 
         Log.d("RepositorySync", "Запуск синхронизации для userId=" + uid);
 
-        // 1. Кэш выученных слов
+        // 1. Прогрев кэша изученных слов
         try {
             wordProgressRepository.warmupLearnedIdsCache(uid);
         } catch (Exception e) {
@@ -2270,7 +2161,7 @@ public class Repository {
             }
         });
 
-        // 3. Статистика пользователя
+        // 3. Статистика
         statsRepository.syncStatsFromServer(uid, new StatsRepository.DataCallback<Void>() {
             @Override
             public void onSuccess(Void data) {
@@ -2286,8 +2177,7 @@ public class Repository {
         });
 
         // 4. Достижения
-        achievementRepository.syncAchievementsFromServer(
-                uid,
+        achievementRepository.syncAchievementsFromServer(uid,
                 new AchievementRepository.DataCallback<Void>() {
                     @Override
                     public void onSuccess(Void data) {
@@ -2300,50 +2190,56 @@ public class Repository {
                         if (sessionVersion != authSessionVersion) return;
                         Log.e("RepositorySync", "Ачивки: " + error);
                     }
-                }
-        );
+                });
 
         // 5. Друзья
-        friendsRepository.getFriends(userSnapshot, new FriendsRepository.DataCallback<List<User>>() {
-            @Override
-            public void onSuccess(List<User> data) {
-                if (sessionVersion != authSessionVersion) return;
-                Log.d("RepositorySync",
-                        "Друзья прогреты: " + (data != null ? data.size() : 0));
-            }
+        friendsRepository.getFriends(userSnapshot,
+                new FriendsRepository.DataCallback<List<User>>() {
+                    @Override
+                    public void onSuccess(List<User> data) {
+                        if (sessionVersion != authSessionVersion) return;
+                        Log.d("RepositorySync",
+                                "Друзья прогреты: " + (data != null ? data.size() : 0));
+                    }
 
-            @Override
-            public void onError(String error) {
-                if (sessionVersion != authSessionVersion) return;
-                Log.e("RepositorySync", "Друзья: " + error);
-            }
-        });
+                    @Override
+                    public void onError(String error) {
+                        if (sessionVersion != authSessionVersion) return;
+                        Log.e("RepositorySync", "Друзья: " + error);
+                    }
+                });
 
         // 6. Команды
-        teamsRepository.getMyTeams(userSnapshot, new TeamsRepository.DataCallback<List<Team>>() {
-            @Override
-            public void onSuccess(List<Team> data) {
-                if (sessionVersion != authSessionVersion) return;
-                Log.d("RepositorySync",
-                        "Команды прогреты: " + (data != null ? data.size() : 0));
-            }
+        teamsRepository.getMyTeams(userSnapshot,
+                new TeamsRepository.DataCallback<List<Team>>() {
+                    @Override
+                    public void onSuccess(List<Team> data) {
+                        if (sessionVersion != authSessionVersion) return;
+                        Log.d("RepositorySync",
+                                "Команды прогреты: " + (data != null ? data.size() : 0));
+                    }
 
-            @Override
-            public void onError(String error) {
-                if (sessionVersion != authSessionVersion) return;
-                Log.e("RepositorySync", "Команды: " + error);
-            }
-        });
+                    @Override
+                    public void onError(String error) {
+                        if (sessionVersion != authSessionVersion) return;
+                        Log.e("RepositorySync", "Команды: " + error);
+                    }
+                });
     }
+
+    // Регистрирует пользователя: нормализует данные, проверяет уникальность email и создаёт аккаунт
     public void register(User user, DataCallback<User> callback) {
         if (user == null) {
             callback.onError("Введите данные для регистрации");
             return;
         }
 
-        String rawPassword = user.getPasswordHash() == null ? "" : user.getPasswordHash().trim();
-        String cleanEmail = user.getEmail() == null ? "" : user.getEmail().trim().toLowerCase();
-        String cleanUsername = user.getUsername() == null ? "" : user.getUsername().trim();
+        String rawPassword = user.getPasswordHash() == null
+                ? "" : user.getPasswordHash().trim();
+        String cleanEmail = user.getEmail() == null
+                ? "" : user.getEmail().trim().toLowerCase();
+        String cleanUsername = user.getUsername() == null
+                ? "" : user.getUsername().trim();
 
         if (cleanUsername.isEmpty()) {
             callback.onError("Введите имя пользователя");
@@ -2355,7 +2251,8 @@ public class Repository {
             return;
         }
 
-        String hashedPassword = rawPassword.length() == 64 ? rawPassword : hashPassword(rawPassword);
+        String hashedPassword = rawPassword.length() == 64
+                ? rawPassword : hashPassword(rawPassword);
 
         user.setUsername(cleanUsername);
         user.setEmail(cleanEmail);
@@ -2364,10 +2261,13 @@ public class Repository {
         performActualRegistration(user, cleanEmail, callback);
     }
 
-    private void performActualRegistration(User user, String cleanEmail, DataCallback<User> callback) {
+    // Отправляет запрос на создание аккаунта; при пустом ответе загружает пользователя по email
+    private void performActualRegistration(User user, String cleanEmail,
+                                           DataCallback<User> callback) {
         apiService.register(user).enqueue(new Callback<List<JsonObject>>() {
             @Override
-            public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
+            public void onResponse(Call<List<JsonObject>> call,
+                                   Response<List<JsonObject>> response) {
                 if (response.isSuccessful()) {
                     if (response.body() != null && !response.body().isEmpty()) {
                         User regUser = parseUserFromJson(response.body().get(0));
@@ -2381,12 +2281,16 @@ public class Repository {
                 String errorBody = getErrorBody(response);
                 String safeError = errorBody == null ? "" : errorBody.toLowerCase();
 
-                if (response.code() == 409 || safeError.contains("duplicate") || safeError.contains("unique") || safeError.contains("already exists")) {
+                if (response.code() == 409
+                        || safeError.contains("duplicate")
+                        || safeError.contains("unique")
+                        || safeError.contains("already exists")) {
                     mainHandler.post(() -> callback.onError("Этот аккаунт уже зарегистрирован"));
                     return;
                 }
 
-                Log.e("Repository", "Ошибка регистрации: " + response.code() + " | " + errorBody);
+                Log.e("Repository", "Ошибка регистрации: "
+                        + response.code() + " | " + errorBody);
                 mainHandler.post(() -> callback.onError("Ошибка сервера: " + response.code()));
             }
 
@@ -2398,13 +2302,20 @@ public class Repository {
         });
     }
 
+    // Загружает данные только что зарегистрированного пользователя по email
     private void loadRegisteredUserByEmail(String cleanEmail, DataCallback<User> callback) {
         apiService.loginByEmail("eq." + cleanEmail).enqueue(new Callback<List<JsonObject>>() {
             @Override
-            public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
-                if (!response.isSuccessful() || response.body() == null || response.body().isEmpty()) {
-                    Log.e("Repository", "Пользователь создан, но не удалось загрузить его после регистрации: " + response.code() + " | " + getErrorBody(response));
-                    mainHandler.post(() -> callback.onError("Аккаунт создан, но не удалось завершить вход"));
+            public void onResponse(Call<List<JsonObject>> call,
+                                   Response<List<JsonObject>> response) {
+                if (!response.isSuccessful()
+                        || response.body() == null
+                        || response.body().isEmpty()) {
+                    Log.e("Repository",
+                            "Пользователь создан, но не удалось загрузить его: "
+                                    + response.code() + " | " + getErrorBody(response));
+                    mainHandler.post(() -> callback.onError(
+                            "Аккаунт создан, но не удалось завершить вход"));
                     return;
                 }
 
@@ -2414,12 +2325,16 @@ public class Repository {
 
             @Override
             public void onFailure(Call<List<JsonObject>> call, Throwable t) {
-                Log.e("Repository", "Ошибка загрузки пользователя после регистрации: " + t.getMessage(), t);
-                mainHandler.post(() -> callback.onError("Аккаунт создан, но не удалось завершить вход"));
+                Log.e("Repository",
+                        "Ошибка загрузки пользователя после регистрации: "
+                                + t.getMessage(), t);
+                mainHandler.post(() -> callback.onError(
+                        "Аккаунт создан, но не удалось завершить вход"));
             }
         });
     }
 
+    // Завершает регистрацию: сбрасывает кэши, устанавливает нового пользователя, запускает синхронизацию
     private void completeRegistrationSuccess(User regUser, DataCallback<User> callback) {
         if (regUser == null || regUser.getId() == null) {
             mainHandler.post(() -> callback.onError("Не удалось завершить регистрацию"));
@@ -2480,6 +2395,7 @@ public class Repository {
                 });
     }
 
+    // Разбирает JSON-объект пользователя из ответа сервера в модель User
     private User parseUserFromJson(JsonObject userJson) {
         User user = new User();
 
@@ -2487,43 +2403,31 @@ public class Repository {
 
         if (userJson.has("id") && !userJson.get("id").isJsonNull())
             user.setId(userJson.get("id").getAsInt());
-
         if (userJson.has("username") && !userJson.get("username").isJsonNull())
             user.setUsername(userJson.get("username").getAsString());
-
         if (userJson.has("email") && !userJson.get("email").isJsonNull())
             user.setEmail(userJson.get("email").getAsString());
-
         if (userJson.has("password_hash") && !userJson.get("password_hash").isJsonNull())
             user.setPasswordHash(userJson.get("password_hash").getAsString());
-
         if (userJson.has("current_level") && !userJson.get("current_level").isJsonNull())
             user.setCurrentLevel(userJson.get("current_level").getAsInt());
-
         if (userJson.has("total_xp") && !userJson.get("total_xp").isJsonNull())
             user.setTotalXp(userJson.get("total_xp").getAsInt());
-
         if (userJson.has("role") && !userJson.get("role").isJsonNull())
             user.setRole(userJson.get("role").getAsString());
-
         if (userJson.has("created_at") && !userJson.get("created_at").isJsonNull())
             user.setCreatedAt(userJson.get("created_at").getAsString());
-
         if (userJson.has("avatar_config") && !userJson.get("avatar_config").isJsonNull())
             user.setAvatarConfig(userJson.get("avatar_config").toString());
         else
             user.setAvatarConfig(null);
-
         if (userJson.has("gender") && !userJson.get("gender").isJsonNull())
             user.setGender(userJson.get("gender").getAsString());
 
         return user;
     }
-    /**
-     *  Полная фоновая синхронизация всех данных с сервера.
-     * Вызывается при каждом запуске приложения, чтобы подтянуть
-     * изменения с других устройств.
-     */
+
+    // Полная фоновая синхронизация данных при запуске приложения для авторизованного пользователя
     public void syncAllDataFromServer() {
         if (currentUser == null || currentUser.getId() == null) {
             restoreCurrentUserFromPrefs();
@@ -2540,15 +2444,14 @@ public class Repository {
 
         syncAllDataFromServerForUser(uid, session);
 
-        // ✅ Прогрев кэша выученных слов
         wordProgressRepository.warmupLearnedIdsCache(uid);
-        Log.d("RepositorySync", "🔄 Запуск полной синхронизации для userId=" + uid);
+        Log.d("RepositorySync", "Запуск полной синхронизации для userId=" + uid);
 
-        // 1. Личный словарь
+        // Личный словарь
         syncPersonalWords(uid, new DataCallback<Void>() {
             @Override
             public void onSuccess(Void data) {
-                Log.d("RepositorySync", "✅ Личный словарь синхронизирован");
+                Log.d("RepositorySync", "Личный словарь синхронизирован");
             }
             @Override
             public void onError(String error) {
@@ -2556,11 +2459,11 @@ public class Repository {
             }
         });
 
-        // 2. Статистика пользователя
+        // Статистика
         statsRepository.syncStatsFromServer(uid, new StatsRepository.DataCallback<Void>() {
             @Override
             public void onSuccess(Void data) {
-                Log.d("RepositorySync", "✅ user_stats синхронизированы");
+                Log.d("RepositorySync", "user_stats синхронизированы");
             }
             @Override
             public void onError(String error) {
@@ -2568,44 +2471,49 @@ public class Repository {
             }
         });
 
-        // 3. Ачивки и их прогресс
-        achievementRepository.syncAchievementsFromServer(uid, new AchievementRepository.DataCallback<Void>() {
-            @Override
-            public void onSuccess(Void data) {
-                Log.d("RepositorySync", "✅ Ачивки синхронизированы");
-            }
-            @Override
-            public void onError(String error) {
-                Log.e("RepositorySync", "Ачивки: " + error);
-            }
-        });
+        // Достижения
+        achievementRepository.syncAchievementsFromServer(uid,
+                new AchievementRepository.DataCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void data) {
+                        Log.d("RepositorySync", "Ачивки синхронизированы");
+                    }
+                    @Override
+                    public void onError(String error) {
+                        Log.e("RepositorySync", "Ачивки: " + error);
+                    }
+                });
 
-        // 4. Прогрев друзей
-        friendsRepository.getFriends(currentUser, new FriendsRepository.DataCallback<List<User>>() {
-            @Override
-            public void onSuccess(List<User> data) {
-                Log.d("RepositorySync", "✅ Друзья прогреты: " + (data != null ? data.size() : 0));
-            }
-            @Override
-            public void onError(String error) {
-                Log.e("RepositorySync", "Друзья: " + error);
-            }
-        });
+        // Друзья
+        friendsRepository.getFriends(currentUser,
+                new FriendsRepository.DataCallback<List<User>>() {
+                    @Override
+                    public void onSuccess(List<User> data) {
+                        Log.d("RepositorySync",
+                                "Друзья прогреты: " + (data != null ? data.size() : 0));
+                    }
+                    @Override
+                    public void onError(String error) {
+                        Log.e("RepositorySync", "Друзья: " + error);
+                    }
+                });
 
-        // 5. Прогрев команд
-        teamsRepository.getMyTeams(currentUser, new TeamsRepository.DataCallback<List<Team>>() {
-            @Override
-            public void onSuccess(List<Team> data) {
-                Log.d("RepositorySync", "✅ Команды прогреты: " + (data != null ? data.size() : 0));
-            }
-            @Override
-            public void onError(String error) {
-                Log.e("RepositorySync", "Команды: " + error);
-            }
-        });
-
-
+        // Команды
+        teamsRepository.getMyTeams(currentUser,
+                new TeamsRepository.DataCallback<List<Team>>() {
+                    @Override
+                    public void onSuccess(List<Team> data) {
+                        Log.d("RepositorySync",
+                                "Команды прогреты: " + (data != null ? data.size() : 0));
+                    }
+                    @Override
+                    public void onError(String error) {
+                        Log.e("RepositorySync", "Команды: " + error);
+                    }
+                });
     }
+
+    // Методы для пометки слова как пройденного в конкретном режиме обучения
     public void markSprintPassed(Integer userId, Long wordId) {
         wordProgressRepository.markSprintPassed(userId, wordId);
     }
@@ -2617,6 +2525,7 @@ public class Repository {
     public void markWritingPassed(Integer userId, Long wordId) {
         wordProgressRepository.markWritingPassed(userId, wordId);
     }
+
     public void warmupLearnedIdsCache(Integer userId) {
         wordProgressRepository.warmupLearnedIdsCache(userId);
     }
@@ -2624,6 +2533,7 @@ public class Repository {
     public void clearLearnedIdsCache() {
         wordProgressRepository.clearLearnedIdsCache();
     }
+
     public void isAlreadyFriend(int friendId, DataCallback<Boolean> callback) {
         if (currentUser == null) restoreCurrentUserFromPrefs();
 
@@ -2635,4 +2545,6 @@ public class Repository {
                     public void onError(String error) { callback.onError(error); }
                 });
     }
+
+
 }

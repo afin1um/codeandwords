@@ -7,12 +7,7 @@ import androidx.room.PrimaryKey;
 import com.google.gson.annotations.SerializedName;
 import java.io.Serializable;
 
-/**
- * Класс Theme (Темы обучения).
- * Описывает разделы ИТ-лексики (Git, Java, SQL и т.д.).
- * Аннотации Room позволяют сохранять данные локально,
- * а SerializedName — работать с API Supabase.
- */
+// Тема обучения: раздел ИТ-лексики с текстом теории и уровнем сложности
 @Entity(tableName = "themes")
 public class Theme implements Serializable {
 
@@ -32,77 +27,37 @@ public class Theme implements Serializable {
     @SerializedName("difficulty_level")
     private String difficultyLevel;
 
-    /**
-     * Текст теории с разметкой.
-     * Используется для обучения пользователя перед игровыми режимами.
-     */
+    // Текст с разметкой [[Перевод|Term]] для подсветки терминов в UI теории
     @ColumnInfo(name = "theory_text")
     @SerializedName("theory_text")
     private String theoryText;
 
-    // --- Конструкторы ---
-
     public Theme() {
     }
 
-    public Theme(Long id, String title, String description, String difficultyLevel, String theoryText) {
+    public Theme(Long id, String title, String description,
+                 String difficultyLevel, String theoryText) {
         this.id = id;
         this.title = title;
         this.description = description;
         this.difficultyLevel = difficultyLevel;
-        this.theoryText = theoryText; // Добавлено присваивание
-    }
-
-    // --- Геттеры и Сеттеры ---
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getDifficultyLevel() {
-        return difficultyLevel;
-    }
-
-    public void setDifficultyLevel(String difficultyLevel) {
-        this.difficultyLevel = difficultyLevel;
-    }
-
-    public String getTheoryText() {
-        return theoryText;
-    }
-
-    public void setTheoryText(String theoryText) {
         this.theoryText = theoryText;
     }
 
-    // --- Дополнительные методы ---
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getDifficultyLevel() { return difficultyLevel; }
+    public void setDifficultyLevel(String difficultyLevel) { this.difficultyLevel = difficultyLevel; }
+    public String getTheoryText() { return theoryText; }
+    public void setTheoryText(String theoryText) { this.theoryText = theoryText; }
 
     @Override
     public String toString() {
-        return "Theme{" +
-                "id=" + id +
-                ", title='" + title + '\'' +
-                ", difficulty='" + difficultyLevel + '\'' +
-                '}';
+        return "Theme{id=" + id + ", title='" + title
+                + '\'' + ", difficulty='" + difficultyLevel + '\'' + '}';
     }
 }

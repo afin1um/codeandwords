@@ -35,7 +35,7 @@
     <color name="bottom_nav_selected">@color/app_green</color>
     <color name="bottom_nav_unselected">@color/app_text_secondary</color>
 
-    <!-- Старые alias, чтобы старые экраны не ломались -->
+    <!-- Старые alias -->
     <color name="duo_dark_bg">@color/app_bg</color>
     <color name="duo_card_bg">@color/app_card_bg</color>
     <color name="duo_card_stroke">@color/app_card_stroke</color>

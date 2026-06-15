@@ -22,6 +22,7 @@ public class TeamMember {
     @ColumnInfo(name = "user_id")
     public int userId;
 
+    // На сервере поле называется joined_at; маппинг происходит в parseTeamMemberFromJson
     @SerializedName("created_at")
     @ColumnInfo(name = "created_at")
     public String createdAt;

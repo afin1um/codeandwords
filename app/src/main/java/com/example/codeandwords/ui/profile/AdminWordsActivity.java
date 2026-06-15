@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+// Экран управления терминами: фильтрация по теме, создание, редактирование и удаление.
 public class AdminWordsActivity extends AppCompatActivity {
 
     private ImageButton btnBackAdminWords;
@@ -118,6 +119,7 @@ public class AdminWordsActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+        // При смене темы подгружаем её слова.
         spThemesForWord.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -132,6 +134,7 @@ public class AdminWordsActivity extends AppCompatActivity {
         });
     }
 
+    // Загружает список тем и выставляет первую тему по умолчанию.
     private void loadThemes() {
         setLoading(true);
 
@@ -183,6 +186,7 @@ public class AdminWordsActivity extends AppCompatActivity {
         });
     }
 
+    // Загружает слова выбранной темы.
     private void loadWords(Long themeId) {
         if (themeId == null) return;
 
@@ -206,6 +210,7 @@ public class AdminWordsActivity extends AppCompatActivity {
         });
     }
 
+    // Создаёт новый термин или обновляет существующий.
     private void saveWord() {
         if (themes.isEmpty()) {
             toast("Сначала создайте тему");
@@ -284,6 +289,7 @@ public class AdminWordsActivity extends AppCompatActivity {
         }
     }
 
+    // Проверка на дубликаты термина внутри выбранной темы.
     private boolean isWordDuplicate(Long themeId, String term, String translation, Word currentEditingWord) {
         String safeTerm = normalize(term);
         String safeTranslation = normalize(translation);
@@ -318,6 +324,7 @@ public class AdminWordsActivity extends AppCompatActivity {
         return false;
     }
 
+    // Заполняет форму данными выбранного термина.
     private void fillWordForm(Word word) {
         if (word == null) return;
 

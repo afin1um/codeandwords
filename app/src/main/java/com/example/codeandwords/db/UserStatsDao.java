@@ -16,7 +16,7 @@ public interface UserStatsDao {
     @Query("SELECT * FROM user_stats WHERE user_id = :userId LIMIT 1")
     UserStats getByUserId(int userId);
 
-    // Быстрые точечные апдейты — без чтения всей строки
+    // Точечные обновления без чтения всей строки для минимального I/O
     @Query("UPDATE user_stats SET current_day_xp = :xp, updated_at = :updatedAt WHERE user_id = :userId")
     void updateDailyXp(int userId, int xp, long updatedAt);
 

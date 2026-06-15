@@ -22,6 +22,7 @@ import com.example.codeandwords.model.User;
 import java.util.ArrayList;
 import java.util.List;
 
+// Экран управления командами: создание с выбором друзей и заданием, список существующих команд.
 public class TeamActivity extends AppCompatActivity {
 
     private Repository repository;
@@ -52,10 +53,8 @@ public class TeamActivity extends AppCompatActivity {
         setupClicks();
     }
 
-    /**
-     * ✅ ИСПРАВЛЕНО: обновляем И команды, И друзей при каждом возврате на экран.
-     * Это нужно, чтобы свежедобавленные друзья сразу появлялись в списке выбора.
-     */
+    // При каждом возврате на экран обновляем команды и друзей,
+    // чтобы свежедобавленные друзья сразу появились в списке выбора
     @Override
     protected void onResume() {
         super.onResume();
@@ -160,6 +159,7 @@ public class TeamActivity extends AppCompatActivity {
         });
     }
 
+    // Собирает данные формы и создаёт команду с заданием
     private void createTeam() {
         String teamName = etTeamName.getText().toString().trim();
 
@@ -182,7 +182,8 @@ public class TeamActivity extends AppCompatActivity {
                     public void onSuccess(Integer teamId) {
                         btnCreateTeam.setEnabled(true);
 
-                        Toast.makeText(TeamActivity.this, "Команда создана", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(TeamActivity.this, "Команда создана",
+                                Toast.LENGTH_SHORT).show();
 
                         etTeamName.setText("");
                         selectableFriendAdapter.clearSelection();

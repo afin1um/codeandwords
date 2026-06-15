@@ -19,6 +19,7 @@ import com.example.codeandwords.ui.profile.AvatarPrefs;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 
+// Экран регистрации с выбором пола и созданием дефолтного аватара
 public class RegisterActivity extends BaseBackActivity {
 
     private TextInputEditText etName;
@@ -78,27 +79,22 @@ public class RegisterActivity extends BaseBackActivity {
 
         btnRegister.setOnClickListener(v -> performRegistration());
 
-        // Оставляем вторую точку выхода — как ты выбрала
         btnBackToLogin.setOnClickListener(v -> finish());
     }
 
-    /**
-     * Если идёт регистрация — не даём случайно уйти со страницы.
-     */
+    // Блокирует случайный выход во время активной регистрации
     @Override
     protected void handleBack() {
         if (isLoading()) {
-            Toast.makeText(this, "Дождитесь завершения регистрации", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Дождитесь завершения регистрации",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
         super.handleBack();
     }
 
-    /**
-     * Обновляет визуальное состояние кнопок выбора пола.
-     * Активная — толстая голубая обводка, неактивная — тонкая серая.
-     */
+    // Активная кнопка получает толстую голубую обводку, неактивная — тонкую серую
     private void updateGenderButtons() {
         boolean isFemale = "female".equals(selectedGender);
 
@@ -107,42 +103,38 @@ public class RegisterActivity extends BaseBackActivity {
 
         btnGenderFemale.setStrokeWidth(isFemale ? dp(4) : dp(1));
         btnGenderFemale.setStrokeColor(
-                ColorStateList.valueOf(isFemale ? activeStroke : inactiveStroke)
-        );
+                ColorStateList.valueOf(isFemale ? activeStroke : inactiveStroke));
         btnGenderFemale.setAlpha(isFemale ? 1f : 0.65f);
 
         btnGenderMale.setStrokeWidth(!isFemale ? dp(4) : dp(1));
         btnGenderMale.setStrokeColor(
-                ColorStateList.valueOf(!isFemale ? activeStroke : inactiveStroke)
-        );
+                ColorStateList.valueOf(!isFemale ? activeStroke : inactiveStroke));
         btnGenderMale.setAlpha(!isFemale ? 1f : 0.65f);
     }
 
     private void performRegistration() {
         String name = etName.getText() != null
-                ? etName.getText().toString().trim()
-                : "";
-
+                ? etName.getText().toString().trim() : "";
         String email = etEmail.getText() != null
-                ? etEmail.getText().toString().trim()
-                : "";
-
+                ? etEmail.getText().toString().trim() : "";
         String password = etPassword.getText() != null
-                ? etPassword.getText().toString().trim()
-                : "";
+                ? etPassword.getText().toString().trim() : "";
 
         if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Пожалуйста, заполните все поля", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Пожалуйста, заполните все поля",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (password.length() < 6) {
-            Toast.makeText(this, "Пароль должен быть не менее 6 символов", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Пароль должен быть не менее 6 символов",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
 
         showLoading(true);
 
+        // Создаём дефолтный аватар по выбранному полу и сохраняем как черновик
         AvatarConfig defaultAvatar = createDefaultAvatar(selectedGender);
         AvatarPrefs.saveDraft(this, defaultAvatar);
         AvatarPrefs.setAvatarCreated(this, false);
@@ -157,14 +149,14 @@ public class RegisterActivity extends BaseBackActivity {
             public void onSuccess(User user) {
                 showLoading(false);
 
-                Toast.makeText(
-                        RegisterActivity.this,
+                Toast.makeText(RegisterActivity.this,
                         "Регистрация успешна! Настройте аватар.",
-                        Toast.LENGTH_SHORT
-                ).show();
+                        Toast.LENGTH_SHORT).show();
 
+                // После регистрации сразу переходим в редактор аватара
                 Intent intent = new Intent(RegisterActivity.this, AvatarEditorActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 startActivity(intent);
                 finish();
             }
@@ -172,16 +164,13 @@ public class RegisterActivity extends BaseBackActivity {
             @Override
             public void onError(String error) {
                 showLoading(false);
-
-                Toast.makeText(
-                        RegisterActivity.this,
-                        "Ошибка: " + error,
-                        Toast.LENGTH_LONG
-                ).show();
+                Toast.makeText(RegisterActivity.this,
+                        "Ошибка: " + error, Toast.LENGTH_LONG).show();
             }
         });
     }
 
+    // Создаёт дефолтный аватар с параметрами, зависящими от пола
     private AvatarConfig createDefaultAvatar(String gender) {
         AvatarConfig config = new AvatarConfig();
         config.gender = "male".equals(gender) ? "male" : "female";

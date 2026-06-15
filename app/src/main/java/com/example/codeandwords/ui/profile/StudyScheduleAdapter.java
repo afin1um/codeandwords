@@ -14,6 +14,7 @@ import com.example.codeandwords.model.StudySchedule;
 import java.util.ArrayList;
 import java.util.List;
 
+// Адаптер списка занятий выбранного дня.
 public class StudyScheduleAdapter extends RecyclerView.Adapter<StudyScheduleAdapter.ScheduleViewHolder> {
 
     public interface OnScheduleClickListener {
@@ -65,6 +66,7 @@ public class StudyScheduleAdapter extends RecyclerView.Adapter<StudyScheduleAdap
         });
     }
 
+    // Генерирует двухбуквенное сокращение из заголовка темы
     private String makeShortTitle(String title) {
         if (title == null || title.trim().isEmpty()) {
             return "ЗН";

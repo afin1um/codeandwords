@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey;
 
 import com.google.gson.annotations.SerializedName;
 
+// Командное задание с условием выполнения (XP или количество уроков) и наградами по местам
 @Entity(tableName = "team_challenges")
 public class TeamChallenge {
 
@@ -22,6 +23,7 @@ public class TeamChallenge {
     @ColumnInfo(name = "title")
     public String title;
 
+    // Тип условия: "XP" или "LESSONS"
     @SerializedName("condition_type")
     @ColumnInfo(name = "condition_type")
     public String conditionType;
@@ -30,6 +32,7 @@ public class TeamChallenge {
     @ColumnInfo(name = "target_value")
     public int targetValue;
 
+    // XP-награды за 1-е, 2-е место и остальных участников
     @SerializedName("xp_first")
     @ColumnInfo(name = "xp_first")
     public int xpFirst;

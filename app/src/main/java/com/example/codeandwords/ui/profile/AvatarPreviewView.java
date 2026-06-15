@@ -11,6 +11,8 @@ import android.view.View;
 
 import androidx.annotation.Nullable;
 
+// Кастомный View для отрисовки аватара на Canvas.
+// Поддерживает все категории настроек: кожа, тело, лицо, волосы, очки, шляпы, серьги.
 public class AvatarPreviewView extends View {
 
     private boolean showBackground = true;
@@ -78,6 +80,7 @@ public class AvatarPreviewView extends View {
         canvas.restoreToCount(saveCount);
     }
 
+    // Порядок отрисовки слоёв аватара: задние волосы → тело → лицо → детали → передние волосы → аксессуары
     private void drawAvatar(Canvas canvas, float w, float h) {
         float cx = w / 2f;
 
@@ -116,6 +119,7 @@ public class AvatarPreviewView extends View {
         canvas.drawRoundRect(neck, w * 0.025f, w * 0.025f, paint);
     }
 
+    // Три стиля тела (bodyStyle 0, 1, 2) с разной формой плеч
     private void drawBody(Canvas canvas, float cx, float h, float w) {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.clothesColor);
@@ -163,6 +167,7 @@ public class AvatarPreviewView extends View {
         canvas.drawCircle(cx + w * 0.165f, h * 0.38f, w * 0.026f, paint);
     }
 
+    // 12 вариантов выражения лица (faceShape 0-11), включая закрытые глаза и анимэ-стиль
     private void drawEyes(Canvas canvas, float cx, float h, float w) {
         paint.setStyle(Paint.Style.FILL);
 
@@ -289,6 +294,7 @@ public class AvatarPreviewView extends View {
         }
     }
 
+    // Рисует зрачок с бликом
     private void drawPupil(Canvas canvas, float x, float y, float r) {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.eyeColor);
@@ -298,6 +304,7 @@ public class AvatarPreviewView extends View {
         canvas.drawCircle(x + r * 0.35f, y - r * 0.35f, r * 0.28f, paint);
     }
 
+    // 12 вариантов бровей, синхронизированных с faceShape
     private void drawBrows(Canvas canvas, float cx, float h, float w) {
         paint.setStyle(Paint.Style.STROKE);
         paint.setColor(config.hairColor);
@@ -377,6 +384,7 @@ public class AvatarPreviewView extends View {
         canvas.drawPath(nose, paint);
     }
 
+    // 12 вариантов рта, соответствующих faceShape
     private void drawSmile(Canvas canvas, float cx, float h, float w) {
         int mouthColor = adjustBrightness(config.skinColor, 0.68f);
         int lipColor = Color.parseColor("#B94E5C");
@@ -508,6 +516,7 @@ public class AvatarPreviewView extends View {
         paint.setStyle(Paint.Style.FILL);
     }
 
+    // Очки: 4 стиля (0 = нет, 1 = круглые, 2 = прямоугольные, 3 = тонированные)
     private void drawGlasses(Canvas canvas, float cx, float h, float w) {
         if (config.glassesStyle == 0) return;
 
@@ -542,6 +551,7 @@ public class AvatarPreviewView extends View {
         paint.setStyle(Paint.Style.FILL);
     }
 
+    // Шляпы: 6 стилей (0 = нет, 1-5 = бейсболка, ковбой, пилотка, шапка, крутая шляпа)
     private void drawHat(Canvas canvas, float cx, float h, float w) {
         if (config.hatStyle == 0) return;
 
@@ -645,6 +655,7 @@ public class AvatarPreviewView extends View {
         paint.setStyle(Paint.Style.FILL);
     }
 
+    // Серьги: 3 стиля (0 = нет, 1 = большие, 2 = маленькие)
     private void drawEarrings(Canvas canvas, float cx, float h, float w) {
         if (config.earringsStyle == 0) return;
 
@@ -663,12 +674,9 @@ public class AvatarPreviewView extends View {
         paint.setStyle(Paint.Style.FILL);
     }
 
-    /**
-     * База-"шапка" на лбу — только для длинных женских стилей (10-34).
-     * Для мужских (1, 3, 4, 5) и каре (2) — собственный силуэт.
-     */
+    // Базовый блок лба поверх кожи — только для длинных женских стилей.
+    // Мужские причёски (1–5) имеют собственный силуэт и не нуждаются в базе.
     private void drawHairForeheadBase(Canvas canvas, float cx, float h, float w) {
-        // Стили с собственным силуэтом — база НЕ нужна
         if (config.hairStyle >= 1 && config.hairStyle <= 5) {
             return;
         }
@@ -731,6 +739,7 @@ public class AvatarPreviewView extends View {
         }
     }
 
+    // Диспетчер задней части волос по hairStyle
     private void drawHairBack(Canvas canvas, float cx, float h, float w) {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.hairColor);
@@ -778,6 +787,7 @@ public class AvatarPreviewView extends View {
         }
     }
 
+    // Диспетчер передней части (чёлки / виски) по hairStyle
     private void drawHairFront(Canvas canvas, float cx, float h, float w) {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.hairColor);
@@ -825,7 +835,8 @@ public class AvatarPreviewView extends View {
         }
     }
 
-    // === ДЛИННЫЕ ВОЛОСЫ (женские базовые) ===
+    // === ПРИЧЁСКИ (отдельные методы) ===
+
     private void drawLongStraightHair(Canvas c, float cx, float h, float w) {
         RectF hair = new RectF(cx - w * 0.19f, h * 0.16f, cx + w * 0.19f, h * 0.88f);
         c.drawRoundRect(hair, w * 0.10f, w * 0.10f, paint);
@@ -842,14 +853,11 @@ public class AvatarPreviewView extends View {
         c.drawPath(bangs, paint);
     }
 
-    // ========================================
-    // 1 — Короткая мужская стрижка (округлая)
-    // ========================================
+    // Короткая мужская стрижка (округлая)
     private void drawShortRoundedBack(Canvas canvas, float cx, float h, float w) {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.hairColor);
 
-        // Рисуем основной объем сзади, чуть шире лица
         RectF backHair = new RectF(
                 cx - w * 0.155f,
                 h * 0.150f,
@@ -863,7 +871,6 @@ public class AvatarPreviewView extends View {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.hairColor);
 
-        // Основная "шапка" волос
         RectF hairTop = new RectF(
                 cx - w * 0.150f,
                 h * 0.140f,
@@ -872,20 +879,16 @@ public class AvatarPreviewView extends View {
         );
         canvas.drawRoundRect(hairTop, w * 0.08f, w * 0.08f, paint);
 
-        // Виски (заканчиваются ДО начала ушей)
         Path temples = new Path();
-        // Левый висок
         temples.moveTo(cx - w * 0.150f, h * 0.280f);
         temples.lineTo(cx - w * 0.135f, h * 0.340f);
         temples.lineTo(cx - w * 0.100f, h * 0.280f);
-        // Правый висок
         temples.moveTo(cx + w * 0.150f, h * 0.280f);
         temples.lineTo(cx + w * 0.135f, h * 0.340f);
         temples.lineTo(cx + w * 0.100f, h * 0.280f);
 
         canvas.drawPath(temples, paint);
 
-        // Челка (небольшой изгиб для естественности)
         Path bangs = new Path();
         bangs.moveTo(cx - w * 0.150f, h * 0.250f);
         bangs.quadTo(cx, h * 0.220f, cx + w * 0.150f, h * 0.250f);
@@ -896,24 +899,13 @@ public class AvatarPreviewView extends View {
         canvas.drawPath(bangs, paint);
     }
 
-    // ========================================
-    // 2 — Каре (исправлено: чёлка короче)
-    // ========================================
-
-    /**
-     * Каре — короткая женская стрижка длиной до подбородка.
-     * Прямые волосы, ровный срез чуть ниже подбородка.
-     */
+    // Каре: ровный срез на уровне шеи
     private void drawCareHairBack(Canvas c, float cx, float h, float w) {
-        // Объёмная "шапка" вокруг головы с ровным срезом по бокам шеи
         Path p = new Path();
 
-        // Верхняя округлая часть (макушка)
         p.moveTo(cx - w * 0.195f, h * 0.50f);
         p.quadTo(cx - w * 0.215f, h * 0.16f, cx, h * 0.150f);
         p.quadTo(cx + w * 0.215f, h * 0.16f, cx + w * 0.195f, h * 0.50f);
-
-        // Ровный срез внизу (характерная черта каре)
         p.lineTo(cx + w * 0.195f, h * 0.555f);
         p.lineTo(cx - w * 0.195f, h * 0.555f);
         p.close();
@@ -922,37 +914,16 @@ public class AvatarPreviewView extends View {
     }
 
     private void drawCareHairFront(Canvas c, float cx, float h, float w) {
-
-        // ЧЁЛКА — теперь выше и короче
         Path bangs = new Path();
 
         bangs.moveTo(cx - w * 0.155f, h * 0.165f);
-
-        // верхняя линия
-        bangs.quadTo(
-                cx,
-                h * 0.135f,
-                cx + w * 0.155f,
-                h * 0.165f
-        );
-
-        // правая сторона
+        bangs.quadTo(cx, h * 0.135f, cx + w * 0.155f, h * 0.165f);
         bangs.lineTo(cx + w * 0.155f, h * 0.238f);
-
-        // нижний край — мягкий изгиб,
-        // заканчивается ВЫШЕ бровей
-        bangs.quadTo(
-                cx,
-                h * 0.250f,
-                cx - w * 0.155f,
-                h * 0.238f
-        );
-
+        bangs.quadTo(cx, h * 0.250f, cx - w * 0.155f, h * 0.238f);
         bangs.close();
 
         c.drawPath(bangs, paint);
 
-        // Боковые части каре
         Path leftSide = new Path();
         leftSide.moveTo(cx - w * 0.195f, h * 0.255f);
         leftSide.lineTo(cx - w * 0.150f, h * 0.255f);
@@ -970,101 +941,69 @@ public class AvatarPreviewView extends View {
         c.drawPath(rightSide, paint);
     }
 
-    // ========================================
-    // 3 — Короткий ёжик / Crew Cut (мужская)
-    // ========================================
-    private void drawCrewCutBack(Canvas canvas, float cx, float h, float w) { // Индекс 3
-        // Очень короткая стрижка, сзади почти не видна масса, только легкий контур
+    // Ёжик / Crew Cut — очень короткая стрижка
+    private void drawCrewCutBack(Canvas canvas, float cx, float h, float w) {
         paint.setColor(config.hairColor);
         RectF back = new RectF(cx - w * 0.145f, h * 0.180f, cx + w * 0.145f, h * 0.350f);
         canvas.drawRoundRect(back, w * 0.05f, w * 0.05f, paint);
     }
 
-    // Индекс 3 - Спортивная (Crew Cut)
     private void drawCrewCutFront(Canvas canvas, float cx, float h, float w) {
         paint.setColor(config.hairColor);
-        // Основная площадка сверху
         RectF top = new RectF(cx - w * 0.140f, h * 0.160f, cx + w * 0.140f, h * 0.260f);
         canvas.drawRoundRect(top, w * 0.04f, w * 0.04f, paint);
 
-        // Короткие виски
         canvas.drawRect(cx - w * 0.140f, h * 0.250f, cx - w * 0.110f, h * 0.320f, paint);
         canvas.drawRect(cx + w * 0.110f, h * 0.250f, cx + w * 0.140f, h * 0.320f, paint);
     }
 
-    // ========================================
-    // 4 — Гладкая укладка с боковым пробором (мужская)
-    // ========================================
+    // Гладкая укладка с боковым пробором
     private void drawSidePartManBack(Canvas canvas, float cx, float h, float w) {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.hairColor);
-        // Объем за головой
-        RectF back = new RectF(
-                cx - w * 0.160f,
-                h * 0.150f,
-                cx + w * 0.160f,
-                h * 0.400f
-        );
+        RectF back = new RectF(cx - w * 0.160f, h * 0.150f, cx + w * 0.160f, h * 0.400f);
         canvas.drawRoundRect(back, w * 0.09f, w * 0.09f, paint);
     }
 
-    // Индекс 4 - Классика с пробором (Side Part)
     private void drawSidePartManFront(Canvas canvas, float cx, float h, float w) {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(config.hairColor);
 
-        // 1. Основная масса волос (закрывает лоб без пропусков)
-        RectF hairBase = new RectF(
-                cx - w * 0.155f,
-                h * 0.145f,
-                cx + w * 0.155f,
-                h * 0.280f
-        );
+        RectF hairBase = new RectF(cx - w * 0.155f, h * 0.145f, cx + w * 0.155f, h * 0.280f);
         canvas.drawRoundRect(hairBase, w * 0.06f, w * 0.06f, paint);
 
-        // 2. Отрисовка висков (уши остаются открытыми)
         canvas.drawRect(cx - w * 0.155f, h * 0.250f, cx - w * 0.120f, h * 0.340f, paint);
         canvas.drawRect(cx + w * 0.120f, h * 0.250f, cx + w * 0.155f, h * 0.340f, paint);
 
-        // 3. Стилизованная челка с пробором (рисуем поверх базы)
         Path sidePart = new Path();
-        // Начинаем от левого края
         sidePart.moveTo(cx - w * 0.155f, h * 0.260f);
-        // Поднимаемся к пробору (смещен влево)
         sidePart.lineTo(cx - w * 0.040f, h * 0.190f);
-        // Идем к правому краю, создавая объемную волну
         sidePart.quadTo(cx + w * 0.050f, h * 0.140f, cx + w * 0.155f, h * 0.200f);
         sidePart.lineTo(cx + w * 0.155f, h * 0.280f);
-        // Линия над глазами
         sidePart.quadTo(cx, h * 0.240f, cx - w * 0.155f, h * 0.280f);
         sidePart.close();
 
         canvas.drawPath(sidePart, paint);
 
-        // 4. Акцентная линия пробора (чуть темнее для глубины)
+        // Линия пробора
         paint.setStyle(Paint.Style.STROKE);
         paint.setColor(adjustBrightness(config.hairColor, 0.85f));
         paint.setStrokeWidth(w * 0.008f);
 
         canvas.drawLine(cx - w * 0.040f, h * 0.160f, cx - w * 0.040f, h * 0.210f, paint);
 
-        paint.setStyle(Paint.Style.FILL); // Сбрасываем стиль
+        paint.setStyle(Paint.Style.FILL);
     }
 
-    // ========================================
-    // 5 — Короткие кудряшки (мужская)
-    // ========================================
-    private void drawCurlyShortManBack(Canvas canvas, float cx, float h, float w) { // Индекс 5
+    // Короткие кудряшки (мужская)
+    private void drawCurlyShortManBack(Canvas canvas, float cx, float h, float w) {
         paint.setColor(config.hairColor);
-        // Для кудрей делаем заднюю часть чуть шире и "пушистее"
         RectF back = new RectF(cx - w * 0.165f, h * 0.140f, cx + w * 0.165f, h * 0.380f);
         canvas.drawRoundRect(back, w * 0.12f, w * 0.12f, paint);
     }
 
-    // Индекс 5 - Кудрявая (Curly Short)
     private void drawCurlyShortManFront(Canvas canvas, float cx, float h, float w) {
         paint.setColor(config.hairColor);
-        // Рисуем несколько кругов разного размера для эффекта кудряшек
         float radius = w * 0.06f;
         canvas.drawCircle(cx - w * 0.080f, h * 0.180f, radius, paint);
         canvas.drawCircle(cx + w * 0.080f, h * 0.180f, radius, paint);
@@ -1072,13 +1011,11 @@ public class AvatarPreviewView extends View {
         canvas.drawCircle(cx - w * 0.120f, h * 0.230f, radius * 0.9f, paint);
         canvas.drawCircle(cx + w * 0.120f, h * 0.230f, radius * 0.9f, paint);
 
-        // Заполняем центр, чтобы не было дырок
         RectF fill = new RectF(cx - w * 0.120f, h * 0.180f, cx + w * 0.120f, h * 0.280f);
         canvas.drawRect(fill, paint);
     }
 
-    // === ЖЕНСКИЕ ПРИЧЁСКИ (10-34) ===
-
+    // Боб
     private void drawBobHair(Canvas c, float cx, float h, float w) {
         RectF hair = new RectF(cx - w * 0.18f, h * 0.16f, cx + w * 0.18f, h * 0.72f);
         c.drawRoundRect(hair, w * 0.07f, w * 0.07f, paint);
@@ -1111,48 +1048,15 @@ public class AvatarPreviewView extends View {
     }
 
     private void drawRoundedWavesFront(Canvas c, float cx, float h, float w) {
-
-        // Боковые мягкие волны
         c.drawCircle(cx - w * 0.085f, h * 0.225f, w * 0.043f, paint);
         c.drawCircle(cx + w * 0.085f, h * 0.225f, w * 0.043f, paint);
 
-        // СГЛАЖЕННАЯ центральная чёлка
         Path bangs = new Path();
-
         bangs.moveTo(cx - w * 0.120f, h * 0.205f);
-
-        // верх
-        bangs.quadTo(
-                cx,
-                h * 0.160f,
-                cx + w * 0.120f,
-                h * 0.205f
-        );
-
-        // правая сторона
-        bangs.quadTo(
-                cx + w * 0.115f,
-                h * 0.255f,
-                cx + w * 0.090f,
-                h * 0.270f
-        );
-
-        // нижняя мягкая линия
-        bangs.quadTo(
-                cx,
-                h * 0.290f,
-                cx - w * 0.090f,
-                h * 0.270f
-        );
-
-        // левая сторона
-        bangs.quadTo(
-                cx - w * 0.115f,
-                h * 0.255f,
-                cx - w * 0.120f,
-                h * 0.205f
-        );
-
+        bangs.quadTo(cx, h * 0.160f, cx + w * 0.120f, h * 0.205f);
+        bangs.quadTo(cx + w * 0.115f, h * 0.255f, cx + w * 0.090f, h * 0.270f);
+        bangs.quadTo(cx, h * 0.290f, cx - w * 0.090f, h * 0.270f);
+        bangs.quadTo(cx - w * 0.115f, h * 0.255f, cx - w * 0.120f, h * 0.205f);
         bangs.close();
 
         c.drawPath(bangs, paint);
@@ -1509,7 +1413,8 @@ public class AvatarPreviewView extends View {
         c.drawCircle(cx + w * 0.09f, h * 0.22f, w * 0.042f, paint);
     }
 
-    // === Утилиты ===
+    // === Утилиты для кос, кудрей и декора ===
+
     private void drawBraid(Canvas c, float x, float startY, float endY, float r) {
         float y = startY;
         boolean shift = false;
@@ -1552,6 +1457,7 @@ public class AvatarPreviewView extends View {
         }
     }
 
+    // Золотой декоративный элемент (заколка / лента)
     private void addRibbon(Canvas c, float x, float y, float r) {
         int old = paint.getColor();
         paint.setColor(Color.parseColor("#D5A628"));
@@ -1559,6 +1465,7 @@ public class AvatarPreviewView extends View {
         paint.setColor(old);
     }
 
+    // Изменяет яркость цвета умножением каналов RGB на factor
     private int adjustBrightness(int color, float factor) {
         int r = Math.min(255, Math.max(0, (int) (Color.red(color) * factor)));
         int g = Math.min(255, Math.max(0, (int) (Color.green(color) * factor)));

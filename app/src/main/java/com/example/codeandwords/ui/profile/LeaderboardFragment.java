@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
+// Фрагмент таблицы лидеров с фильтрацией по лигам и отображением топ-3.
 public class LeaderboardFragment extends Fragment {
 
     private RecyclerView recyclerView;
@@ -74,7 +75,7 @@ public class LeaderboardFragment extends Fragment {
     private long myUserId = -1;
     private User currentUser;
 
-    // ✅ Адаптивные цвета (день/ночь)
+    // Цвета загружаются из ресурсов для корректной поддержки тёмной темы
     private int colorChipUnselectedBg;
     private int colorChipUnselectedText;
     private int colorChipSelectedText;
@@ -91,10 +92,10 @@ public class LeaderboardFragment extends Fragment {
 
     private int colorMyMarker;
 
-    private int colorUsername;       // ✅ Цвет имени
-    private int colorUsernameMe;     // ✅ Цвет имени для "моя"
-    private int colorLevelText;      // ✅ Цвет описания уровня
-    private int colorTextPrimary;    // ✅ Основной текст (для топ-3)
+    private int colorUsername;
+    private int colorUsernameMe;
+    private int colorLevelText;
+    private int colorTextPrimary;
 
     public LeaderboardFragment() {
     }
@@ -123,29 +124,29 @@ public class LeaderboardFragment extends Fragment {
     }
 
     private void loadThemeColors() {
-        colorChipUnselectedBg   = ContextCompat.getColor(requireContext(), R.color.leaderboard_chip_unselected_bg);
+        colorChipUnselectedBg = ContextCompat.getColor(requireContext(), R.color.leaderboard_chip_unselected_bg);
         colorChipUnselectedText = ContextCompat.getColor(requireContext(), R.color.leaderboard_chip_unselected_text);
-        colorChipSelectedText   = ContextCompat.getColor(requireContext(), R.color.leaderboard_chip_selected_text);
+        colorChipSelectedText = ContextCompat.getColor(requireContext(), R.color.leaderboard_chip_selected_text);
 
-        colorCardBg       = ContextCompat.getColor(requireContext(), R.color.leaderboard_card_bg);
-        colorCardMeBg     = ContextCompat.getColor(requireContext(), R.color.leaderboard_card_me_bg);
+        colorCardBg = ContextCompat.getColor(requireContext(), R.color.leaderboard_card_bg);
+        colorCardMeBg = ContextCompat.getColor(requireContext(), R.color.leaderboard_card_me_bg);
         colorCardMeStroke = ContextCompat.getColor(requireContext(), R.color.leaderboard_card_me_stroke);
 
         colorAvatarPlaceholderFill = ContextCompat.getColor(requireContext(), R.color.leaderboard_avatar_placeholder_fill);
 
-        colorRankDefault   = ContextCompat.getColor(requireContext(), R.color.leaderboard_rank_default);
-        colorRankMe        = ContextCompat.getColor(requireContext(), R.color.leaderboard_rank_me);
+        colorRankDefault = ContextCompat.getColor(requireContext(), R.color.leaderboard_rank_default);
+        colorRankMe = ContextCompat.getColor(requireContext(), R.color.leaderboard_rank_me);
         colorXpPlaceholder = ContextCompat.getColor(requireContext(), R.color.leaderboard_xp_placeholder);
 
         colorMyMarker = ContextCompat.getColor(requireContext(), R.color.leaderboard_my_marker);
 
-        // ✅ Имена и уровни
-        colorUsername     = ContextCompat.getColor(requireContext(), R.color.leaderboard_username);
-        colorUsernameMe   = ContextCompat.getColor(requireContext(), R.color.leaderboard_username_me);
-        colorLevelText    = ContextCompat.getColor(requireContext(), R.color.leaderboard_level_text);
-        colorTextPrimary  = ContextCompat.getColor(requireContext(), R.color.leaderboard_text_primary);
+        colorUsername = ContextCompat.getColor(requireContext(), R.color.leaderboard_username);
+        colorUsernameMe = ContextCompat.getColor(requireContext(), R.color.leaderboard_username_me);
+        colorLevelText = ContextCompat.getColor(requireContext(), R.color.leaderboard_level_text);
+        colorTextPrimary = ContextCompat.getColor(requireContext(), R.color.leaderboard_text_primary);
     }
 
+    // Инициализирует шесть лиг с диапазонами XP и цветами
     private void initLeagues() {
         leagues.clear();
 
@@ -211,6 +212,7 @@ public class LeaderboardFragment extends Fragment {
         recyclerView.setAdapter(adapter);
     }
 
+    // Загружает текущего пользователя, затем рейтинг
     private void loadData() {
         if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
 
@@ -257,6 +259,7 @@ public class LeaderboardFragment extends Fragment {
         });
     }
 
+    // Сортирует пользователей по XP по убыванию
     private List<User> prepareUsers(List<User> users) {
         List<User> result = new ArrayList<>();
         if (users != null) {
@@ -268,6 +271,7 @@ public class LeaderboardFragment extends Fragment {
         return result;
     }
 
+    // Строит горизонтальный список чипов-фильтров лиг
     private void renderLeagueFilters() {
         if (leagueFilterContainer == null) return;
 
@@ -314,6 +318,7 @@ public class LeaderboardFragment extends Fragment {
         }
     }
 
+    // Фильтрует список и обновляет блок топ-3, прогресс и таблицу
     private void applyLeagueFilter() {
         List<User> filteredUsers = getUsersByLeague(selectedLeague);
 
@@ -351,6 +356,7 @@ public class LeaderboardFragment extends Fragment {
         return result;
     }
 
+    // Рассчитывает прогресс в текущей лиге для индикатора
     private void updateProgressForMyLeague(User me, League myLeague) {
         if (progressLeague == null) return;
         if (me == null || myLeague == null) {
@@ -381,6 +387,7 @@ public class LeaderboardFragment extends Fragment {
                 tvTopThirdName, tvTopThirdXp);
     }
 
+    // Заполняет одну позицию топ-3: аватар или инициал, имя и XP
     private void bindTopUser(int place,
                              User user,
                              FrameLayout avatarContainer,
@@ -401,7 +408,6 @@ public class LeaderboardFragment extends Fragment {
             fallback.setBackgroundTintList(ColorStateList.valueOf(colorAvatarPlaceholderFill));
 
             name.setText("—");
-            // ✅ Цвет имени для пустого слота
             name.setTextColor(colorTextPrimary);
             xpView.setText("0 XP");
             xpView.setTextColor(colorXpPlaceholder);
@@ -414,12 +420,12 @@ public class LeaderboardFragment extends Fragment {
         bindAvatarToViews(user, league, avatarContainer, avatarView, fallback);
 
         name.setText(getSafeUsername(user));
-        // ✅ Имя в топ-3 — основной цвет (черный/белый)
         name.setTextColor(colorTextPrimary);
         xpView.setText(getXp(user) + " XP");
         xpView.setTextColor(league.color);
     }
 
+    // Отрисовывает аватар (кастомный View или fallback-инициал) в круглом контейнере
     private void bindAvatarToViews(User user,
                                    League league,
                                    FrameLayout avatarContainer,
@@ -496,6 +502,7 @@ public class LeaderboardFragment extends Fragment {
         return username.substring(0, 1).toUpperCase(Locale.getDefault());
     }
 
+    // Определяет лигу пользователя по суммарному XP
     private League getLeagueByXp(int xp) {
         for (League league : leagues) {
             if (!league.isRealLeague) continue;
@@ -513,6 +520,7 @@ public class LeaderboardFragment extends Fragment {
         return "участников";
     }
 
+    // Внутренний адаптер для строк таблицы лидеров
     private class LeaderboardAdapter extends RecyclerView.Adapter<LeaderboardAdapter.ViewHolder> {
 
         private final List<User> users = new ArrayList<>();
@@ -552,19 +560,14 @@ public class LeaderboardFragment extends Fragment {
                 holder.cardRoot.setCardBackgroundColor(colorCardMeBg);
                 holder.cardRoot.setStrokeColor(colorCardMeStroke);
                 holder.cardRoot.setStrokeWidth(dp(3));
-
-                // ✅ Имя для "моя" — всегда контрастное
                 holder.tvUsername.setTextColor(colorUsernameMe);
             } else {
                 holder.cardRoot.setCardBackgroundColor(colorCardBg);
                 holder.cardRoot.setStrokeColor(league.color);
                 holder.cardRoot.setStrokeWidth(dp(1));
-
-                // ✅ Имя для остальных — адаптивный цвет
                 holder.tvUsername.setTextColor(colorUsername);
             }
 
-            // ✅ Описание уровня — адаптивный цвет
             holder.tvLevel.setTextColor(colorLevelText);
 
             bindAvatarToViews(user, league,
@@ -615,6 +618,7 @@ public class LeaderboardFragment extends Fragment {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    // Модель лиги с диапазоном XP, цветом и иконкой
     private static class League {
         String title;
         String subtitle;
@@ -636,6 +640,7 @@ public class LeaderboardFragment extends Fragment {
         }
     }
 
+    // Применяет круглый фон с заливкой и обводкой к контейнеру аватара
     private void applyAvatarCircleBackground(FrameLayout container,
                                              int fillColor,
                                              int strokeColor,

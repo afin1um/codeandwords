@@ -3,6 +3,7 @@ package com.example.codeandwords.model;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
+// Прогресс пользователя по одному слову: счётчики ответов, ошибок и флаги режимов
 public class UserWordProgress {
 
     @SerializedName("id")
@@ -25,6 +26,7 @@ public class UserWordProgress {
     @Expose
     private Integer mistakesCount = 0;
 
+    // Слово считается изученным только при прохождении всех трёх режимов
     @SerializedName("is_learned")
     @Expose
     private Boolean isLearned = false;
@@ -41,37 +43,19 @@ public class UserWordProgress {
     @Expose
     private Boolean passedWriting = false;
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
-
-    public Long getWordId() {
-        return wordId;
-    }
-
-    public void setWordId(Long wordId) {
-        this.wordId = wordId;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public Long getWordId() { return wordId; }
+    public void setWordId(Long wordId) { this.wordId = wordId; }
 
     public Integer getCorrectAnswersCount() {
         return correctAnswersCount == null ? 0 : correctAnswersCount;
     }
 
     public void setCorrectAnswersCount(Integer correctAnswersCount) {
-        this.correctAnswersCount =
-                correctAnswersCount == null ? 0 : correctAnswersCount;
+        this.correctAnswersCount = correctAnswersCount == null ? 0 : correctAnswersCount;
     }
 
     public Integer getMistakesCount() {
@@ -82,35 +66,12 @@ public class UserWordProgress {
         this.mistakesCount = mistakesCount == null ? 0 : mistakesCount;
     }
 
-    public Boolean getIsLearned() {
-        return isLearned != null && isLearned;
-    }
-
-    public void setIsLearned(Boolean learned) {
-        isLearned = learned != null && learned;
-    }
-
-    public Boolean getPassedSprint() {
-        return passedSprint != null && passedSprint;
-    }
-
-    public void setPassedSprint(Boolean value) {
-        passedSprint = value != null && value;
-    }
-
-    public Boolean getPassedMatching() {
-        return passedMatching != null && passedMatching;
-    }
-
-    public void setPassedMatching(Boolean value) {
-        passedMatching = value != null && value;
-    }
-
-    public Boolean getPassedWriting() {
-        return passedWriting != null && passedWriting;
-    }
-
-    public void setPassedWriting(Boolean value) {
-        passedWriting = value != null && value;
-    }
+    public Boolean getIsLearned() { return isLearned != null && isLearned; }
+    public void setIsLearned(Boolean learned) { isLearned = learned != null && learned; }
+    public Boolean getPassedSprint() { return passedSprint != null && passedSprint; }
+    public void setPassedSprint(Boolean value) { passedSprint = value != null && value; }
+    public Boolean getPassedMatching() { return passedMatching != null && passedMatching; }
+    public void setPassedMatching(Boolean value) { passedMatching = value != null && value; }
+    public Boolean getPassedWriting() { return passedWriting != null && passedWriting; }
+    public void setPassedWriting(Boolean value) { passedWriting = value != null && value; }
 }

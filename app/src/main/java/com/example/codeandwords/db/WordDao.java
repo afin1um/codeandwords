@@ -45,4 +45,9 @@ public interface WordDao {
 
     @Query("DELETE FROM words")
     void deleteAll();
+
+    // Возвращает только id слов и id их тем одним запросом.
+    // Используется для быстрого расчёта прогресса по темам в StatsRepository.
+    @Query("SELECT id AS wordId, theme_id AS themeId FROM words")
+    List<ThemeWordIdPair> getAllThemeWordIdPairs();
 }

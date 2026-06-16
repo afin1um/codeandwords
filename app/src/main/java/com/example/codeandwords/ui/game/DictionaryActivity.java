@@ -2,6 +2,7 @@ package com.example.codeandwords.ui.game;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -20,6 +21,7 @@ import com.example.codeandwords.ui.base.BaseBackActivity;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 // Экран словаря темы: список терминов с произношением и добавлением в личный словарь
@@ -36,6 +38,13 @@ public class DictionaryActivity extends BaseBackActivity {
 
     private boolean wordsLoadedOnce = false;
 
+    // Собственный TTS — чтобы озвучка не зависела от готовности TtsManager в Repository
+    private TextToSpeech tts;
+    private boolean ttsReady = false;
+    // Очередь отложенного запроса: проигрывается сразу после готовности TTS
+    private String pendingSpeechText;
+    private boolean pendingSpeechIsSlow = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -51,6 +60,7 @@ public class DictionaryActivity extends BaseBackActivity {
         tvTitle.setText(themeTitle != null ? themeTitle : "Словарь");
 
         setupRecyclerView();
+        initTextToSpeech();
         loadWords();
         loadAddedPersonalWords();
     }
@@ -59,7 +69,6 @@ public class DictionaryActivity extends BaseBackActivity {
     protected void onResume() {
         super.onResume();
 
-        // Обновляем состояние кнопок словаря при возврате на экран
         if (wordsLoadedOnce) {
             loadAddedPersonalWords();
         }
@@ -70,7 +79,6 @@ public class DictionaryActivity extends BaseBackActivity {
         progressBar = findViewById(R.id.pbDictionary);
         tvTitle = findViewById(R.id.tvDictTitle);
 
-        // Кнопка назад возвращает в GameSelectionActivity текущей темы
         View btnBack = findViewById(R.id.btnBackDict);
         if (btnBack != null) {
             btnBack.setOnClickListener(v -> goBackToGameSelection());
@@ -82,7 +90,6 @@ public class DictionaryActivity extends BaseBackActivity {
         goBackToGameSelection();
     }
 
-    // Возвращает в GameSelectionActivity, сохраняя контекст темы
     private void goBackToGameSelection() {
         Intent intent = new Intent(this, GameSelectionActivity.class);
         intent.putExtra("THEME_ID", themeId != null ? themeId : -1L);
@@ -125,6 +132,54 @@ public class DictionaryActivity extends BaseBackActivity {
         recyclerView.setAdapter(adapter);
     }
 
+    private void initTextToSpeech() {
+        tts = new TextToSpeech(getApplicationContext(), status -> {
+            if (status != TextToSpeech.SUCCESS) {
+                android.util.Log.e("DictionaryTTS", "TTS init failed: " + status);
+                return;
+            }
+
+            int result = tts.setLanguage(Locale.US);
+
+            if (result == TextToSpeech.LANG_MISSING_DATA
+                    || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                android.util.Log.e("DictionaryTTS",
+                        "Английский язык не поддерживается: " + result);
+                return;
+            }
+
+            ttsReady = true;
+
+            // Если был запрос на озвучку до инициализации — проигрываем сейчас
+            if (pendingSpeechText != null) {
+                playTts(pendingSpeechText, pendingSpeechIsSlow);
+                pendingSpeechText = null;
+            }
+        });
+    }
+
+    private void speakWord(String text, boolean isSlow) {
+        if (text == null || text.trim().isEmpty()) return;
+
+        if (ttsReady && tts != null) {
+            playTts(text, isSlow);
+        } else {
+            // TTS ещё не готов — запоминаем и проиграем после инициализации
+            pendingSpeechText = text;
+            pendingSpeechIsSlow = isSlow;
+        }
+    }
+
+    private void playTts(String text, boolean isSlow) {
+        if (tts == null) return;
+
+        try {
+            tts.setSpeechRate(isSlow ? 0.55f : 1.0f);
+        } catch (Exception ignored) {}
+
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "DICTIONARY_TTS");
+    }
+
     private void loadWords() {
         progressBar.setVisibility(View.VISIBLE);
 
@@ -157,7 +212,6 @@ public class DictionaryActivity extends BaseBackActivity {
         });
     }
 
-    // Загружает термины личного словаря для подсветки уже добавленных слов
     private void loadAddedPersonalWords() {
         repository.getUserPersonalWords(new Repository.DataCallback<List<UserWord>>() {
             @Override
@@ -181,7 +235,6 @@ public class DictionaryActivity extends BaseBackActivity {
         });
     }
 
-    // Извлекает термин из UserWord через рефлексию для совместимости с разными версиями модели
     private String extractUserWordTerm(UserWord userWord) {
         if (userWord == null) return "";
 
@@ -232,22 +285,13 @@ public class DictionaryActivity extends BaseBackActivity {
         return result;
     }
 
-    // Использует TtsManager из Repository; не создаёт собственный экземпляр TTS
-    private void speakWord(String text, boolean isSlow) {
-        if (text == null || text.trim().isEmpty()) return;
-
-        if (!repository.isTtsReady()) {
-            Toast.makeText(this, "Ожидание загрузки голосового движка...",
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        repository.speak(text, isSlow);
-    }
-
     @Override
     protected void onDestroy() {
+        if (tts != null) {
+            tts.stop();
+            tts.shutdown();
+            tts = null;
+        }
         super.onDestroy();
-        // TTS управляется через Repository — здесь не уничтожаем
     }
 }

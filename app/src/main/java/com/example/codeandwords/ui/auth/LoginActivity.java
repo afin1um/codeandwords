@@ -28,8 +28,8 @@ public class LoginActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private Repository repository;
 
-    private static final String TEST_EMAIL = "tester1@mail.com";
-    private static final String TEST_PASSWORD = "tester1";
+    private static final String TEST_EMAIL = "adminn@mail.com";
+    private static final String TEST_PASSWORD = "adminn";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

@@ -20,7 +20,8 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-// Репозиторий для административных операций: управление темами и словами
+// Репозиторий для административных операций: управление темами и словами.
+// Стратегия: сначала локально (мгновенный UI), потом синхронизация с сервером в фоне.
 public class AdminRepository {
 
     private static final String TAG = "AdminRepository";
@@ -51,7 +52,6 @@ public class AdminRepository {
         this.mainHandler = mainHandler;
     }
 
-    // Интерфейс для делегирования вспомогательных операций во ViewModel
     public interface AdminListener {
         String normalizeText(String value);
         List<Long> extractWordIds(List<Word> words);
@@ -87,7 +87,6 @@ public class AdminRepository {
         return "Неизвестная ошибка";
     }
 
-    // Проверяет, является ли текущий пользователь администратором
     public boolean isCurrentUserAdmin() {
         User currentUser = listener != null ? listener.getCurrentUser() : null;
 
@@ -101,7 +100,9 @@ public class AdminRepository {
                 && "admin".equalsIgnoreCase(currentUser.getRole().trim());
     }
 
-    // Создаёт тему на сервере; при ошибке сети сохраняет локально с генерацией ID
+    // ============================================================
+    // СОЗДАНИЕ ТЕМЫ
+    // ============================================================
     public void adminCreateTheme(Theme theme, DataCallback<Theme> callback) {
         if (!isCurrentUserAdmin()) {
             callback.onError("Недостаточно прав администратора");
@@ -128,54 +129,70 @@ public class AdminRepository {
         theme.setDifficultyLevel(difficulty.isEmpty() ? "Easy" : difficulty);
         theme.setTheoryText(theoryText);
 
-        apiService.adminCreateTheme(theme).enqueue(new Callback<List<Theme>>() {
-            @Override
-            public void onResponse(Call<List<Theme>> call, Response<List<Theme>> response) {
-                if (response.isSuccessful()
-                        && response.body() != null
-                        && !response.body().isEmpty()) {
-                    Theme savedTheme = response.body().get(0);
-                    executor.execute(() -> {
-                        try {
-                            themeDao.insert(savedTheme);
-                        } catch (Exception e) {
-                            Log.e(TAG, "Ошибка локального сохранения темы: " + e.getMessage(), e);
-                        }
-                        mainHandler.post(() -> callback.onSuccess(savedTheme));
-                    });
-                } else {
-                    Log.e(TAG, "Сервер не создал тему: " + response.code() + " | " + getErrorBody(response));
-                    saveThemeLocallyOnly(theme, callback);
-                }
-            }
-
-            @Override
-            public void onFailure(Call<List<Theme>> call, Throwable t) {
-                Log.e(TAG, "Ошибка сети adminCreateTheme: " + t.getMessage(), t);
-                saveThemeLocallyOnly(theme, callback);
-            }
-        });
-    }
-
-    // Локальное создание темы: получение maxId и вставка в одной транзакции
-    private void saveThemeLocallyOnly(Theme theme, DataCallback<Theme> callback) {
+        // 1) Мгновенно сохраняем локально + отдаём UI
         executor.execute(() -> {
             try {
                 database.runInTransaction(() -> {
-                    Long maxId = themeDao.getMaxThemeId();
-                    long newId = maxId == null ? 1L : maxId + 1L;
-                    theme.setId(newId);
+                    if (theme.getId() == null || theme.getId() <= 0) {
+                        Long maxId = themeDao.getMaxThemeId();
+                        theme.setId(maxId == null ? 1L : maxId + 1L);
+                    }
                     themeDao.insert(theme);
                 });
+
                 mainHandler.post(() -> callback.onSuccess(theme));
             } catch (Exception e) {
                 Log.e(TAG, "Ошибка локального создания темы: " + e.getMessage(), e);
                 mainHandler.post(() -> callback.onError("Не удалось создать тему"));
+                return;
             }
+
+            // 2) В фоне создаём на сервере и подменяем ID на серверный
+            apiService.adminCreateTheme(theme).enqueue(new Callback<List<Theme>>() {
+                @Override
+                public void onResponse(Call<List<Theme>> call, Response<List<Theme>> response) {
+                    if (response.isSuccessful()
+                            && response.body() != null
+                            && !response.body().isEmpty()) {
+
+                        Theme savedTheme = response.body().get(0);
+
+                        executor.execute(() -> {
+                            try {
+                                // Если сервер вернул другой id — заменяем локальную запись
+                                if (savedTheme.getId() != null
+                                        && !savedTheme.getId().equals(theme.getId())) {
+                                    database.runInTransaction(() -> {
+                                        try {
+                                            themeDao.deleteThemeById(theme.getId());
+                                        } catch (Exception ignored) {}
+                                        themeDao.insert(savedTheme);
+                                    });
+                                } else {
+                                    themeDao.insert(savedTheme);
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Не удалось синхронизировать созданную тему: "
+                                        + e.getMessage(), e);
+                            }
+                        });
+                    } else {
+                        Log.w(TAG, "Сервер не создал тему: " + response.code()
+                                + " | " + getErrorBody(response));
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<List<Theme>> call, Throwable t) {
+                    Log.w(TAG, "Ошибка сети adminCreateTheme: " + t.getMessage(), t);
+                }
+            });
         });
     }
 
-    // Обновляет тему на сервере; при ошибке сохраняет локально
+    // ============================================================
+    // ОБНОВЛЕНИЕ ТЕМЫ
+    // ============================================================
     public void adminUpdateTheme(Theme theme, DataCallback<Theme> callback) {
         if (!isCurrentUserAdmin()) {
             callback.onError("Недостаточно прав администратора");
@@ -187,42 +204,52 @@ public class AdminRepository {
             return;
         }
 
-        apiService.adminUpdateTheme("eq." + theme.getId(), theme)
-                .enqueue(new Callback<List<Theme>>() {
-                    @Override
-                    public void onResponse(Call<List<Theme>> call, Response<List<Theme>> response) {
-                        Theme savedTheme = theme;
-                        if (response.isSuccessful()
-                                && response.body() != null
-                                && !response.body().isEmpty()) {
-                            savedTheme = response.body().get(0);
-                        }
-                        Theme finalTheme = savedTheme;
-                        executor.execute(() -> {
-                            try {
-                                themeDao.insert(finalTheme);
-                            } catch (Exception e) {
-                                Log.e(TAG, "Ошибка локального обновления темы: " + e.getMessage(), e);
-                            }
-                            mainHandler.post(() -> callback.onSuccess(finalTheme));
-                        });
-                    }
+        // 1) Мгновенно сохраняем локально и отдаём UI
+        executor.execute(() -> {
+            try {
+                themeDao.insert(theme);
+                mainHandler.post(() -> callback.onSuccess(theme));
+            } catch (Exception e) {
+                Log.e(TAG, "Ошибка локального обновления темы: " + e.getMessage(), e);
+                mainHandler.post(() -> callback.onError("Не удалось обновить тему"));
+                return;
+            }
 
-                    @Override
-                    public void onFailure(Call<List<Theme>> call, Throwable t) {
-                        executor.execute(() -> {
-                            try {
-                                themeDao.insert(theme);
-                                mainHandler.post(() -> callback.onSuccess(theme));
-                            } catch (Exception e) {
-                                mainHandler.post(() -> callback.onError("Не удалось обновить тему"));
+            // 2) В фоне обновляем на сервере
+            apiService.adminUpdateTheme("eq." + theme.getId(), theme)
+                    .enqueue(new Callback<List<Theme>>() {
+                        @Override
+                        public void onResponse(Call<List<Theme>> call, Response<List<Theme>> response) {
+                            if (response.isSuccessful()
+                                    && response.body() != null
+                                    && !response.body().isEmpty()) {
+                                Theme savedTheme = response.body().get(0);
+                                executor.execute(() -> {
+                                    try {
+                                        themeDao.insert(savedTheme);
+                                    } catch (Exception e) {
+                                        Log.e(TAG,
+                                                "Ошибка локальной перезаписи темы после ответа сервера: "
+                                                        + e.getMessage(), e);
+                                    }
+                                });
+                            } else {
+                                Log.w(TAG, "Сервер не подтвердил обновление темы: "
+                                        + response.code() + " | " + getErrorBody(response));
                             }
-                        });
-                    }
-                });
+                        }
+
+                        @Override
+                        public void onFailure(Call<List<Theme>> call, Throwable t) {
+                            Log.w(TAG, "Ошибка сети adminUpdateTheme: " + t.getMessage(), t);
+                        }
+                    });
+        });
     }
 
-    // Каскадное удаление темы: сначала удаляет прогресс и слова на сервере, затем локально
+    // ============================================================
+    // УДАЛЕНИЕ ТЕМЫ (каскадно)
+    // ============================================================
     public void adminDeleteTheme(Long themeId, DataCallback<Void> callback) {
         if (!isCurrentUserAdmin()) {
             callback.onError("Недостаточно прав администратора");
@@ -234,67 +261,17 @@ public class AdminRepository {
             return;
         }
 
+        // 1) Мгновенно удаляем локально и отдаём UI
         executor.execute(() -> {
-            List<Word> localWords = new ArrayList<>();
+            final List<Word> localWords = new ArrayList<>();
             try {
                 List<Word> wordsFromDb = wordDao.getWordsByTheme(themeId);
                 if (wordsFromDb != null) localWords.addAll(wordsFromDb);
             } catch (Exception e) {
-                Log.e(TAG, "Не удалось получить слова темы: " + e.getMessage(), e);
+                Log.e(TAG, "Не удалось получить слова темы перед удалением: "
+                        + e.getMessage(), e);
             }
 
-            List<Long> wordIds = listener != null ? listener.extractWordIds(localWords) : new ArrayList<>();
-            String idsFilter = listener != null ? listener.buildIdsFilter(wordIds) : "";
-
-            mainHandler.post(() -> deleteThemeCascadeRemote(themeId, idsFilter, callback));
-        });
-    }
-
-    // Удаление прогресса по словам темы на сервере (шаг 1 каскадного удаления)
-    private void deleteThemeCascadeRemote(Long themeId, String wordIdsFilter, DataCallback<Void> callback) {
-        apiService.adminDeleteProgressByWordIds(wordIdsFilter).enqueue(new Callback<Void>() {
-            @Override
-            public void onResponse(Call<Void> call, Response<Void> response) {
-                deleteWordsByThemeRemote(themeId, callback);
-            }
-            @Override
-            public void onFailure(Call<Void> call, Throwable t) {
-                deleteWordsByThemeRemote(themeId, callback);
-            }
-        });
-    }
-
-    // Удаление слов темы на сервере (шаг 2)
-    private void deleteWordsByThemeRemote(Long themeId, DataCallback<Void> callback) {
-        apiService.adminDeleteWordsByThemeId("eq." + themeId).enqueue(new Callback<Void>() {
-            @Override
-            public void onResponse(Call<Void> call, Response<Void> response) {
-                deleteThemeRemote(themeId, callback);
-            }
-            @Override
-            public void onFailure(Call<Void> call, Throwable t) {
-                deleteThemeRemote(themeId, callback);
-            }
-        });
-    }
-
-    // Удаление самой темы на сервере (шаг 3)
-    private void deleteThemeRemote(Long themeId, DataCallback<Void> callback) {
-        apiService.adminDeleteTheme("eq." + themeId).enqueue(new Callback<Void>() {
-            @Override
-            public void onResponse(Call<Void> call, Response<Void> response) {
-                deleteThemeLocalCascade(themeId, callback);
-            }
-            @Override
-            public void onFailure(Call<Void> call, Throwable t) {
-                deleteThemeLocalCascade(themeId, callback);
-            }
-        });
-    }
-
-    // Каскадное удаление темы локально в одной транзакции: прогресс → слова → тема
-    private void deleteThemeLocalCascade(Long themeId, DataCallback<Void> callback) {
-        executor.execute(() -> {
             try {
                 database.runInTransaction(() -> {
                     userWordDao.deleteUserWordsByThemeId(themeId);
@@ -303,13 +280,71 @@ public class AdminRepository {
                 });
                 mainHandler.post(() -> callback.onSuccess(null));
             } catch (Exception e) {
-                Log.e(TAG, "Ошибка каскадного удаления темы: " + e.getMessage(), e);
+                Log.e(TAG, "Ошибка локального каскадного удаления темы: " + e.getMessage(), e);
                 mainHandler.post(() -> callback.onError("Не удалось удалить тему"));
+                return;
+            }
+
+            // 2) В фоне удаляем на сервере
+            List<Long> wordIds = listener != null
+                    ? listener.extractWordIds(localWords)
+                    : new ArrayList<>();
+            String idsFilter = listener != null
+                    ? listener.buildIdsFilter(wordIds)
+                    : "";
+
+            deleteThemeCascadeRemote(themeId, idsFilter);
+        });
+    }
+
+    // Серверное каскадное удаление: прогресс → слова → тема
+    private void deleteThemeCascadeRemote(Long themeId, String wordIdsFilter) {
+        apiService.adminDeleteProgressByWordIds(wordIdsFilter).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                deleteWordsByThemeRemote(themeId);
+            }
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.w(TAG, "Ошибка удаления прогресса слов на сервере: " + t.getMessage());
+                deleteWordsByThemeRemote(themeId);
             }
         });
     }
 
-    // Создаёт слово на сервере; при ошибке сохраняет локально с генерацией ID
+    private void deleteWordsByThemeRemote(Long themeId) {
+        apiService.adminDeleteWordsByThemeId("eq." + themeId).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                deleteThemeRemote(themeId);
+            }
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.w(TAG, "Ошибка удаления слов темы на сервере: " + t.getMessage());
+                deleteThemeRemote(themeId);
+            }
+        });
+    }
+
+    private void deleteThemeRemote(Long themeId) {
+        apiService.adminDeleteTheme("eq." + themeId).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (!response.isSuccessful()) {
+                    Log.w(TAG, "Сервер не подтвердил удаление темы: "
+                            + response.code() + " | " + getErrorBody(response));
+                }
+            }
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.w(TAG, "Ошибка удаления темы на сервере: " + t.getMessage());
+            }
+        });
+    }
+
+    // ============================================================
+    // СОЗДАНИЕ СЛОВА
+    // ============================================================
     public void adminCreateWord(Word word, DataCallback<Word> callback) {
         if (!isCurrentUserAdmin()) {
             callback.onError("Недостаточно прав администратора");
@@ -323,25 +358,66 @@ public class AdminRepository {
             return;
         }
 
-        apiService.adminCreateWord(preparedWord).enqueue(new Callback<List<Word>>() {
-            @Override
-            public void onResponse(Call<List<Word>> call, Response<List<Word>> response) {
-                if (response.isSuccessful()
-                        && response.body() != null
-                        && !response.body().isEmpty()) {
-                    saveAdminWordLocal(response.body().get(0), callback);
-                } else {
-                    saveAdminWordLocalWithGeneratedId(preparedWord, callback);
+        // 1) Мгновенно сохраняем локально
+        executor.execute(() -> {
+            try {
+                database.runInTransaction(() -> {
+                    if (preparedWord.getId() == null || preparedWord.getId() <= 0) {
+                        Long maxId = wordDao.getMaxWordId();
+                        preparedWord.setId(maxId == null ? 1L : maxId + 1L);
+                    }
+                    wordDao.insert(preparedWord);
+                });
+
+                mainHandler.post(() -> callback.onSuccess(preparedWord));
+            } catch (Exception e) {
+                Log.e(TAG, "Ошибка локального создания слова: " + e.getMessage(), e);
+                mainHandler.post(() -> callback.onError("Не удалось создать термин"));
+                return;
+            }
+
+            // 2) В фоне создаём на сервере
+            apiService.adminCreateWord(preparedWord).enqueue(new Callback<List<Word>>() {
+                @Override
+                public void onResponse(Call<List<Word>> call, Response<List<Word>> response) {
+                    if (response.isSuccessful()
+                            && response.body() != null
+                            && !response.body().isEmpty()) {
+
+                        Word savedWord = response.body().get(0);
+
+                        executor.execute(() -> {
+                            try {
+                                if (savedWord.getId() != null
+                                        && !savedWord.getId().equals(preparedWord.getId())) {
+                                    database.runInTransaction(() -> {
+                                        try {
+                                            wordDao.deleteWordById(preparedWord.getId());
+                                        } catch (Exception ignored) {}
+                                        wordDao.insert(savedWord);
+                                    });
+                                } else {
+                                    wordDao.insert(savedWord);
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Не удалось синхронизировать созданное слово: "
+                                        + e.getMessage(), e);
+                            }
+                        });
+                    } else {
+                        Log.w(TAG, "Сервер не создал слово: " + response.code()
+                                + " | " + getErrorBody(response));
+                    }
                 }
-            }
-            @Override
-            public void onFailure(Call<List<Word>> call, Throwable t) {
-                saveAdminWordLocalWithGeneratedId(preparedWord, callback);
-            }
+
+                @Override
+                public void onFailure(Call<List<Word>> call, Throwable t) {
+                    Log.w(TAG, "Ошибка сети adminCreateWord: " + t.getMessage(), t);
+                }
+            });
         });
     }
 
-    // Нормализует поля слова и проверяет обязательные данные
     private Word prepareAdminWord(Word word) {
         if (word == null) return null;
 
@@ -362,38 +438,9 @@ public class AdminRepository {
         return word;
     }
 
-    private void saveAdminWordLocal(Word savedWord, DataCallback<Word> callback) {
-        executor.execute(() -> {
-            try {
-                wordDao.insert(savedWord);
-                mainHandler.post(() -> callback.onSuccess(savedWord));
-            } catch (Exception e) {
-                Log.e(TAG, "Ошибка локального сохранения термина: " + e.getMessage(), e);
-                mainHandler.post(() -> callback.onError("Не удалось сохранить термин"));
-            }
-        });
-    }
-
-    // Локальное создание слова: генерация ID и вставка в одной транзакции
-    private void saveAdminWordLocalWithGeneratedId(Word word, DataCallback<Word> callback) {
-        executor.execute(() -> {
-            try {
-                database.runInTransaction(() -> {
-                    if (word.getId() == null || word.getId() <= 0) {
-                        Long maxId = wordDao.getMaxWordId();
-                        word.setId(maxId == null ? 1L : maxId + 1L);
-                    }
-                    wordDao.insert(word);
-                });
-                mainHandler.post(() -> callback.onSuccess(word));
-            } catch (Exception e) {
-                Log.e(TAG, "Ошибка локального создания термина: " + e.getMessage(), e);
-                mainHandler.post(() -> callback.onError("Не удалось создать термин"));
-            }
-        });
-    }
-
-    // Обновляет слово на сервере; при ошибке обновляет локально
+    // ============================================================
+    // ОБНОВЛЕНИЕ СЛОВА
+    // ============================================================
     public void adminUpdateWord(Word word, DataCallback<Word> callback) {
         if (!isCurrentUserAdmin()) {
             callback.onError("Недостаточно прав администратора");
@@ -405,40 +452,52 @@ public class AdminRepository {
             return;
         }
 
-        apiService.adminUpdateWord("eq." + word.getId(), word).enqueue(new Callback<List<Word>>() {
-            @Override
-            public void onResponse(Call<List<Word>> call, Response<List<Word>> response) {
-                Word savedWord = word;
-                if (response.isSuccessful()
-                        && response.body() != null
-                        && !response.body().isEmpty()) {
-                    savedWord = response.body().get(0);
-                }
-                Word finalWord = savedWord;
-                executor.execute(() -> {
-                    try {
-                        wordDao.insert(finalWord);
-                    } catch (Exception e) {
-                        Log.e(TAG, "Ошибка локального обновления слова: " + e.getMessage(), e);
-                    }
-                    mainHandler.post(() -> callback.onSuccess(finalWord));
-                });
+        // 1) Мгновенно сохраняем локально
+        executor.execute(() -> {
+            try {
+                wordDao.insert(word);
+                mainHandler.post(() -> callback.onSuccess(word));
+            } catch (Exception e) {
+                Log.e(TAG, "Ошибка локального обновления слова: " + e.getMessage(), e);
+                mainHandler.post(() -> callback.onError("Не удалось обновить термин"));
+                return;
             }
-            @Override
-            public void onFailure(Call<List<Word>> call, Throwable t) {
-                executor.execute(() -> {
-                    try {
-                        wordDao.insert(word);
-                        mainHandler.post(() -> callback.onSuccess(word));
-                    } catch (Exception e) {
-                        mainHandler.post(() -> callback.onError("Не удалось обновить термин"));
-                    }
-                });
-            }
+
+            // 2) В фоне обновляем на сервере
+            apiService.adminUpdateWord("eq." + word.getId(), word)
+                    .enqueue(new Callback<List<Word>>() {
+                        @Override
+                        public void onResponse(Call<List<Word>> call, Response<List<Word>> response) {
+                            if (response.isSuccessful()
+                                    && response.body() != null
+                                    && !response.body().isEmpty()) {
+                                Word savedWord = response.body().get(0);
+                                executor.execute(() -> {
+                                    try {
+                                        wordDao.insert(savedWord);
+                                    } catch (Exception e) {
+                                        Log.e(TAG,
+                                                "Ошибка локальной перезаписи слова после ответа сервера: "
+                                                        + e.getMessage(), e);
+                                    }
+                                });
+                            } else {
+                                Log.w(TAG, "Сервер не подтвердил обновление слова: "
+                                        + response.code() + " | " + getErrorBody(response));
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Call<List<Word>> call, Throwable t) {
+                            Log.w(TAG, "Ошибка сети adminUpdateWord: " + t.getMessage(), t);
+                        }
+                    });
         });
     }
 
-    // Каскадное удаление слова: прогресс → слово на сервере, затем локально
+    // ============================================================
+    // УДАЛЕНИЕ СЛОВА
+    // ============================================================
     public void adminDeleteWord(Long wordId, DataCallback<Void> callback) {
         if (!isCurrentUserAdmin()) {
             callback.onError("Недостаточно прав администратора");
@@ -450,6 +509,7 @@ public class AdminRepository {
             return;
         }
 
+        // 1) Мгновенно удаляем локально
         executor.execute(() -> {
             Word localWord = null;
             try {
@@ -457,72 +517,78 @@ public class AdminRepository {
             } catch (Exception e) {
                 Log.e(TAG, "Не удалось получить слово перед удалением: " + e.getMessage(), e);
             }
-            Word finalLocalWord = localWord;
-            mainHandler.post(() -> deleteWordRemoteCascade(wordId, finalLocalWord, callback));
-        });
-    }
 
-    // Удаление прогресса по слову на сервере (шаг 1)
-    private void deleteWordRemoteCascade(Long wordId, Word localWord, DataCallback<Void> callback) {
-        apiService.adminDeleteProgressByWordId("eq." + wordId).enqueue(new Callback<Void>() {
-            @Override
-            public void onResponse(Call<Void> call, Response<Void> response) {
-                deleteWordRemote(wordId, localWord, callback);
-            }
-            @Override
-            public void onFailure(Call<Void> call, Throwable t) {
-                deleteWordRemote(wordId, localWord, callback);
-            }
-        });
-    }
+            final Word finalLocalWord = localWord;
 
-    // Удаление слова на сервере (шаг 2), затем переход к локальному удалению
-    private void deleteWordRemote(Long wordId, Word localWord, DataCallback<Void> callback) {
-        apiService.adminDeleteWord("eq." + wordId).enqueue(new Callback<Void>() {
-            @Override
-            public void onResponse(Call<Void> call, Response<Void> response) {
-                if (listener != null) {
-                    listener.getCurrentUserId(userId ->
-                            deleteWordLocalCascade(wordId, localWord, userId, callback));
-                } else {
-                    deleteWordLocalCascade(wordId, localWord, null, callback);
-                }
-            }
-            @Override
-            public void onFailure(Call<Void> call, Throwable t) {
-                if (listener != null) {
-                    listener.getCurrentUserId(userId ->
-                            deleteWordLocalCascade(wordId, localWord, userId, callback));
-                } else {
-                    deleteWordLocalCascade(wordId, localWord, null, callback);
-                }
-            }
-        });
-    }
-
-    // Локальное каскадное удаление слова в одной транзакции
-    private void deleteWordLocalCascade(Long wordId, Word localWord,
-                                        Integer userId, DataCallback<Void> callback) {
-        executor.execute(() -> {
+            // Локально удаляем сразу
             try {
-                database.runInTransaction(() -> {
-                    if (localWord != null
-                            && localWord.getTerm() != null
-                            && userId != null
-                            && userId != -1) {
-                        userWordDao.deleteUserWordsByTerm(userId, localWord.getTerm());
-                    }
-                    wordDao.deleteWordById(wordId);
-                });
-                mainHandler.post(() -> callback.onSuccess(null));
+                if (listener != null) {
+                    listener.getCurrentUserId(userId -> executor.execute(() -> {
+                        try {
+                            database.runInTransaction(() -> {
+                                if (finalLocalWord != null
+                                        && finalLocalWord.getTerm() != null
+                                        && userId != null
+                                        && userId != -1) {
+                                    userWordDao.deleteUserWordsByTerm(userId, finalLocalWord.getTerm());
+                                }
+                                wordDao.deleteWordById(wordId);
+                            });
+                            mainHandler.post(() -> callback.onSuccess(null));
+                        } catch (Exception e) {
+                            Log.e(TAG, "Ошибка локального удаления слова: " + e.getMessage(), e);
+                            mainHandler.post(() -> callback.onError("Не удалось удалить термин"));
+                            return;
+                        }
+
+                        // 2) В фоне удаляем на сервере
+                        deleteWordRemoteCascade(wordId);
+                    }));
+                } else {
+                    database.runInTransaction(() -> wordDao.deleteWordById(wordId));
+                    mainHandler.post(() -> callback.onSuccess(null));
+                    deleteWordRemoteCascade(wordId);
+                }
             } catch (Exception e) {
-                Log.e(TAG, "Ошибка каскадного удаления слова: " + e.getMessage(), e);
+                Log.e(TAG, "Ошибка локального удаления слова: " + e.getMessage(), e);
                 mainHandler.post(() -> callback.onError("Не удалось удалить термин"));
             }
         });
     }
 
-    // Массовое создание слов: отправка на сервер с fallback на локальное сохранение
+    private void deleteWordRemoteCascade(Long wordId) {
+        apiService.adminDeleteProgressByWordId("eq." + wordId).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                deleteWordRemote(wordId);
+            }
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.w(TAG, "Ошибка удаления прогресса слова на сервере: " + t.getMessage());
+                deleteWordRemote(wordId);
+            }
+        });
+    }
+
+    private void deleteWordRemote(Long wordId) {
+        apiService.adminDeleteWord("eq." + wordId).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (!response.isSuccessful()) {
+                    Log.w(TAG, "Сервер не подтвердил удаление слова: "
+                            + response.code() + " | " + getErrorBody(response));
+                }
+            }
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.w(TAG, "Ошибка удаления слова на сервере: " + t.getMessage());
+            }
+        });
+    }
+
+    // ============================================================
+    // МАССОВОЕ СОЗДАНИЕ СЛОВ
+    // ============================================================
     public void adminCreateWordsBulk(Long themeId, List<Word> words,
                                      DataCallback<List<Word>> callback) {
         if (!isCurrentUserAdmin()) {
@@ -542,28 +608,58 @@ public class AdminRepository {
             return;
         }
 
-        apiService.adminCreateWords(preparedWords).enqueue(new Callback<List<Word>>() {
-            @Override
-            public void onResponse(Call<List<Word>> call, Response<List<Word>> response) {
-                if (response.isSuccessful()
-                        && response.body() != null
-                        && !response.body().isEmpty()) {
-                    saveAdminWordsLocal(response.body(), callback);
-                } else {
-                    Log.e(TAG, "Сервер не создал слова: " + response.code()
-                            + " | " + getErrorBody(response));
-                    saveAdminWordsLocalWithGeneratedIds(preparedWords, callback);
+        // 1) Мгновенно сохраняем все слова локально
+        executor.execute(() -> {
+            try {
+                database.runInTransaction(() -> {
+                    Long maxId = wordDao.getMaxWordId();
+                    long nextId = maxId == null ? 1L : maxId + 1L;
+                    for (Word word : preparedWords) {
+                        if (word.getId() == null || word.getId() <= 0) {
+                            word.setId(nextId++);
+                        }
+                    }
+                    wordDao.insertAll(preparedWords);
+                });
+
+                mainHandler.post(() -> callback.onSuccess(preparedWords));
+            } catch (Exception e) {
+                Log.e(TAG, "Ошибка локального массового создания слов: " + e.getMessage(), e);
+                mainHandler.post(() -> callback.onError("Не удалось создать термины"));
+                return;
+            }
+
+            // 2) В фоне отправляем на сервер
+            apiService.adminCreateWords(preparedWords).enqueue(new Callback<List<Word>>() {
+                @Override
+                public void onResponse(Call<List<Word>> call, Response<List<Word>> response) {
+                    if (response.isSuccessful()
+                            && response.body() != null
+                            && !response.body().isEmpty()) {
+                        List<Word> serverWords = response.body();
+                        executor.execute(() -> {
+                            try {
+                                database.runInTransaction(() -> wordDao.insertAll(serverWords));
+                            } catch (Exception e) {
+                                Log.e(TAG,
+                                        "Ошибка локальной перезаписи bulk-слов после ответа сервера: "
+                                                + e.getMessage(), e);
+                            }
+                        });
+                    } else {
+                        Log.w(TAG, "Сервер не создал слова bulk: " + response.code()
+                                + " | " + getErrorBody(response));
+                    }
                 }
-            }
-            @Override
-            public void onFailure(Call<List<Word>> call, Throwable t) {
-                Log.e(TAG, "Ошибка сети adminCreateWordsBulk: " + t.getMessage(), t);
-                saveAdminWordsLocalWithGeneratedIds(preparedWords, callback);
-            }
+
+                @Override
+                public void onFailure(Call<List<Word>> call, Throwable t) {
+                    Log.w(TAG, "Ошибка сети adminCreateWordsBulk: " + t.getMessage(), t);
+                }
+            });
         });
     }
 
-    // Нормализует и фильтрует список слов перед отправкой
     private List<Word> prepareBulkWords(Long themeId, List<Word> words) {
         List<Word> result = new ArrayList<>();
         if (words == null) return result;
@@ -589,43 +685,5 @@ public class AdminRepository {
         }
 
         return result;
-    }
-
-    // Пакетная вставка слов в локальную БД в одной транзакции
-    private void saveAdminWordsLocal(List<Word> words, DataCallback<List<Word>> callback) {
-        executor.execute(() -> {
-            try {
-                database.runInTransaction(() -> wordDao.insertAll(words));
-                Log.d(TAG, "Bulk insert: " + words.size() + " слов сохранено в транзакции");
-                mainHandler.post(() -> callback.onSuccess(words));
-            } catch (Exception e) {
-                Log.e(TAG, "Ошибка локального сохранения терминов: " + e.getMessage(), e);
-                mainHandler.post(() -> callback.onError("Не удалось сохранить термины"));
-            }
-        });
-    }
-
-    // Генерация ID и пакетная вставка слов в одной транзакции (при отсутствии ответа сервера)
-    private void saveAdminWordsLocalWithGeneratedIds(List<Word> words,
-                                                     DataCallback<List<Word>> callback) {
-        executor.execute(() -> {
-            try {
-                database.runInTransaction(() -> {
-                    Long maxId = wordDao.getMaxWordId();
-                    long nextId = maxId == null ? 1L : maxId + 1L;
-                    for (Word word : words) {
-                        if (word.getId() == null || word.getId() <= 0) {
-                            word.setId(nextId++);
-                        }
-                    }
-                    wordDao.insertAll(words);
-                });
-                Log.d(TAG, "Bulk insert с генерацией ID: " + words.size() + " слов");
-                mainHandler.post(() -> callback.onSuccess(words));
-            } catch (Exception e) {
-                Log.e(TAG, "Ошибка массового создания терминов: " + e.getMessage(), e);
-                mainHandler.post(() -> callback.onError("Не удалось создать термины"));
-            }
-        });
     }
 }

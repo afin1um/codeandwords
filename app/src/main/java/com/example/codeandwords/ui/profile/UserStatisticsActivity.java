@@ -31,8 +31,15 @@ import java.util.Locale;
 // Экран детальной статистики: общие показатели, прогресс по темам, история уроков и график активности.
 public class UserStatisticsActivity extends AppCompatActivity {
 
-    // Количество строк в превью-списках
     private static final int PREVIEW_LIMIT = 5;
+
+    // Простой in-memory кэш на 30 секунд — для мгновенного открытия экрана при возврате
+    private static final long UI_CACHE_TTL = 30_000L;
+    private static long lastUiCacheTime = 0L;
+    private static UserOverallStats cachedOverall;
+    private static List<ThemeProgressStats> cachedThemeProgress;
+    private static List<LessonHistory> cachedRecentLessons;
+    private static List<LessonHistory> cachedChartHistory;
 
     private ImageButton btnBackStatistics;
     private TextView tvStatsLessons;
@@ -58,7 +65,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
     private final List<ThemeProgressStats> allThemeProgressItems = new ArrayList<>();
     private final List<LessonHistory> allRecentLessonItems = new ArrayList<>();
 
-    // Форматы дат для ключей и меток графика в локальном часовом поясе
     private final SimpleDateFormat dayKeyFormat;
     private final SimpleDateFormat dayLabelFormat;
 
@@ -70,7 +76,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
         dayLabelFormat.setTimeZone(java.util.TimeZone.getDefault());
     }
 
-    // Счётчик параллельных запросов — прогресс-бар скрывается когда все завершились
     private int loadedRequests = 0;
     private static final int TOTAL_REQUESTS = 4;
 
@@ -89,7 +94,41 @@ public class UserStatisticsActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        loadStatistics();
+
+        // Если есть свежий кэш — показываем мгновенно
+        if (hasFreshCache()) {
+            applyCacheToUi();
+            // Тихо обновляем в фоне, без spinner-а
+            loadStatistics(false);
+        } else {
+            loadStatistics(true);
+        }
+    }
+
+    private boolean hasFreshCache() {
+        return cachedOverall != null
+                && (System.currentTimeMillis() - lastUiCacheTime) < UI_CACHE_TTL;
+    }
+
+    private void applyCacheToUi() {
+        if (cachedOverall != null) {
+            applyOverallStats(cachedOverall);
+        }
+
+        allThemeProgressItems.clear();
+        if (cachedThemeProgress != null) {
+            allThemeProgressItems.addAll(cachedThemeProgress);
+        }
+        bindThemeProgressPreview();
+
+        allRecentLessonItems.clear();
+        if (cachedRecentLessons != null) {
+            allRecentLessonItems.addAll(cachedRecentLessons);
+        }
+        bindRecentLessonsPreview();
+
+        buildActivityChart(cachedChartHistory != null
+                ? cachedChartHistory : new ArrayList<>());
     }
 
     private void initViews() {
@@ -135,9 +174,12 @@ public class UserStatisticsActivity extends AppCompatActivity {
         btnShowAllLessons.setOnClickListener(v -> showAllLessonsBottomSheet());
     }
 
-    // Запускает все 4 запроса параллельно и сбрасывает счётчик завершённых
-    private void loadStatistics() {
-        pbStatistics.setVisibility(View.VISIBLE);
+    private void loadStatistics(boolean showProgress) {
+        if (showProgress) {
+            pbStatistics.setVisibility(View.VISIBLE);
+        } else {
+            pbStatistics.setVisibility(View.GONE);
+        }
         loadedRequests = 0;
 
         loadOverallStats();
@@ -146,33 +188,41 @@ public class UserStatisticsActivity extends AppCompatActivity {
         loadActivityChart();
     }
 
-    // Загружает общую статистику и заполняет сводный блок
     private void loadOverallStats() {
         repository.getUserOverallStatistics(new Repository.DataCallback<UserOverallStats>() {
             @Override
             public void onSuccess(UserOverallStats data) {
                 if (data == null) {
                     setEmptyOverallStats();
+                    cachedOverall = null;
                 } else {
-                    tvStatsLessons.setText(String.valueOf(data.getTotalLessons()));
-                    tvStatsAccuracy.setText(data.getAccuracyPercent() + "%");
-                    tvStatsFixedErrors.setText(String.valueOf(data.getFixedErrors()));
-                    tvStatsLearnedWords.setText(String.valueOf(data.getLearnedWords()));
-                    tvStatsXp.setText(String.valueOf(data.getTotalXp()));
-                    tvStatsLeague.setText(data.getLeagueIcon() + " " + data.getLeagueTitle());
+                    applyOverallStats(data);
+                    cachedOverall = data;
+                    lastUiCacheTime = System.currentTimeMillis();
                 }
                 checkAllLoaded();
             }
 
             @Override
             public void onError(String error) {
-                setEmptyOverallStats();
-                Toast.makeText(UserStatisticsActivity.this,
-                        error != null ? error : "Не удалось загрузить статистику",
-                        Toast.LENGTH_SHORT).show();
+                if (cachedOverall == null) {
+                    setEmptyOverallStats();
+                    Toast.makeText(UserStatisticsActivity.this,
+                            error != null ? error : "Не удалось загрузить статистику",
+                            Toast.LENGTH_SHORT).show();
+                }
                 checkAllLoaded();
             }
         });
+    }
+
+    private void applyOverallStats(UserOverallStats data) {
+        tvStatsLessons.setText(String.valueOf(data.getTotalLessons()));
+        tvStatsAccuracy.setText(data.getAccuracyPercent() + "%");
+        tvStatsFixedErrors.setText(String.valueOf(data.getFixedErrors()));
+        tvStatsLearnedWords.setText(String.valueOf(data.getLearnedWords()));
+        tvStatsXp.setText(String.valueOf(data.getTotalXp()));
+        tvStatsLeague.setText(data.getLeagueIcon() + " " + data.getLeagueTitle());
     }
 
     private void setEmptyOverallStats() {
@@ -184,7 +234,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
         tvStatsLeague.setText("🥉 Бронзовая лига");
     }
 
-    // Загружает прогресс по темам и отображает превью
     private void loadThemeProgress() {
         repository.getThemeProgressStatistics(new Repository.DataCallback<List<ThemeProgressStats>>() {
             @Override
@@ -192,22 +241,25 @@ public class UserStatisticsActivity extends AppCompatActivity {
                 allThemeProgressItems.clear();
                 if (data != null) allThemeProgressItems.addAll(data);
                 bindThemeProgressPreview();
+                cachedThemeProgress = new ArrayList<>(allThemeProgressItems);
+                lastUiCacheTime = System.currentTimeMillis();
                 checkAllLoaded();
             }
 
             @Override
             public void onError(String error) {
-                allThemeProgressItems.clear();
-                themeProgressAdapter.setItems(new ArrayList<>());
-                tvThemeProgressEmpty.setVisibility(View.VISIBLE);
-                rvThemeProgress.setVisibility(View.GONE);
-                btnShowAllThemes.setVisibility(View.GONE);
+                if (cachedThemeProgress == null) {
+                    allThemeProgressItems.clear();
+                    themeProgressAdapter.setItems(new ArrayList<>());
+                    tvThemeProgressEmpty.setVisibility(View.VISIBLE);
+                    rvThemeProgress.setVisibility(View.GONE);
+                    btnShowAllThemes.setVisibility(View.GONE);
+                }
                 checkAllLoaded();
             }
         });
     }
 
-    // Показывает первые PREVIEW_LIMIT тем; кнопка «Показать все» видна при наличии остальных
     private void bindThemeProgressPreview() {
         if (allThemeProgressItems.isEmpty()) {
             themeProgressAdapter.setItems(new ArrayList<>());
@@ -230,7 +282,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
         }
     }
 
-    // Загружает последние 50 уроков и отображает превью
     private void loadRecentLessons() {
         repository.getRecentLessonHistory(50, new Repository.DataCallback<List<LessonHistory>>() {
             @Override
@@ -238,16 +289,20 @@ public class UserStatisticsActivity extends AppCompatActivity {
                 allRecentLessonItems.clear();
                 if (data != null) allRecentLessonItems.addAll(data);
                 bindRecentLessonsPreview();
+                cachedRecentLessons = new ArrayList<>(allRecentLessonItems);
+                lastUiCacheTime = System.currentTimeMillis();
                 checkAllLoaded();
             }
 
             @Override
             public void onError(String error) {
-                allRecentLessonItems.clear();
-                recentLessonsAdapter.setItems(new ArrayList<>());
-                tvRecentLessonsEmpty.setVisibility(View.VISIBLE);
-                rvRecentLessons.setVisibility(View.GONE);
-                btnShowAllLessons.setVisibility(View.GONE);
+                if (cachedRecentLessons == null) {
+                    allRecentLessonItems.clear();
+                    recentLessonsAdapter.setItems(new ArrayList<>());
+                    tvRecentLessonsEmpty.setVisibility(View.VISIBLE);
+                    rvRecentLessons.setVisibility(View.GONE);
+                    btnShowAllLessons.setVisibility(View.GONE);
+                }
                 checkAllLoaded();
             }
         });
@@ -275,7 +330,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
         }
     }
 
-    // Возвращает первые limit элементов из списка
     private <T> List<T> takeFirstItems(List<T> source, int limit) {
         List<T> result = new ArrayList<>();
         if (source == null || source.isEmpty() || limit <= 0) return result;
@@ -284,7 +338,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
         return result;
     }
 
-    // Скрывает прогресс-бар когда все параллельные запросы завершились
     private synchronized void checkAllLoaded() {
         loadedRequests++;
         if (loadedRequests >= TOTAL_REQUESTS) {
@@ -293,24 +346,27 @@ public class UserStatisticsActivity extends AppCompatActivity {
         }
     }
 
-    // Загружает полную историю уроков для построения столбчатого графика активности
     private void loadActivityChart() {
         repository.getLessonHistoryForStatistics(new Repository.DataCallback<List<LessonHistory>>() {
             @Override
             public void onSuccess(List<LessonHistory> data) {
-                buildActivityChart(data != null ? data : new ArrayList<>());
+                List<LessonHistory> safe = data != null ? data : new ArrayList<>();
+                buildActivityChart(safe);
+                cachedChartHistory = new ArrayList<>(safe);
+                lastUiCacheTime = System.currentTimeMillis();
                 checkAllLoaded();
             }
 
             @Override
             public void onError(String error) {
-                buildActivityChart(new ArrayList<>());
+                if (cachedChartHistory == null) {
+                    buildActivityChart(new ArrayList<>());
+                }
                 checkAllLoaded();
             }
         });
     }
 
-    // Строит столбчатый график за последние 7 дней
     private void buildActivityChart(List<LessonHistory> history) {
         chartContainer.removeAllViews();
 
@@ -328,7 +384,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
             calendar.add(Calendar.DAY_OF_MONTH, 1);
         }
 
-        // Подсчёт уроков по дням
         if (history != null) {
             for (LessonHistory item : history) {
                 if (item == null || item.finishedAt <= 0) continue;
@@ -390,7 +445,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    // Открывает BottomSheet с полным списком тем
     private void showAllThemesBottomSheet() {
         if (allThemeProgressItems.isEmpty()) {
             Toast.makeText(this, "Нет данных по темам", Toast.LENGTH_SHORT).show();
@@ -418,7 +472,6 @@ public class UserStatisticsActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    // Открывает BottomSheet с полной историей уроков
     private void showAllLessonsBottomSheet() {
         if (allRecentLessonItems.isEmpty()) {
             Toast.makeText(this, "История занятий пока пустая", Toast.LENGTH_SHORT).show();

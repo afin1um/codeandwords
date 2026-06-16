@@ -1,5 +1,6 @@
 package com.example.codeandwords.ui.game;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.speech.tts.TextToSpeech;
@@ -27,6 +28,9 @@ public class ListeningGameActivity extends BaseBackActivity {
     private static final int OPTIONS_COUNT = 5;
     private static final int POINTS_PER_CORRECT = 10;
 
+    // Максимальное количество слов за тренировку
+    private static final int MAX_WORDS_PER_SESSION = 10;
+
     private ProgressBar progressListening;
     private ProgressBar pbListening;
     private TextView tvListeningCounter;
@@ -40,7 +44,10 @@ public class ListeningGameActivity extends BaseBackActivity {
 
     private Repository repository;
 
-    private final List<Word> learnedWords = new ArrayList<>();
+    // Слова сессии: случайные 10 из всех изученных
+    private final List<Word> sessionWords = new ArrayList<>();
+    // Полный пул изученных слов — используется для вариантов ответа, чтобы было разнообразие
+    private final List<Word> allLearnedWordsPool = new ArrayList<>();
 
     private int currentIndex = 0;
     private int score = 0;
@@ -53,7 +60,6 @@ public class ListeningGameActivity extends BaseBackActivity {
     private boolean currentWordAlreadyInDictionary = false;
     private boolean dictionaryStateLoading = false;
 
-    // Собственный TTS — чтобы озвучка не зависела от готовности TtsManager в Repository
     private TextToSpeech tts;
     private boolean ttsReady = false;
     private String pendingSpeechText;
@@ -123,7 +129,6 @@ public class ListeningGameActivity extends BaseBackActivity {
 
             ttsReady = true;
 
-            // Если запрос на озвучку пришёл до готовности TTS — проигрываем сейчас
             if (pendingSpeechText != null) {
                 tts.speak(pendingSpeechText, TextToSpeech.QUEUE_FLUSH, null, "LISTENING_TTS");
                 pendingSpeechText = null;
@@ -137,7 +142,6 @@ public class ListeningGameActivity extends BaseBackActivity {
         if (ttsReady && tts != null) {
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "LISTENING_TTS");
         } else {
-            // TTS ещё не готов — запомним последнее слово и проиграем после инициализации
             pendingSpeechText = text;
         }
     }
@@ -149,17 +153,24 @@ public class ListeningGameActivity extends BaseBackActivity {
             @Override
             public void onSuccess(List<Word> data) {
                 pbListening.setVisibility(View.GONE);
-                learnedWords.clear();
-                if (data != null) learnedWords.addAll(data);
 
-                if (learnedWords.isEmpty()) {
+                List<Word> playable = preparePlayableWords(data);
+
+                if (playable.isEmpty()) {
                     Toast.makeText(ListeningGameActivity.this,
                             "Нет слов для тренировки", Toast.LENGTH_LONG).show();
                     finish();
                     return;
                 }
 
-                Collections.shuffle(learnedWords);
+                // Сохраняем полный пул — он нужен для вариантов ответа
+                allLearnedWordsPool.clear();
+                allLearnedWordsPool.addAll(playable);
+
+                // Берём случайные 10 (или меньше) для сессии
+                sessionWords.clear();
+                sessionWords.addAll(pickRandomWords(playable, MAX_WORDS_PER_SESSION));
+
                 showNextQuestion();
             }
 
@@ -172,13 +183,44 @@ public class ListeningGameActivity extends BaseBackActivity {
         });
     }
 
+    // Отфильтровываем слова, у которых пустой term или translation
+    private List<Word> preparePlayableWords(List<Word> words) {
+        List<Word> result = new ArrayList<>();
+        if (words == null) return result;
+
+        for (Word word : words) {
+            if (word == null) continue;
+
+            String term = word.getTerm() == null ? "" : word.getTerm().trim();
+            String translation = word.getTranslation() == null ? "" : word.getTranslation().trim();
+
+            if (!term.isEmpty() && !translation.isEmpty()) {
+                result.add(word);
+            }
+        }
+
+        return result;
+    }
+
+    // Перемешивает и берёт первые maxCount элементов
+    private List<Word> pickRandomWords(List<Word> source, int maxCount) {
+        List<Word> copy = new ArrayList<>(source);
+        Collections.shuffle(copy);
+
+        if (copy.size() <= maxCount) {
+            return copy;
+        }
+
+        return new ArrayList<>(copy.subList(0, maxCount));
+    }
+
     private void showNextQuestion() {
-        if (currentIndex >= learnedWords.size()) {
+        if (currentIndex >= sessionWords.size()) {
             finishTraining();
             return;
         }
 
-        currentWord = learnedWords.get(currentIndex);
+        currentWord = sessionWords.get(currentIndex);
         answeredCurrentQuestion = false;
         currentWordAlreadyInDictionary = false;
 
@@ -186,16 +228,15 @@ public class ListeningGameActivity extends BaseBackActivity {
         tvListeningDictionaryText.setText("Добавить в словарь");
         cardListeningDictionaryState.setAlpha(1.0f);
 
-        tvListeningCounter.setText((currentIndex + 1) + " / " + learnedWords.size());
+        tvListeningCounter.setText((currentIndex + 1) + " / " + sessionWords.size());
 
         if (progressListening != null) {
-            int progress = (int) (((float) currentIndex / learnedWords.size()) * 100);
+            int progress = (int) (((float) currentIndex / sessionWords.size()) * 100);
             progressListening.setProgress(progress);
         }
 
         createOptions();
 
-        // Небольшая задержка, чтобы первый вызов точно прошёл после готовности TTS
         new Handler().postDelayed(() -> speak(currentWord.getTerm()), 200);
     }
 
@@ -205,7 +246,8 @@ public class ListeningGameActivity extends BaseBackActivity {
         List<String> options = new ArrayList<>();
         options.add(currentWord.getTranslation());
 
-        List<Word> shuffled = new ArrayList<>(learnedWords);
+        // Для вариантов используем полный пул, чтобы было больше разнообразия
+        List<Word> shuffled = new ArrayList<>(allLearnedWordsPool);
         Collections.shuffle(shuffled);
 
         for (Word w : shuffled) {
@@ -263,21 +305,29 @@ public class ListeningGameActivity extends BaseBackActivity {
         }
     }
 
+    // Завершает тренировку: записывает урок (без XP) и открывает экран результатов
     private void finishTraining() {
         if (progressListening != null) {
             progressListening.setProgress(100);
         }
 
+        // В режиме тренировки XP не начисляется — передаём 0
         repository.recordLessonCompletion(
-                "LISTENING",
+                "TRAINING_LISTENING",
                 null,
-                score,
-                learnedWords.size(),
+                0,
+                sessionWords.size(),
                 mistakesCount,
                 fixedErrorsCount,
                 false
         );
 
+        Intent intent = new Intent(this, GameResultActivity.class);
+        intent.putExtra("SCORE", 0);
+        intent.putExtra("TOTAL_WORDS", sessionWords.size());
+        intent.putExtra("MISTAKES_COUNT", mistakesCount);
+        intent.putExtra("IS_TRAINING", true);
+        startActivity(intent);
         finish();
     }
 

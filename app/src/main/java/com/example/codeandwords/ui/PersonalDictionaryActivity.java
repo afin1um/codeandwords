@@ -1,6 +1,5 @@
 package com.example.codeandwords.ui;
 
-import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.util.Log;
@@ -20,7 +19,6 @@ import com.example.codeandwords.data.Repository;
 import com.example.codeandwords.model.Theme;
 import com.example.codeandwords.model.UserWord;
 import com.example.codeandwords.ui.adapters.UserWordAdapter;
-import com.example.codeandwords.ui.game.WriteWordGameActivity;
 import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
@@ -28,7 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-// Экран личного словаря: фильтрация по темам, синхронизация с сервером, сортировка и тренировка.
+// Экран личного словаря: фильтрация по темам, синхронизация с сервером, сортировка.
 public class PersonalDictionaryActivity extends AppCompatActivity {
 
     private static final String THEME_ALL = "Все темы";
@@ -74,7 +72,7 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         setupRecycler();
         setupClicks();
 
-        // 1) Сразу показываем то, что уже есть локально (мгновенный отклик)
+        // 1) Сразу показываем то, что уже есть локально
         loadThemesAndWords();
 
         // 2) В фоне синхронизируемся с сервером и обновляем список
@@ -99,6 +97,11 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         btnStartWordsTraining = findViewById(R.id.btnStartWordsTraining);
         btnBack = findViewById(R.id.btnBack);
         themeFilterContainer = findViewById(R.id.themeFilterContainer);
+
+        // Скрываем кнопку «Начать тренировку» — она больше не нужна
+        if (btnStartWordsTraining != null) {
+            btnStartWordsTraining.setVisibility(View.GONE);
+        }
     }
 
     private void setupRecycler() {
@@ -110,12 +113,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
     private void setupClicks() {
         btnBack.setOnClickListener(v -> finish());
 
-        btnStartWordsTraining.setOnClickListener(v -> {
-            Intent intent = new Intent(this, WriteWordGameActivity.class);
-            intent.putExtra("TRAINING_MODE", "LEARNED_WORDS");
-            startActivity(intent);
-        });
-
         tvSort.setOnClickListener(v -> {
             sortAscending = !sortAscending;
             adapter.setSortAscending(sortAscending);
@@ -124,7 +121,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         });
     }
 
-    // Фоновая синхронизация: словарь -> восстановление тем -> мягкое обновление UI
     private void syncDictionaryInBackground() {
         repository.syncPersonalWords(new Repository.DataCallback<Void>() {
             @Override
@@ -132,7 +128,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
                 repository.repairPersonalDictionaryThemes(new Repository.DataCallback<Void>() {
                     @Override
                     public void onSuccess(Void data) {
-                        // Когда серверные данные пришли — мягко обновим список
                         loadThemesAndWords();
                     }
 
@@ -152,7 +147,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         });
     }
 
-    // Загружает темы (cache-first внутри ThemeRepository) и затем слова
     private void loadThemesAndWords() {
         repository.getThemes(new Repository.DataCallback<List<Theme>>() {
             @Override
@@ -191,7 +185,6 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
         });
     }
 
-    // Загружает все слова, пересчитывает счётчики по темам и обновляет UI
     private void reloadCountsAndWords() {
         repository.getUserPersonalWords(new Repository.DataCallback<List<UserWord>>() {
             @Override
@@ -269,6 +262,7 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
                 chip.setBackgroundTintList(ColorStateList.valueOf(chipUnselectedBg));
                 chip.setStrokeColor(ColorStateList.valueOf(chipUnselectedStroke));
             }
+
             chip.setStrokeWidth(dp(1));
 
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -384,10 +378,12 @@ public class PersonalDictionaryActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
-        if (repository != null) {
-            repository.onDestroy();
+        // Освобождаем TTS адаптера, чтобы не утекал
+        if (adapter != null) {
+            adapter.releaseTts();
         }
+        // Repository — singleton, НЕ уничтожаем
+        super.onDestroy();
     }
 
     private static class ThemeFilterItem {

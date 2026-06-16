@@ -28,6 +28,9 @@ public class MistakesTrainingActivity extends BaseBackActivity {
     private static final int POINTS_PER_FIXED_MISTAKE = 5;
     private static final long LOAD_TIMEOUT_MS = 15_000;
 
+    // Максимальное количество слов за тренировку
+    private static final int MAX_WORDS_PER_SESSION = 10;
+
     private ProgressBar progressMistakes;
     private ProgressBar pbMistakes;
     private TextView tvMistakesCounter;
@@ -42,6 +45,7 @@ public class MistakesTrainingActivity extends BaseBackActivity {
 
     private Repository repository;
 
+    // Слова сессии: случайные 10 (или меньше) из всех слов с ошибками
     private final List<Word> mistakeWords = new ArrayList<>();
     private Word currentWord;
     private int currentIndex = 0;
@@ -58,7 +62,6 @@ public class MistakesTrainingActivity extends BaseBackActivity {
     private int soundError;
     private boolean soundsLoaded = false;
 
-    // Цвета загружаются из ресурсов для поддержки тёмной темы
     private int colorCardDefault;
     private int colorCardAdded;
     private int colorBlue;
@@ -82,7 +85,6 @@ public class MistakesTrainingActivity extends BaseBackActivity {
         initSoundPool();
         initViews();
 
-        // Крестик возвращает в TrainingFragment
         setupCloseToTrainingButton(R.id.btnUniClose);
 
         loadMistakeWords();
@@ -150,7 +152,6 @@ public class MistakesTrainingActivity extends BaseBackActivity {
         });
     }
 
-    // Загружает слова с ошибками; завершает активность при таймауте LOAD_TIMEOUT_MS
     private void loadMistakeWords() {
         if (isLoading) return;
         isLoading = true;
@@ -177,17 +178,19 @@ public class MistakesTrainingActivity extends BaseBackActivity {
                 isLoading = false;
                 pbMistakes.setVisibility(View.GONE);
 
-                mistakeWords.clear();
-                if (data != null) mistakeWords.addAll(preparePlayableWords(data));
+                List<Word> playable = preparePlayableWords(data);
 
-                if (mistakeWords.isEmpty()) {
+                if (playable.isEmpty()) {
                     Toast.makeText(MistakesTrainingActivity.this,
                             "Ошибок для повторения пока нет", Toast.LENGTH_LONG).show();
                     finish();
                     return;
                 }
 
-                Collections.shuffle(mistakeWords);
+                // Случайные 10 (или меньше) слов с ошибками
+                mistakeWords.clear();
+                mistakeWords.addAll(pickRandomWords(playable, MAX_WORDS_PER_SESSION));
+
                 currentIndex = 0;
                 score = 0;
                 mistakesMade = 0;
@@ -226,6 +229,18 @@ public class MistakesTrainingActivity extends BaseBackActivity {
         return result;
     }
 
+    // Перемешивает и берёт первые maxCount элементов
+    private List<Word> pickRandomWords(List<Word> source, int maxCount) {
+        List<Word> copy = new ArrayList<>(source);
+        Collections.shuffle(copy);
+
+        if (copy.size() <= maxCount) {
+            return copy;
+        }
+
+        return new ArrayList<>(copy.subList(0, maxCount));
+    }
+
     private void showNextQuestion() {
         if (currentIndex >= mistakeWords.size()) {
             finishTraining();
@@ -245,7 +260,6 @@ public class MistakesTrainingActivity extends BaseBackActivity {
         showKeyboard();
     }
 
-    // Проверяет наличие слова в словаре и обновляет карточку словаря
     private void refreshDictionaryState() {
         if (currentWord == null) {
             cardMistakeDictionaryState.setVisibility(View.GONE);
@@ -365,7 +379,6 @@ public class MistakesTrainingActivity extends BaseBackActivity {
                 @Override public void onError(String error) { }
             });
 
-            // При правильном ответе помечаем слово пройденным во всех режимах
             final Word fixedWord = currentWord;
             repository.getCurrentUserId(userId -> {
                 if (userId != null && userId > 0 && fixedWord != null) {

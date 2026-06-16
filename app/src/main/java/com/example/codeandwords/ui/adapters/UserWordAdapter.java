@@ -1,5 +1,8 @@
 package com.example.codeandwords.ui.adapters;
 
+import android.content.Context;
+import android.speech.tts.TextToSpeech;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,14 +20,26 @@ import com.google.android.material.button.MaterialButton;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
-// Адаптер личного словаря пользователя с поддержкой произношения, сортировки и удаления
+// Адаптер личного словаря пользователя с поддержкой произношения, сортировки и удаления.
+// Использует собственный TextToSpeech, чтобы озвучка работала независимо от состояния TtsManager в Repository.
 public class UserWordAdapter extends RecyclerView.Adapter<UserWordAdapter.WordViewHolder> {
+
+    private static final String TAG = "UserWordAdapter";
 
     private List<UserWord> wordList = new ArrayList<>();
     private final Repository repository;
     private final OnWordDeletedListener deleteListener;
     private boolean sortAscending = true;
+
+    // Собственный TextToSpeech
+    private TextToSpeech tts;
+    private boolean ttsReady = false;
+
+    // Если кнопку нажали до того, как TTS был готов — запоминаем последнее слово и проиграем после готовности
+    private String pendingSpeechText;
+    private boolean pendingSpeechIsSlow = false;
 
     public interface OnWordDeletedListener {
         void onDeleted();
@@ -44,7 +59,6 @@ public class UserWordAdapter extends RecyclerView.Adapter<UserWordAdapter.WordVi
         this.sortAscending = sortAscending;
     }
 
-    // Сортирует список по алфавиту в зависимости от текущего направления
     public void sortWords() {
         Collections.sort(wordList, (o1, o2) -> {
             String w1 = o1.getWord() == null ? "" : o1.getWord().toLowerCase();
@@ -52,6 +66,74 @@ public class UserWordAdapter extends RecyclerView.Adapter<UserWordAdapter.WordVi
             return sortAscending ? w1.compareTo(w2) : w2.compareTo(w1);
         });
         notifyDataSetChanged();
+    }
+
+    // Ленивая инициализация TTS — при первом нажатии на «озвучить»
+    private void ensureTtsInitialized(Context context) {
+        if (tts != null) return;
+
+        tts = new TextToSpeech(context.getApplicationContext(), status -> {
+            if (status != TextToSpeech.SUCCESS) {
+                Log.e(TAG, "TTS init failed: " + status);
+                return;
+            }
+
+            int result = tts.setLanguage(Locale.US);
+
+            if (result == TextToSpeech.LANG_MISSING_DATA
+                    || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Log.e(TAG, "Английский язык не поддерживается: " + result);
+                return;
+            }
+
+            ttsReady = true;
+
+            // Если был отложенный запрос — проигрываем
+            if (pendingSpeechText != null) {
+                playTts(pendingSpeechText, pendingSpeechIsSlow);
+                pendingSpeechText = null;
+            }
+        });
+    }
+
+    private void speak(Context context, String text, boolean isSlow) {
+        if (text == null || text.trim().isEmpty()) return;
+
+        ensureTtsInitialized(context);
+
+        if (ttsReady && tts != null) {
+            playTts(text, isSlow);
+        } else {
+            // TTS ещё не готов — запоминаем и проиграем после инициализации
+            pendingSpeechText = text;
+            pendingSpeechIsSlow = isSlow;
+        }
+    }
+
+    private void playTts(String text, boolean isSlow) {
+        if (tts == null) return;
+
+        try {
+            tts.setSpeechRate(isSlow ? 0.55f : 1.0f);
+        } catch (Exception ignored) {}
+
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "USER_WORD_TTS");
+    }
+
+    /**
+     * Освобождает ресурсы TTS. Вызывать из onDestroy() активити,
+     * в которой используется этот адаптер.
+     */
+    public void releaseTts() {
+        if (tts != null) {
+            try {
+                tts.stop();
+                tts.shutdown();
+            } catch (Exception ignored) {}
+            tts = null;
+            ttsReady = false;
+            pendingSpeechText = null;
+        }
     }
 
     @NonNull
@@ -86,10 +168,10 @@ public class UserWordAdapter extends RecyclerView.Adapter<UserWordAdapter.WordVi
         }
 
         holder.btnSpeak.setOnClickListener(v ->
-                repository.speak(currentWord.getWord(), false));
+                speak(v.getContext(), currentWord.getWord(), false));
 
         holder.btnSlowSpeak.setOnClickListener(v ->
-                repository.speak(currentWord.getWord(), true));
+                speak(v.getContext(), currentWord.getWord(), true));
 
         holder.btnDelete.setOnClickListener(v ->
                 repository.deleteUserWord(currentWord, deleteListener::onDeleted));

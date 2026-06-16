@@ -243,7 +243,8 @@ public class Repository {
 
         this.statsRepository = new StatsRepository(
                 userDao, userStatsDao, lessonHistoryDao,
-                achievementDao, dailyQuestDao, apiService, executor, mainHandler);
+                achievementDao, dailyQuestDao, wordDao,
+                apiService, executor, mainHandler);
 
         // Делегируем вспомогательные операции StatsRepository обратно в Repository
         this.statsRepository.setListener(new StatsRepository.StatsListener() {

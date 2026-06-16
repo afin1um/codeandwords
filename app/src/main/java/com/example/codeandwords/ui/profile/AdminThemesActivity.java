@@ -122,7 +122,6 @@ public class AdminThemesActivity extends AppCompatActivity {
         btnClearTheme.setOnClickListener(v -> clearThemeForm());
     }
 
-    // Загружает список тем и обновляет адаптер.
     private void loadThemes() {
         setLoading(true);
 
@@ -150,7 +149,7 @@ public class AdminThemesActivity extends AppCompatActivity {
         });
     }
 
-    // Создаёт новую тему или обновляет существующую.
+    // Создаёт новую тему или мгновенно обновляет существующую (репозиторий делает локально + фоном на сервер)
     private void saveTheme() {
         String title = text(etThemeTitle);
         String description = text(etThemeDescription);
@@ -186,26 +185,40 @@ public class AdminThemesActivity extends AppCompatActivity {
             editingTheme.setTheoryText("");
         }
 
-        setLoading(true);
+        // 1) Сразу обновляем список локально, чтобы пользователь видел изменения мгновенно
+        replaceInLoadedThemes(editingTheme);
+        themeAdapter.setItems(loadedThemes);
 
-        repository.adminUpdateTheme(editingTheme, new Repository.DataCallback<Theme>() {
+        Theme themeSnapshot = editingTheme;
+        clearThemeForm();
+        toast("Тема обновлена");
+
+        // 2) Реальное сохранение — мгновенно локально, в фоне на сервер
+        repository.adminUpdateTheme(themeSnapshot, new Repository.DataCallback<Theme>() {
             @Override
             public void onSuccess(Theme data) {
-                setLoading(false);
-                toast("Тема обновлена");
-                clearThemeForm();
-                loadThemes();
+                // Без spinner-а — обновление уже отображено
             }
 
             @Override
             public void onError(String error) {
-                setLoading(false);
                 toast(error != null ? error : "Не удалось обновить тему");
             }
         });
     }
 
-    // Проверка дублирования названия темы.
+    private void replaceInLoadedThemes(Theme updated) {
+        if (updated == null || updated.getId() == null) return;
+
+        for (int i = 0; i < loadedThemes.size(); i++) {
+            Theme t = loadedThemes.get(i);
+            if (t != null && updated.getId().equals(t.getId())) {
+                loadedThemes.set(i, updated);
+                return;
+            }
+        }
+    }
+
     private boolean isThemeDuplicate(String title, Theme currentEditingTheme) {
         String safeTitle = normalize(title);
 
@@ -235,7 +248,6 @@ public class AdminThemesActivity extends AppCompatActivity {
         return false;
     }
 
-    // Подставляет данные темы в форму редактирования.
     private void fillThemeForm(Theme theme) {
         if (theme == null) return;
 
@@ -256,7 +268,6 @@ public class AdminThemesActivity extends AppCompatActivity {
         btnSaveTheme.setText("ОБНОВИТЬ ТЕМУ");
     }
 
-    // Открывает редактор теории выбранной темы.
     private void openTheoryEditor(Theme theme) {
         if (theme == null || theme.getId() == null) {
             toast("Тема не найдена");
@@ -269,25 +280,21 @@ public class AdminThemesActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    // Загружает и показывает список слов темы в BottomSheet.
     private void previewThemeWords(Theme theme) {
         if (theme == null || theme.getId() == null) {
             toast("Тема не найдена");
             return;
         }
 
-        setLoading(true);
-
+        // Без spinner-а — getWordsByTheme отдаёт локальные данные быстро
         repository.getWordsByTheme(theme.getId(), new Repository.DataCallback<List<Word>>() {
             @Override
             public void onSuccess(List<Word> words) {
-                setLoading(false);
                 showWordsPreviewBottomSheet(theme, words != null ? words : new ArrayList<>());
             }
 
             @Override
             public void onError(String error) {
-                setLoading(false);
                 showWordsPreviewBottomSheet(theme, new ArrayList<>());
             }
         });
@@ -350,25 +357,20 @@ public class AdminThemesActivity extends AppCompatActivity {
         return "терминов";
     }
 
-    // Подтверждение удаления темы с предварительным подсчётом слов.
     private void confirmDeleteTheme(Theme theme) {
         if (theme == null || theme.getId() == null) {
             toast("Тема не найдена");
             return;
         }
 
-        setLoading(true);
-
         repository.getWordsByTheme(theme.getId(), new Repository.DataCallback<List<Word>>() {
             @Override
             public void onSuccess(List<Word> words) {
-                setLoading(false);
                 showDeleteThemeDialog(theme, words != null ? words.size() : 0);
             }
 
             @Override
             public void onError(String error) {
-                setLoading(false);
                 showDeleteThemeDialog(theme, 0);
             }
         });
@@ -402,23 +404,31 @@ public class AdminThemesActivity extends AppCompatActivity {
             return;
         }
 
-        setLoading(true);
+        // Сразу убираем тему из списка
+        removeFromLoadedThemes(theme.getId());
+        themeAdapter.setItems(loadedThemes);
+        clearThemeForm();
+        toast("Тема удалена");
 
         repository.adminDeleteTheme(theme.getId(), new Repository.DataCallback<Void>() {
             @Override
-            public void onSuccess(Void data) {
-                setLoading(false);
-                toast("Тема удалена");
-                clearThemeForm();
-                loadThemes();
-            }
+            public void onSuccess(Void data) { }
 
             @Override
             public void onError(String error) {
-                setLoading(false);
                 toast(error != null ? error : "Не удалось удалить тему");
             }
         });
+    }
+
+    private void removeFromLoadedThemes(Long id) {
+        if (id == null) return;
+        for (int i = loadedThemes.size() - 1; i >= 0; i--) {
+            Theme t = loadedThemes.get(i);
+            if (t != null && id.equals(t.getId())) {
+                loadedThemes.remove(i);
+            }
+        }
     }
 
     private void clearThemeForm() {

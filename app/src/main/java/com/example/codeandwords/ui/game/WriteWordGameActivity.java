@@ -37,6 +37,9 @@ public class WriteWordGameActivity extends BaseBackActivity {
     private static final String TRAINING_MODE_LEARNED_WORDS = "LEARNED_WORDS";
     private static final long LOAD_TIMEOUT_MS = 15_000;
 
+    // Максимальное количество слов за одну сессию (для любого режима)
+    private static final int MAX_WORDS_PER_SESSION = 10;
+
     private static final int COLOR_BLUE = Color.rgb(28, 176, 246);
     private static final int COLOR_GREEN = Color.rgb(88, 204, 2);
     private static final int COLOR_GRAY = Color.rgb(138, 154, 165);
@@ -233,7 +236,10 @@ public class WriteWordGameActivity extends BaseBackActivity {
                     finish();
                     return;
                 }
-                startGame(playableWords);
+
+                // В режиме по теме тоже берём случайные 10 слов
+                List<Word> sessionWords = pickRandomWords(playableWords, MAX_WORDS_PER_SESSION);
+                startGame(sessionWords);
             }
 
             @Override
@@ -246,6 +252,7 @@ public class WriteWordGameActivity extends BaseBackActivity {
             }
         });
     }
+
     private void startLoadTimeout() {
         timeoutRunnable = () -> {
             if (!isFinishing() && isLoading) {
@@ -288,7 +295,18 @@ public class WriteWordGameActivity extends BaseBackActivity {
         return result;
     }
 
-    // Отображает следующий вопрос; при исчерпании основного списка переходит к исправлению ошибок
+    // Перемешивает и берёт первые maxCount элементов
+    private List<Word> pickRandomWords(List<Word> source, int maxCount) {
+        List<Word> copy = new ArrayList<>(source);
+        Collections.shuffle(copy);
+
+        if (copy.size() <= maxCount) {
+            return copy;
+        }
+
+        return new ArrayList<>(copy.subList(0, maxCount));
+    }
+
     private void showNextQuestion() {
         if (allWords.isEmpty() && mistakenWords.isEmpty()) {
             finishGame();
@@ -446,7 +464,6 @@ public class WriteWordGameActivity extends BaseBackActivity {
         }
     }
 
-    // Обрабатывает верный ответ: начисляет очки, помечает слово пройденным, переходит к следующему
     private void handleCorrectAnswer() {
         playGameSound(soundSuccess);
         setInputBorder(COLOR_GREEN);
@@ -483,7 +500,6 @@ public class WriteWordGameActivity extends BaseBackActivity {
         new Handler().postDelayed(this::showNextQuestion, 600);
     }
 
-    // Обрабатывает неверный ответ: сохраняет ошибку, перемешивает список исправлений
     private void handleWrongAnswer(String correctAnswer) {
         playGameSound(soundError);
         setInputBorder(COLOR_RED);
@@ -569,14 +585,13 @@ public class WriteWordGameActivity extends BaseBackActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        cancelTimeout(); // <-- ВАЖНО: отменяем таймер при выходе
+        cancelTimeout();
         if (soundPool != null) {
             soundPool.release();
             soundPool = null;
         }
     }
 
-    // Метод отмены таймера
     private void cancelTimeout() {
         if (timeoutRunnable != null) {
             timeoutHandler.removeCallbacks(timeoutRunnable);
@@ -610,7 +625,10 @@ public class WriteWordGameActivity extends BaseBackActivity {
                     finish();
                     return;
                 }
-                startGame(playableWords);
+
+                // В режиме тренировки изученных слов тоже 10 случайных
+                List<Word> sessionWords = pickRandomWords(playableWords, MAX_WORDS_PER_SESSION);
+                startGame(sessionWords);
             }
 
             @Override
@@ -624,5 +642,4 @@ public class WriteWordGameActivity extends BaseBackActivity {
             }
         });
     }
-
 }

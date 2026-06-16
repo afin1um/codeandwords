@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Экран создания новой теории или редактирования существующей.
+// Сохранение — мгновенное: репозиторий пишет локально и в фоне отправляет на сервер.
 public class AdminTheoryEditorActivity extends AppCompatActivity {
 
     public static final String EXTRA_MODE = "extra_mode";
@@ -71,7 +72,6 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
         }
     }
 
-    // Читает режим работы и исходные параметры из Intent.
     private void readIntent() {
         mode = getIntent().getStringExtra(EXTRA_MODE);
 
@@ -104,7 +104,6 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
         btnSaveTheory = findViewById(R.id.btnSaveTheory);
     }
 
-    // Настраивает экран в зависимости от режима: создание или редактирование.
     private void setupUiByMode() {
         if (MODE_CREATE_NEW.equals(mode)) {
             spTheoryThemes.setVisibility(View.GONE);
@@ -151,7 +150,6 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
         });
     }
 
-    // Загружает список тем и выбирает нужную тему для редактирования.
     private void loadThemesForEditing() {
         repository.getThemes(new Repository.DataCallback<List<Theme>>() {
             @Override
@@ -209,7 +207,6 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
         etTheoryText.setText(selectedTheme.getTheoryText() != null ? selectedTheme.getTheoryText() : "");
     }
 
-    // Создаёт новую тему сразу вместе с текстом теории.
     private void createThemeWithTheory() {
         if (newThemeTitle.trim().isEmpty()) {
             toast("Название темы не передано");
@@ -222,25 +219,21 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
         theme.setDifficultyLevel(newThemeDifficulty.trim().isEmpty() ? "Easy" : newThemeDifficulty.trim());
         theme.setTheoryText(getTheoryText());
 
-        btnSaveTheory.setEnabled(false);
-
+        // Кнопку не блокируем — репозиторий сохранит локально мгновенно
         repository.adminCreateTheme(theme, new Repository.DataCallback<Theme>() {
             @Override
             public void onSuccess(Theme data) {
-                btnSaveTheory.setEnabled(true);
                 toast("Тема создана");
                 finish();
             }
 
             @Override
             public void onError(String error) {
-                btnSaveTheory.setEnabled(true);
                 toast(error);
             }
         });
     }
 
-    // Обновляет теорию существующей темы.
     private void updateExistingTheory() {
         if (selectedTheme == null || selectedTheme.getId() == null) {
             toast("Тема не выбрана");
@@ -249,19 +242,15 @@ public class AdminTheoryEditorActivity extends AppCompatActivity {
 
         selectedTheme.setTheoryText(getTheoryText());
 
-        btnSaveTheory.setEnabled(false);
-
         repository.adminUpdateTheme(selectedTheme, new Repository.DataCallback<Theme>() {
             @Override
             public void onSuccess(Theme data) {
-                btnSaveTheory.setEnabled(true);
                 toast("Теория сохранена");
                 finish();
             }
 
             @Override
             public void onError(String error) {
-                btnSaveTheory.setEnabled(true);
                 toast(error);
             }
         });

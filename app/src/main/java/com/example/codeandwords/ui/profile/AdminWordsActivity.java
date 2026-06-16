@@ -119,7 +119,6 @@ public class AdminWordsActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // При смене темы подгружаем её слова.
         spThemesForWord.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -134,7 +133,6 @@ public class AdminWordsActivity extends AppCompatActivity {
         });
     }
 
-    // Загружает список тем и выставляет первую тему по умолчанию.
     private void loadThemes() {
         setLoading(true);
 
@@ -186,7 +184,6 @@ public class AdminWordsActivity extends AppCompatActivity {
         });
     }
 
-    // Загружает слова выбранной темы.
     private void loadWords(Long themeId) {
         if (themeId == null) return;
 
@@ -210,7 +207,6 @@ public class AdminWordsActivity extends AppCompatActivity {
         });
     }
 
-    // Создаёт новый термин или обновляет существующий.
     private void saveWord() {
         if (themes.isEmpty()) {
             toast("Сначала создайте тему");
@@ -252,44 +248,78 @@ public class AdminWordsActivity extends AppCompatActivity {
         word.setDefinition(text(etDefinition));
         word.setExampleSentence(text(etExample));
 
-        setLoading(true);
+        boolean isUpdate = editingWord != null;
 
-        if (editingWord == null) {
-            repository.adminCreateWord(word, new Repository.DataCallback<Word>() {
+        // Мгновенно обновляем список локально для UI
+        if (isUpdate) {
+            replaceInCurrentWords(word);
+        } else {
+            currentThemeWords.add(0, word);
+        }
+        wordAdapter.setItems(currentThemeWords);
+
+        clearWordForm();
+        toast(isUpdate ? "Термин обновлён" : "Термин добавлен");
+
+        if (isUpdate) {
+            repository.adminUpdateWord(word, new Repository.DataCallback<Word>() {
                 @Override
-                public void onSuccess(Word data) {
-                    setLoading(false);
-                    toast("Термин добавлен");
-                    clearWordForm();
-                    loadWords(selectedTheme.getId());
-                }
+                public void onSuccess(Word data) { }
 
                 @Override
                 public void onError(String error) {
-                    setLoading(false);
-                    toast(error != null ? error : "Не удалось добавить термин");
+                    toast(error != null ? error : "Не удалось обновить термин");
                 }
             });
         } else {
-            repository.adminUpdateWord(word, new Repository.DataCallback<Word>() {
+            repository.adminCreateWord(word, new Repository.DataCallback<Word>() {
                 @Override
                 public void onSuccess(Word data) {
-                    setLoading(false);
-                    toast("Термин обновлён");
-                    clearWordForm();
-                    loadWords(selectedTheme.getId());
+                    // Если у созданного слова поменялся id с сервера — обновим список
+                    if (data != null && data.getId() != null
+                            && (word.getId() == null || !data.getId().equals(word.getId()))) {
+                        replaceInCurrentWords(data);
+                        wordAdapter.setItems(currentThemeWords);
+                    }
                 }
 
                 @Override
                 public void onError(String error) {
-                    setLoading(false);
-                    toast(error != null ? error : "Не удалось обновить термин");
+                    toast(error != null ? error : "Не удалось добавить термин");
                 }
             });
         }
     }
 
-    // Проверка на дубликаты термина внутри выбранной темы.
+    private void replaceInCurrentWords(Word updated) {
+        if (updated == null) return;
+
+        // Если есть такой же по id — заменяем
+        if (updated.getId() != null) {
+            for (int i = 0; i < currentThemeWords.size(); i++) {
+                Word w = currentThemeWords.get(i);
+                if (w != null && updated.getId().equals(w.getId())) {
+                    currentThemeWords.set(i, updated);
+                    return;
+                }
+            }
+        }
+
+        // Иначе ищем по term+translation (для свежесозданного без id)
+        for (int i = 0; i < currentThemeWords.size(); i++) {
+            Word w = currentThemeWords.get(i);
+            if (w == null) continue;
+
+            if (normalize(w.getTerm()).equals(normalize(updated.getTerm()))
+                    && normalize(w.getTranslation()).equals(normalize(updated.getTranslation()))) {
+                currentThemeWords.set(i, updated);
+                return;
+            }
+        }
+
+        currentThemeWords.add(0, updated);
+    }
+
     private boolean isWordDuplicate(Long themeId, String term, String translation, Word currentEditingWord) {
         String safeTerm = normalize(term);
         String safeTranslation = normalize(translation);
@@ -324,7 +354,6 @@ public class AdminWordsActivity extends AppCompatActivity {
         return false;
     }
 
-    // Заполняет форму данными выбранного термина.
     private void fillWordForm(Word word) {
         if (word == null) return;
 
@@ -352,28 +381,31 @@ public class AdminWordsActivity extends AppCompatActivity {
             return;
         }
 
-        Long themeId = word.getThemeId();
-
-        setLoading(true);
+        // Мгновенно убираем из списка
+        removeFromCurrentWords(word.getId());
+        wordAdapter.setItems(currentThemeWords);
+        clearWordForm();
+        toast("Термин удалён");
 
         repository.adminDeleteWord(word.getId(), new Repository.DataCallback<Void>() {
             @Override
-            public void onSuccess(Void data) {
-                setLoading(false);
-                toast("Термин удалён");
-                clearWordForm();
-
-                if (themeId != null) {
-                    loadWords(themeId);
-                }
-            }
+            public void onSuccess(Void data) { }
 
             @Override
             public void onError(String error) {
-                setLoading(false);
                 toast(error != null ? error : "Не удалось удалить термин");
             }
         });
+    }
+
+    private void removeFromCurrentWords(Long id) {
+        if (id == null) return;
+        for (int i = currentThemeWords.size() - 1; i >= 0; i--) {
+            Word w = currentThemeWords.get(i);
+            if (w != null && id.equals(w.getId())) {
+                currentThemeWords.remove(i);
+            }
+        }
     }
 
     private void clearWordForm() {
